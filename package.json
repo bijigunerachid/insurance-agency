@@ -1,0 +1,49 @@
+{
+  "name": "insurance-agency",
+  "private": true,
+  "description": "Offline-first management application for an insurance agency (RMA and CAT)",
+  "type": "module",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "scripts": {
+    "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
+    "db:stop": "docker compose -f docker-compose.dev.yml stop",
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "npm run test:unit -w backend && npm run test:unit -w frontend",
+    "test:integration": "npm run test:integration -w backend",
+    "test:e2e": "playwright test",
+    "test:production": "playwright test -c playwright.production.config.js",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "audit": "npm audit --audit-level=low",
+    "check": "npm run lint && npm run format:check && npm run build && npm test && npm run test:e2e && npm run audit"
+  },
+  "overrides": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "allowScripts": {
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "argon2": false,
+    "tesseract.js": false
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.64.0",
+    "eslint": "9.39.5",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "prettier": "3.9.9"
+  }
+}

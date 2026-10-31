@@ -1,0 +1,39 @@
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+backend/src/generated/
+
+# Secrets and local settings (only *.example files are committed)
+.env
+.env.*
+!**/.env.example
+!**/.env.*.example
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+
+# Release files built by deployment/production/release.ps1
+release/
+
+# Business data: never in git
+uploads/
+storage/
+backups/
+*.dump
+*.sql.gz
+*.gpg
+*.age
+
+# Logs and OS/editor files
+logs/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

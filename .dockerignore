@@ -1,0 +1,19 @@
+# Only the sources the production images need: never secrets, business data or test output.
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/storage
+**/dist
+**/coverage
+backend/src/generated
+backend/test
+frontend/test
+e2e
+test-results
+playwright-report
+backups
+docs
+.git
+*.log

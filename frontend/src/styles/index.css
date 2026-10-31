@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+/* System fonts only: nothing is downloaded, so the interface works offline. */
+
+/* Receipts: two copies on one A4 sheet. */
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}

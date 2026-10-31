@@ -1,0 +1,1124 @@
+// Database schema. See docs/data-model.md; keep both in sync.
+// Table privileges for the runtime role and protective triggers are added by hand in the
+// migration SQL (Prisma cannot express them).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Roles are data; the permissions they grant are codes defined in src/modules/auth/permissions.js.
+model Role {
+  id                Int              @id @default(autoincrement())
+  code              String           @unique @db.VarChar(32)
+  name              String           @db.VarChar(64)
+  requiresTwoFactor Boolean          @default(false)
+  permissions       RolePermission[]
+  users             User[]
+
+  @@map("role")
+}
+
+model RolePermission {
+  roleId     Int
+  permission String @db.VarChar(64)
+  role       Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permission])
+  @@map("role_permission")
+}
+
+model User {
+  id                      String                    @id @default(uuid()) @db.Uuid
+  /// Stored lower-case; login is case-insensitive.
+  username                String                    @unique @db.VarChar(64)
+  displayName             String                    @db.VarChar(120)
+  passwordHash            String                    @db.VarChar(255)
+  roleId                  Int
+  role                    Role                      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  active                  Boolean                   @default(true)
+  mustChangePassword      Boolean                   @default(false)
+  failedLogins            Int                       @default(0)
+  lastFailedLoginAt       DateTime?                 @db.Timestamptz(3)
+  lockedUntil             DateTime?                 @db.Timestamptz(3)
+  /// AES-256-GCM encrypted TOTP secret (see services/secretBox.js); null until enrolled.
+  totpSecret              String?                   @db.VarChar(255)
+  totpEnabledAt           DateTime?                 @db.Timestamptz(3)
+  /// Last accepted TOTP time step, to refuse a code being used twice.
+  totpLastStep            BigInt?
+  passwordChangedAt       DateTime                  @default(now()) @db.Timestamptz(3)
+  lastLoginAt             DateTime?                 @db.Timestamptz(3)
+  version                 Int                       @default(1)
+  createdAt               DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                  @updatedAt @db.Timestamptz(3)
+  sessions                Session[]
+  auditEvents             AuditLog[]
+  customersAssigned       Customer[]                @relation("CustomerAssignee")
+  customersCreated        Customer[]                @relation("CustomerCreator")
+  customersArchived       Customer[]                @relation("CustomerArchiver")
+  vehiclesCreated         Vehicle[]                 @relation("VehicleCreator")
+  vehiclesArchived        Vehicle[]                 @relation("VehicleArchiver")
+  fleetsCreated           Fleet[]                   @relation("FleetCreator")
+  modelsConfirmed         AttestationModel[]        @relation("ModelConfirmer")
+  usagesConfirmed         VehicleUsage[]            @relation("UsageConfirmer")
+  seriesConfirmed         AttestationSeries[]       @relation("SeriesConfirmer")
+  productsConfirmed       Product[]                 @relation("ProductConfirmer")
+  rulesReviewed           InsurerRule[]             @relation("RuleReviewer")
+  ruleReviews             RuleReview[]
+  contractsCreated        Contract[]                @relation("ContractCreator")
+  contractChanges         ContractStatusChange[]
+  contractVehiclesAdded   ContractVehicle[]         @relation("ContractVehicleAdder")
+  contractVehiclesRemoved ContractVehicle[]         @relation("ContractVehicleRemover")
+  attestationsRecorded    Attestation[]             @relation("AttestationRecorder")
+  attestationsCancelled   Attestation[]             @relation("AttestationCanceller")
+  attestationsReturned    Attestation[]             @relation("AttestationReturnRecorder")
+  amendmentsRecorded      Amendment[]               @relation("AmendmentRecorder")
+  stockBatchesReceived    AttestationBatch[]        @relation("BatchReceiver")
+  stockBatchesHeld        AttestationBatch[]        @relation("BatchHolder")
+  stockFormsHeld          AttestationForm[]
+  stockMovements          AttestationFormMovement[] @relation("MovementUser")
+  stockMovementsFrom      AttestationFormMovement[] @relation("MovementFromHolder")
+  stockMovementsTo        AttestationFormMovement[] @relation("MovementToHolder")
+  renewalsAssigned        Renewal[]                 @relation("RenewalAssignee")
+  renewalEvents           RenewalEvent[]            @relation("RenewalEventUser")
+  renewalEventsFrom       RenewalEvent[]            @relation("RenewalEventFromAssignee")
+  renewalEventsTo         RenewalEvent[]            @relation("RenewalEventToAssignee")
+  paymentsReceived        Payment[]
+  remittancesRecorded     Remittance[]              @relation("RemittanceRecorder")
+  remittancesCancelled    Remittance[]              @relation("RemittanceCanceller")
+  documentsUploaded       Document[]                @relation("DocumentUploader")
+  documentsRemoved        Document[]                @relation("DocumentRemover")
+  documentCaptures        DocumentCapture[]
+  scansUploaded           AttestationScan[]         @relation("ScanUploader")
+  scansClosed             AttestationScan[]         @relation("ScanCloser")
+
+  @@map("app_user")
+}
+
+/// Gapless numbering (customer references, later receipts): incremented inside the
+/// transaction that uses the number, so a rollback leaves no gap.
+model Counter {
+  type  String @db.VarChar(32)
+  /// 0 for counters that never restart; otherwise the year.
+  year  Int
+  value Int
+
+  @@id([type, year])
+  @@map("counter")
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum IdentityType {
+  CIN
+  PASSPORT
+  RESIDENCE_CARD
+}
+
+/// Never deleted: archived instead. Type-specific required fields and formats are also
+/// enforced by CHECK constraints in the migration.
+model Customer {
+  id             String        @id @default(uuid()) @db.Uuid
+  /// Human reference, e.g. CLI-000123.
+  ref            String        @unique @db.VarChar(16)
+  type           CustomerType
+  firstName      String?       @db.VarChar(80)
+  lastName       String?       @db.VarChar(80)
+  legalName      String?       @db.VarChar(160)
+  /// Identifiant Commun de l'Entreprise (15 digits), businesses only.
+  ice            String?       @unique @db.Char(15)
+  identityType   IdentityType?
+  /// Normalised (upper-case, no spaces). Shown masked unless the user may see it.
+  identityNumber String?       @db.VarChar(32)
+  /// E.164, e.g. +212612345678.
+  phone          String?       @db.VarChar(20)
+  email          String?       @db.VarChar(254)
+  addressLine    String?       @db.VarChar(200)
+  city           String?       @db.VarChar(80)
+  /// Lower-case, accent-free names and reference, for search.
+  searchText     String        @db.VarChar(400)
+  assignedUserId String?       @db.Uuid
+  assignedUser   User?         @relation("CustomerAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
+  createdById    String        @db.Uuid
+  createdBy      User          @relation("CustomerCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  archivedAt     DateTime?     @db.Timestamptz(3)
+  archivedById   String?       @db.Uuid
+  archivedBy     User?         @relation("CustomerArchiver", fields: [archivedById], references: [id], onDelete: Restrict)
+  archiveReason  String?       @db.VarChar(200)
+  version        Int           @default(1)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+  vehicles       Vehicle[]
+  fleets         Fleet[]
+  contracts      Contract[]
+
+  @@unique([identityType, identityNumber])
+  @@index([phone])
+  @@index([assignedUserId])
+  @@index([archivedAt])
+  @@map("customer")
+}
+
+enum SessionStage {
+  PASSWORD_CHANGE
+  TOTP_ENROLL
+  TOTP_VERIFY
+  ACTIVE
+}
+
+model Session {
+  id                String       @id @default(uuid()) @db.Uuid
+  /// SHA-256 of the cookie token; the token itself is never stored.
+  tokenHash         String       @unique @db.Char(64)
+  userId            String       @db.Uuid
+  user              User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stage             SessionStage
+  /// Encrypted TOTP secret being enrolled (only during TOTP_ENROLL).
+  pendingTotpSecret String?      @db.VarChar(255)
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  lastSeenAt        DateTime     @default(now()) @db.Timestamptz(3)
+  expiresAt         DateTime     @db.Timestamptz(3)
+  reauthAt          DateTime?    @db.Timestamptz(3)
+  revokedAt         DateTime?    @db.Timestamptz(3)
+  revokedReason     String?      @db.VarChar(64)
+  ip                String?      @db.VarChar(64)
+  userAgent         String?      @db.VarChar(255)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("session")
+}
+
+/// Append-only: the runtime role may only INSERT and SELECT, and a trigger rejects UPDATE/DELETE.
+model AuditLog {
+  id          BigInt   @id @default(autoincrement())
+  at          DateTime @default(now()) @db.Timestamptz(3)
+  actorUserId String?  @db.Uuid
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action      String   @db.VarChar(64)
+  entityType  String?  @db.VarChar(64)
+  entityId    String?  @db.VarChar(64)
+  requestId   String?  @db.Uuid
+  ip          String?  @db.VarChar(64)
+  /// Non-sensitive context only (never passwords, tokens, codes or document contents).
+  details     Json?
+
+  @@index([at])
+  @@index([actorUserId, at])
+  @@index([entityType, entityId])
+  @@map("audit_log")
+}
+
+enum VehicleCategory {
+  CAR
+  MOTORCYCLE
+  TAXI
+  PASSENGER_TRANSPORT
+  COMMERCIAL
+  TRIPORTEUR
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  OTHER
+}
+
+enum TaxiType {
+  PETIT
+  GRAND
+}
+
+enum PassengerTransportKind {
+  TOURISTIQUE
+  PERSONNEL
+  SCOLAIRE
+  AUTOCAR
+}
+
+/// A group of vehicles of one customer. (id, customerId) is unique so a vehicle can reference
+/// a fleet of its own owner only (composite foreign key).
+model Fleet {
+  id          String    @id @default(uuid()) @db.Uuid
+  customerId  String    @db.Uuid
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  name        String    @db.VarChar(80)
+  createdById String    @db.Uuid
+  createdBy   User      @relation("FleetCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(3)
+  vehicles    Vehicle[]
+
+  @@unique([id, customerId])
+  @@unique([customerId, name])
+  @@map("fleet")
+}
+
+/// Never deleted: archived instead. Category-specific required fields are also enforced by
+/// CHECK constraints in the migration (rule L14: seats for passenger transport, CV for two-wheelers).
+model Vehicle {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  ownerId                String                  @db.Uuid
+  owner                  Customer                @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  fleetId                String?                 @db.Uuid
+  fleet                  Fleet?                  @relation(fields: [fleetId, ownerId], references: [id, customerId], onDelete: Restrict)
+  /// As written on the registration card, tidied (upper-case, single spaces).
+  registration           String                  @db.VarChar(20)
+  /// Letters and digits only: "12345-B-6" and "12345 B 6" are the same plate.
+  registrationKey        String                  @unique @db.VarChar(20)
+  category               VehicleCategory
+  make                   String                  @db.VarChar(40)
+  model                  String?                 @db.VarChar(60)
+  firstRegistrationDate  DateTime?               @db.Date
+  /// Chassis number (VIN), upper-case.
+  vin                    String?                 @unique @db.VarChar(25)
+  fiscalPowerCv          Int?
+  engineCc               Int?
+  seats                  Int?
+  fuel                   FuelType?
+  taxiType               TaxiType?
+  passengerTransportKind PassengerTransportKind?
+  /// Usage printed on the attestation (rule L16). Only a confirmed, active usage can be chosen.
+  usageId                String?                 @db.Uuid
+  usage                  VehicleUsage?           @relation(fields: [usageId], references: [id], onDelete: Restrict)
+  /// The insurer's own usage as chosen on its platform ("C1 (COMMERCE <= 3,5T)"); it belongs to
+  /// the usage above (trigger vehicle_insurer_usage_fits).
+  insurerUsageId         String?                 @db.Uuid
+  insurerUsage           InsurerUsage?           @relation(fields: [insurerUsageId], references: [id], onDelete: Restrict)
+  createdById            String                  @db.Uuid
+  createdBy              User                    @relation("VehicleCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  archivedAt             DateTime?               @db.Timestamptz(3)
+  archivedById           String?                 @db.Uuid
+  archivedBy             User?                   @relation("VehicleArchiver", fields: [archivedById], references: [id], onDelete: Restrict)
+  archiveReason          String?                 @db.VarChar(200)
+  version                Int                     @default(1)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(3)
+  contracts              ContractVehicle[]
+  attestations           Attestation[]
+  amendmentsLeft         Amendment[]             @relation("AmendmentPreviousVehicle")
+  amendmentsCovered      Amendment[]             @relation("AmendmentVehicle")
+
+  @@index([ownerId])
+  @@index([fleetId])
+  @@index([usageId])
+  @@index([insurerUsageId])
+  @@index([archivedAt])
+  @@map("vehicle")
+}
+
+// ---------------------------------------------------------------------------
+// Catalogue (docs/insurer-rules.md). Nothing here is invented: every row carries its source,
+// and products, usages and attestation series stay "to confirm" until a manager records the
+// agency or insurer document that confirms them. Reference rows are seeded by the migration.
+// ---------------------------------------------------------------------------
+
+enum VerificationStatus {
+  TO_CONFIRM
+  CONFIRMED
+}
+
+/// Same values as the "Status" column of docs/insurer-rules.md, plus DOCUMENT (seen on an
+/// official form supplied by the agency).
+enum RuleStatus {
+  LAW
+  PUBLIC
+  PRESS
+  DOCUMENT
+  UNKNOWN
+  CONFIRMED
+}
+
+enum ProductLine {
+  CAR
+  MOTORCYCLE
+  TAXI
+  PASSENGER_TRANSPORT
+  COMMERCIAL
+  TRIPORTEUR
+  FLEET
+  BORDER
+  DRIVING_SCHOOL
+}
+
+/// At most two active insurers for an agent (rule L1): a third needs an explicit override.
+model Insurer {
+  id          String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String              @unique @db.VarChar(16)
+  name        String              @unique @db.VarChar(120)
+  active      Boolean             @default(true)
+  version     Int                 @default(1)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @db.Timestamptz(3)
+  products    Product[]
+  contracts   Contract[]
+  series      AttestationSeries[]
+  rules       InsurerRule[]
+  remittances Remittance[]
+  usages      InsurerUsage[]
+
+  @@map("insurer")
+}
+
+/// An insurer's own list of usages, as its platform offers them (RMA GAMA « Type d'usage », owner's
+/// photos of 28/10/2026), each under the legal usage that decides the attestation model.
+/// Reference data: written by migrations only.
+model InsurerUsage {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  insurerId  String       @db.Uuid
+  insurer    Insurer      @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  /// The platform's heading ("C1", "DIVERS", "CYCLOMOTER").
+  groupLabel String       @db.VarChar(40)
+  label      String       @db.VarChar(80)
+  usageId    String       @db.Uuid
+  usage      VehicleUsage @relation(fields: [usageId], references: [id], onDelete: Restrict)
+  sortOrder  Int
+  active     Boolean      @default(true)
+  createdAt  DateTime     @default(now()) @db.Timestamptz(3)
+  vehicles   Vehicle[]
+
+  @@unique([insurerId, label])
+  @@index([usageId])
+  @@map("insurer_usage")
+}
+
+/// National attestation model, common to every insurer: "A" Tourisme, "P" Provisoire…
+/// The code never changes once created: series codes end with it.
+model AttestationModel {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String              @unique @db.Char(1)
+  label           String              @unique @db.VarChar(80)
+  /// A provisional attestation (model P) is not the model of a vehicle usage.
+  provisional     Boolean             @default(false)
+  /// Number and colour fixed by arrêté 213-05, art. 2 (rule L24): 1 tourisme, jaune…
+  officialNumber  Int?                @unique @db.SmallInt
+  colour          String?             @db.VarChar(40)
+  source          String              @db.VarChar(300)
+  status          VerificationStatus  @default(TO_CONFIRM)
+  confirmedAt     DateTime?           @db.Timestamptz(3)
+  confirmedById   String?             @db.Uuid
+  confirmedBy     User?               @relation("ModelConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmationRef String?             @db.VarChar(200)
+  active          Boolean             @default(true)
+  version         Int                 @default(1)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(3)
+  usages          VehicleUsage[]
+  series          AttestationSeries[]
+
+  @@map("attestation_model")
+}
+
+/// Usage printed on the attestation (rule L16), e.g. "Tourisme". It determines the model.
+model VehicleUsage {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label           String             @unique @db.VarChar(80)
+  /// Its attestation model; required before the usage can be confirmed.
+  modelCode       String?            @db.Char(1)
+  model           AttestationModel?  @relation(fields: [modelCode], references: [code], onDelete: Restrict)
+  /// Where the value comes from (form, legal text…).
+  source          String             @db.VarChar(300)
+  status          VerificationStatus @default(TO_CONFIRM)
+  confirmedAt     DateTime?          @db.Timestamptz(3)
+  confirmedById   String?            @db.Uuid
+  confirmedBy     User?              @relation("UsageConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  /// Reference of the document that confirms it.
+  confirmationRef String?            @db.VarChar(200)
+  active          Boolean            @default(true)
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+  vehicles        Vehicle[]
+  insurerUsages   InsurerUsage[]
+
+  @@map("vehicle_usage")
+}
+
+/// Attestation series of an insurer, as printed on its forms (e.g. RMA "14 A").
+model AttestationSeries {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  insurerId       String             @db.Uuid
+  insurer         Insurer            @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  /// Digits, a space, the model letter: "14 A", "91 P".
+  code            String             @db.VarChar(8)
+  /// Chosen in the catalogue; the letter of the code is only the default offered.
+  modelCode       String             @db.Char(1)
+  model           AttestationModel   @relation(fields: [modelCode], references: [code], onDelete: Restrict)
+  source          String             @db.VarChar(300)
+  status          VerificationStatus @default(TO_CONFIRM)
+  confirmedAt     DateTime?          @db.Timestamptz(3)
+  confirmedById   String?            @db.Uuid
+  confirmedBy     User?              @relation("SeriesConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmationRef String?            @db.VarChar(200)
+  active          Boolean            @default(true)
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+  attestations    Attestation[]
+  stockBatches    AttestationBatch[]
+  stockForms      AttestationForm[]
+
+  @@unique([insurerId, code])
+  @@map("attestation_series")
+}
+
+/// Usable in a quote only when active and CONFIRMED.
+model Product {
+  id              String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  insurerId       String             @db.Uuid
+  insurer         Insurer            @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  line            ProductLine
+  name            String             @db.VarChar(120)
+  /// The insurer's own product code, when known.
+  insurerCode     String?            @db.VarChar(40)
+  description     String?            @db.VarChar(2000)
+  source          String             @db.VarChar(300)
+  status          VerificationStatus @default(TO_CONFIRM)
+  confirmedAt     DateTime?          @db.Timestamptz(3)
+  confirmedById   String?            @db.Uuid
+  confirmedBy     User?              @relation("ProductConfirmer", fields: [confirmedById], references: [id], onDelete: Restrict)
+  confirmationRef String?            @db.VarChar(200)
+  active          Boolean            @default(true)
+  version         Int                @default(1)
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+
+  contracts Contract[]
+
+  @@unique([insurerId, name])
+  /// Lets a contract reference (product, insurer) together: its insurer is the product's.
+  @@unique([id, insurerId])
+  @@index([line])
+  @@map("product")
+}
+
+/// The rules register (docs/insurer-rules.md) inside the app. insurerId null = applies to all.
+model InsurerRule {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// "L7", "R9", "C4"…
+  code         String       @unique @db.VarChar(8)
+  insurerId    String?      @db.Uuid
+  insurer      Insurer?     @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  statement    String       @db.VarChar(1000)
+  /// What the rule means for the application.
+  effect       String       @db.VarChar(1000)
+  source       String       @db.VarChar(400)
+  status       RuleStatus
+  reviewedAt   DateTime?    @db.Timestamptz(3)
+  reviewedById String?      @db.Uuid
+  reviewedBy   User?        @relation("RuleReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
+  version      Int          @default(1)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+  reviews      RuleReview[]
+
+  @@index([insurerId])
+  @@map("insurer_rule")
+}
+
+/// Append-only history of status reviews (the runtime role may only INSERT and SELECT).
+model RuleReview {
+  id         BigInt      @id @default(autoincrement())
+  ruleId     String      @db.Uuid
+  rule       InsurerRule @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  fromStatus RuleStatus
+  toStatus   RuleStatus
+  note       String      @db.VarChar(500)
+  /// Document reference; required to set CONFIRMED.
+  reference  String?     @db.VarChar(200)
+  reviewerId String      @db.Uuid
+  reviewer   User        @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  at         DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([ruleId, at])
+  @@map("rule_review")
+}
+
+// ---------------------------------------------------------------------------
+// Contracts (Phase 6). Statuses record what the insurer has done (docs/data-model.md §3.2);
+// numbers come from the insurer and are never generated (rules L15, L27). Never deleted.
+// ---------------------------------------------------------------------------
+
+enum ContractStatus {
+  DRAFT
+  AWAITING_INSURER
+  ISSUED
+  SUSPENDED
+  CANCELLED
+}
+
+enum AttestationMedium {
+  PAPER
+  ELECTRONIC
+}
+
+model Contract {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Agency reference, e.g. CTR-2026-00001 (gapless per year).
+  ref                String                 @unique @db.VarChar(20)
+  customerId         String                 @db.Uuid
+  customer           Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  productId          String                 @db.Uuid
+  /// The product's insurer, kept for the unique policy number (composite foreign key).
+  insurerId          String                 @db.Uuid
+  product            Product                @relation(fields: [productId, insurerId], references: [id, insurerId], onDelete: Restrict)
+  insurer            Insurer                @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  /// From the insurer, entered when the contract is issued.
+  policyNumber       String?                @db.VarChar(40)
+  /// Insurer document or message that proves the issue (until documents are uploaded).
+  insurerReference   String?                @db.VarChar(120)
+  startDate          DateTime               @db.Date
+  endDate            DateTime               @db.Date
+  /// Premium confirmed by the insurer (rule L4: no discount); MAD.
+  premiumTotal       Decimal?               @db.Decimal(14, 2)
+  /// Sum of the amounts of its avenants, added in the same transaction as each one (MAD). What
+  /// the contract owes is premiumTotal + amendmentsTotal.
+  amendmentsTotal    Decimal                @default(0) @db.Decimal(14, 2)
+  /// The guarantees printed on the insurer's platform sheet ([{ label, details?, premium? }]), as
+  /// read when the contract was created or renewed from it; null when none was read.
+  guarantees         Json?
+  /// The formula printed after the optional guarantees (« RC », « DC »…), as read; null when none.
+  formula            String?                @db.VarChar(40)
+  tacitRenewal       Boolean                @default(false)
+  noticeDays         Int?
+  status             ContractStatus         @default(DRAFT)
+  createdById        String                 @db.Uuid
+  createdBy          User                   @relation("ContractCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  version            Int                    @default(1)
+  createdAt          DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(3)
+  vehicles           ContractVehicle[]
+  statusChanges      ContractStatusChange[]
+  attestations       Attestation[]
+  /// The contract this one renews (created by the "Renouveler" action).
+  previousContractId String?                @unique @db.Uuid
+  previousContract   Contract?              @relation("ContractRenewal", fields: [previousContractId], references: [id], onDelete: Restrict)
+  nextContract       Contract?              @relation("ContractRenewal")
+  renewal            Renewal?               @relation("RenewalOf")
+  renewalResult      Renewal?               @relation("RenewalResult")
+  payments           Payment[]
+  documents          Document[]
+  amendments         Amendment[]
+
+  /// A policy number is unique per insurer, except along one renewal chain (migration
+  /// 20261025180000_policy_renewals: trigger and contract_policy_taken).
+  @@index([insurerId, policyNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([endDate])
+  @@map("contract")
+}
+
+/// Vehicles covered by a contract. Removing one keeps the row (removedAt).
+model ContractVehicle {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId  String    @db.Uuid
+  contract    Contract  @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  vehicleId   String    @db.Uuid
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  addedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  addedById   String    @db.Uuid
+  addedBy     User      @relation("ContractVehicleAdder", fields: [addedById], references: [id], onDelete: Restrict)
+  removedAt   DateTime? @db.Timestamptz(3)
+  removedById String?   @db.Uuid
+  removedBy   User?     @relation("ContractVehicleRemover", fields: [removedById], references: [id], onDelete: Restrict)
+
+  @@index([contractId])
+  @@index([vehicleId])
+  @@map("contract_vehicle")
+}
+
+/// Append-only history of every status change (INSERT and SELECT only for the app).
+model ContractStatusChange {
+  id               BigInt          @id @default(autoincrement())
+  contractId       String          @db.Uuid
+  contract         Contract        @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  fromStatus       ContractStatus?
+  toStatus         ContractStatus
+  reason           String?         @db.VarChar(300)
+  insurerReference String?         @db.VarChar(120)
+  /// Date the insurer's decision takes effect (suspension, reinstatement, termination).
+  effectiveDate    DateTime?       @db.Date
+  userId           String          @db.Uuid
+  user             User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  at               DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([contractId, at])
+  @@map("contract_status_change")
+}
+
+/// An attestation the insurer issued for a vehicle of a contract: recorded, never generated.
+model Attestation {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId     String                    @db.Uuid
+  contract       Contract                  @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  vehicleId      String                    @db.Uuid
+  vehicle        Vehicle                   @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  seriesId       String                    @db.Uuid
+  series         AttestationSeries         @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  /// Serial number as printed (digits only).
+  number         String                    @db.VarChar(20)
+  /// Copied from the series' model: a provisional attestation lasts one month at most (L23).
+  provisional    Boolean
+  validFrom      DateTime                  @db.Date
+  validTo        DateTime                  @db.Date
+  medium         AttestationMedium         @default(PAPER)
+  /// Reference of the note de couverture given with a provisional attestation (L23).
+  coverNoteRef   String?                   @db.VarChar(60)
+  /// A duplicate after loss or theft carries the original's number (L26).
+  duplicateOfId  String?                   @db.Uuid
+  duplicateOf    Attestation?              @relation("AttestationDuplicate", fields: [duplicateOfId], references: [id], onDelete: Restrict)
+  duplicates     Attestation[]             @relation("AttestationDuplicate")
+  cancelledAt    DateTime?                 @db.Timestamptz(3)
+  cancelledById  String?                   @db.Uuid
+  cancelledBy    User?                     @relation("AttestationCanceller", fields: [cancelledById], references: [id], onDelete: Restrict)
+  cancelReason   String?                   @db.VarChar(200)
+  /// The avenant whose new attestation replaces this one (rule L28). It stays valid in history.
+  replacedById   String?                   @db.Uuid
+  replacedBy     Amendment?                @relation("AmendmentReplaced", fields: [replacedById], references: [id], onDelete: Restrict)
+  /// The replaced paper attestation given back to the agency by the client (owner, 28/10/2026).
+  returnedAt     DateTime?                 @db.Timestamptz(3)
+  returnedById   String?                   @db.Uuid
+  returnedBy     User?                     @relation("AttestationReturnRecorder", fields: [returnedById], references: [id], onDelete: Restrict)
+  /// The avenant that issued this attestation.
+  amendment      Amendment?                @relation("AmendmentAttestation")
+  /// The blank form of the agency's stock this attestation used (paper attestations).
+  stockForm      AttestationForm?
+  stockMovements AttestationFormMovement[]
+  createdById    String                    @db.Uuid
+  createdBy      User                      @relation("AttestationRecorder", fields: [createdById], references: [id], onDelete: Restrict)
+  version        Int                       @default(1)
+  createdAt      DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @db.Timestamptz(3)
+
+  @@index([contractId])
+  @@index([vehicleId])
+  @@index([seriesId, number])
+  @@index([replacedById])
+  @@map("attestation")
+}
+
+enum AmendmentKind {
+  VEHICLE_CHANGE
+  REGISTRATION_CHANGE
+}
+
+/// An avenant the insurer issued on a running contract, with its new attestation (rule L28):
+/// recorded from the insurer's document, never generated. Append-only (INSERT and SELECT).
+model Amendment {
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId           String        @db.Uuid
+  contract             Contract      @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  kind                 AmendmentKind
+  /// The insurer's avenant number, as printed ("AVENANT DE CHANGEMENT DE VEHICULE N 2600012345").
+  number               String?       @db.VarChar(20)
+  effectiveDate        DateTime      @db.Date
+  /// Total à payer printed on the avenant (MAD), owed on top of the contract premium.
+  amount               Decimal?      @db.Decimal(14, 2)
+  /// The insurer's proof, e.g. its quittance number.
+  insurerReference     String?       @db.VarChar(120)
+  /// The vehicle replaced (vehicle change) or renumbered (registration change). Null when the
+  /// vehicle replaced was insured before the app and never recorded.
+  previousVehicleId    String?       @db.Uuid
+  previousVehicle      Vehicle?      @relation("AmendmentPreviousVehicle", fields: [previousVehicleId], references: [id], onDelete: Restrict)
+  /// The vehicle covered from the effective date.
+  vehicleId            String        @db.Uuid
+  vehicle              Vehicle       @relation("AmendmentVehicle", fields: [vehicleId], references: [id], onDelete: Restrict)
+  /// Registration change: the plate before and after, as written.
+  previousRegistration String?       @db.VarChar(20)
+  registration         String?       @db.VarChar(20)
+  attestationId        String        @unique @db.Uuid
+  attestation          Attestation   @relation("AmendmentAttestation", fields: [attestationId], references: [id], onDelete: Restrict)
+  replaced             Attestation[] @relation("AmendmentReplaced")
+  createdById          String        @db.Uuid
+  createdBy            User          @relation("AmendmentRecorder", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt            DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([contractId, number])
+  @@index([previousVehicleId])
+  @@index([vehicleId])
+  @@map("amendment")
+}
+
+// ---------------------------------------------------------------------------
+// Blank attestation stock (agency answers of 22/10/2026, question 16). One row per printed
+// form; every change of status is a movement in an append-only history.
+// ---------------------------------------------------------------------------
+
+/**
+ * AVAILABLE in the agency's stock, ASSIGNED to an employee, USED for an attestation,
+ * RETURNED to the insurer, DAMAGED, LOST, or CANCELLED (its attestation was cancelled).
+ */
+enum StockStatus {
+  AVAILABLE
+  ASSIGNED
+  USED
+  RETURNED
+  DAMAGED
+  LOST
+  CANCELLED
+}
+
+/**
+ * A delivery of blank forms of one series: a range of serial numbers.
+ */
+model AttestationBatch {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  seriesId         String            @db.Uuid
+  series           AttestationSeries @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  /// First and last serial numbers as printed (digits, same length).
+  firstNumber      String            @db.VarChar(20)
+  lastNumber       String            @db.VarChar(20)
+  quantity         Int
+  receivedOn       DateTime          @db.Date
+  /// Delivery note or letter of the insurer.
+  insurerReference String?           @db.VarChar(120)
+  /// Where the forms are kept, e.g. "Armoire fermée, bureau du gérant".
+  location         String            @db.VarChar(120)
+  /// Employee responsible for the batch.
+  holderId         String            @db.Uuid
+  holder           User              @relation("BatchHolder", fields: [holderId], references: [id], onDelete: Restrict)
+  receivedById     String            @db.Uuid
+  receivedBy       User              @relation("BatchReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  forms            AttestationForm[]
+
+  @@index([seriesId])
+  @@map("attestation_batch")
+}
+
+model AttestationForm {
+  id            String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batchId       String                    @db.Uuid
+  batch         AttestationBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  seriesId      String                    @db.Uuid
+  series        AttestationSeries         @relation(fields: [seriesId], references: [id], onDelete: Restrict)
+  number        String                    @db.VarChar(20)
+  status        StockStatus               @default(AVAILABLE)
+  /// Who has the form: the batch holder in stock, the employee it was assigned to.
+  holderId      String?                   @db.Uuid
+  holder        User?                     @relation(fields: [holderId], references: [id], onDelete: Restrict)
+  attestationId String?                   @unique @db.Uuid
+  attestation   Attestation?              @relation(fields: [attestationId], references: [id], onDelete: Restrict)
+  version       Int                       @default(1)
+  updatedAt     DateTime                  @updatedAt @db.Timestamptz(3)
+  movements     AttestationFormMovement[]
+
+  @@unique([seriesId, number])
+  @@index([status])
+  @@index([holderId])
+  @@map("attestation_form")
+}
+
+/**
+ * Append-only (INSERT and SELECT only for the app).
+ */
+model AttestationFormMovement {
+  id            BigInt          @id @default(autoincrement())
+  formId        String          @db.Uuid
+  form          AttestationForm @relation(fields: [formId], references: [id], onDelete: Restrict)
+  fromStatus    StockStatus?
+  toStatus      StockStatus
+  fromHolderId  String?         @db.Uuid
+  fromHolder    User?           @relation("MovementFromHolder", fields: [fromHolderId], references: [id], onDelete: Restrict)
+  toHolderId    String?         @db.Uuid
+  toHolder      User?           @relation("MovementToHolder", fields: [toHolderId], references: [id], onDelete: Restrict)
+  reason        String?         @db.VarChar(200)
+  attestationId String?         @db.Uuid
+  attestation   Attestation?    @relation(fields: [attestationId], references: [id], onDelete: Restrict)
+  userId        String          @db.Uuid
+  user          User            @relation("MovementUser", fields: [userId], references: [id], onDelete: Restrict)
+  at            DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([formId, at])
+  @@map("attestation_form_movement")
+}
+
+// ---------------------------------------------------------------------------
+// Renewals (docs/data-model.md §3.5; agency answers of 23/10/2026): an issued contract is
+// listed 30 days before its end and followed by an employee until renewed or not.
+// ---------------------------------------------------------------------------
+
+enum RenewalStatus {
+  TO_PREPARE
+  CUSTOMER_CONTACTED
+  DOCUMENTS_COMPLETE
+  RENEWED
+  NOT_RENEWED
+}
+
+model Renewal {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId        String         @unique @db.Uuid
+  contract          Contract       @relation("RenewalOf", fields: [contractId], references: [id], onDelete: Restrict)
+  /// The contract's end date when the renewal was opened.
+  dueDate           DateTime       @db.Date
+  status            RenewalStatus  @default(TO_PREPARE)
+  assignedUserId    String         @db.Uuid
+  assignedUser      User           @relation("RenewalAssignee", fields: [assignedUserId], references: [id], onDelete: Restrict)
+  renewedContractId String?        @unique @db.Uuid
+  renewedContract   Contract?      @relation("RenewalResult", fields: [renewedContractId], references: [id], onDelete: Restrict)
+  /// Why the contract is not renewed.
+  outcomeReason     String?        @db.VarChar(300)
+  version           Int            @default(1)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+  events            RenewalEvent[]
+
+  @@index([status, dueDate])
+  @@index([assignedUserId])
+  @@map("renewal")
+}
+
+/**
+ * Append-only (INSERT and SELECT only for the app).
+ */
+model RenewalEvent {
+  id             BigInt         @id @default(autoincrement())
+  renewalId      String         @db.Uuid
+  renewal        Renewal        @relation(fields: [renewalId], references: [id], onDelete: Restrict)
+  fromStatus     RenewalStatus?
+  toStatus       RenewalStatus?
+  fromAssigneeId String?        @db.Uuid
+  fromAssignee   User?          @relation("RenewalEventFromAssignee", fields: [fromAssigneeId], references: [id], onDelete: Restrict)
+  toAssigneeId   String?        @db.Uuid
+  toAssignee     User?          @relation("RenewalEventToAssignee", fields: [toAssigneeId], references: [id], onDelete: Restrict)
+  note           String?        @db.VarChar(300)
+  userId         String?        @db.Uuid
+  user           User?          @relation("RenewalEventUser", fields: [userId], references: [id], onDelete: Restrict)
+  at             DateTime       @default(now()) @db.Timestamptz(3)
+
+  @@index([renewalId, at])
+  @@map("renewal_event")
+}
+
+// ---------------------------------------------------------------------------
+// Payments received at the agency (Phase 7). The agency is authorised to collect premiums for
+// RMA and CAT (owner, 23/10/2026; circulaire ACAPS 01/AS/19 art. 125). A payment is never
+// changed or deleted: a mistake is corrected by a reversal, which is a new row.
+// ---------------------------------------------------------------------------
+
+enum PaymentKind {
+  PAYMENT
+  REVERSAL
+}
+
+enum PaymentMethod {
+  CASH
+  CHEQUE
+  TRANSFER
+  CARD
+  OTHER
+}
+
+model Payment {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Gapless per year, e.g. REC-2026-00001; never reused, reversals included.
+  receiptNumber   String           @unique @db.VarChar(16)
+  contractId      String           @db.Uuid
+  contract        Contract         @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  kind            PaymentKind
+  /// MAD; positive for a payment, negative for a reversal.
+  amount          Decimal          @db.Decimal(14, 2)
+  method          PaymentMethod
+  /// Cheque number, transfer reference, card authorisation, or what "other" is.
+  reference       String?          @db.VarChar(80)
+  /// Who paid, when it is not the customer (e.g. a relative).
+  payerName       String?          @db.VarChar(120)
+  /// Cash the customer really handed over when the agency rounded (752,00 for 751,55); the gap is
+  /// the agency's, the amount stays the exact premium. Null when the customer paid the amount.
+  clientPaid      Decimal?         @db.Decimal(14, 2)
+  /// Cash the customer handed over, when typed (800,00 for 751,55): the change given back is this
+  /// minus what the customer paid. Cash only, never less than that.
+  cashTendered    Decimal?         @db.Decimal(14, 2)
+  receivedAt      DateTime         @default(now()) @db.Timestamptz(3)
+  receivedById    String           @db.Uuid
+  receivedBy      User             @relation(fields: [receivedById], references: [id], onDelete: Restrict)
+  reversesId      String?          @unique @db.Uuid
+  reverses        Payment?         @relation("PaymentReversal", fields: [reversesId, contractId], references: [id, contractId], onDelete: Restrict)
+  reversedBy      Payment?         @relation("PaymentReversal")
+  /// Why a payment was reversed.
+  reason          String?          @db.VarChar(300)
+  /// Sent by the browser: the same request twice records one payment.
+  idempotencyKey  String           @unique @db.Uuid
+  remittanceItems RemittanceItem[]
+
+  @@unique([id, contractId])
+  /// Required by Prisma for the one-to-one reversal link (reversesId alone is already unique).
+  @@unique([reversesId, contractId])
+  @@index([contractId])
+  @@index([receivedAt])
+  @@map("payment")
+}
+
+/// How the agency pays the insurer what it collected (owner, 23/10/2026: every method is possible).
+enum RemittanceMethod {
+  TRANSFER
+  CHEQUE
+  PLATFORM
+  CASH
+  OTHER
+}
+
+/// Premiums collected at the agency and paid over to one insurer (rule L5). Never edited: a
+/// mistake is cancelled with a reason, which makes its payments "to remit" again.
+model Remittance {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Gapless per year, e.g. VER-2026-00001; never reused, cancelled ones included.
+  number         String           @unique @db.VarChar(16)
+  insurerId      String           @db.Uuid
+  insurer        Insurer          @relation(fields: [insurerId], references: [id], onDelete: Restrict)
+  /// The payments received up to the end of this agency day were included.
+  collectedUntil DateTime         @db.Date
+  /// MAD; the sum of its items (payments less reversals).
+  amount         Decimal          @db.Decimal(14, 2)
+  method         RemittanceMethod
+  /// Transfer or cheque number, platform reference…; required except for cash.
+  reference      String?          @db.VarChar(80)
+  /// Agency day the money was sent to the insurer.
+  remittedOn     DateTime         @db.Date
+  note           String?          @db.VarChar(300)
+  recordedAt     DateTime         @default(now()) @db.Timestamptz(3)
+  recordedById   String           @db.Uuid
+  recordedBy     User             @relation("RemittanceRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+  cancelledAt    DateTime?        @db.Timestamptz(3)
+  cancelledById  String?          @db.Uuid
+  cancelledBy    User?            @relation("RemittanceCanceller", fields: [cancelledById], references: [id], onDelete: Restrict)
+  cancelReason   String?          @db.VarChar(300)
+  /// Sent by the browser: the same request twice records one remittance.
+  idempotencyKey String           @unique @db.Uuid
+  items          RemittanceItem[]
+
+  @@index([insurerId, recordedAt])
+  @@map("remittance")
+}
+
+/// A payment or reversal included in a remittance. A payment is in at most one remittance that is
+/// not cancelled (partial unique index in the migration).
+model RemittanceItem {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  remittanceId String     @db.Uuid
+  remittance   Remittance @relation(fields: [remittanceId], references: [id], onDelete: Restrict)
+  paymentId    String     @db.Uuid
+  payment      Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  /// Copy of the payment's amount (checked by a trigger).
+  amount       Decimal    @db.Decimal(14, 2)
+  /// True once its remittance is cancelled: the payment is to remit again.
+  released     Boolean    @default(false)
+
+  @@unique([remittanceId, paymentId])
+  @@index([paymentId])
+  @@map("remittance_item")
+}
+
+/// Documents printed by the RMA and CAT platforms (owner, 23/10/2026).
+enum DocumentType {
+  ATTESTATION
+  CONDITIONS_PARTICULIERES
+  QUITTANCE
+  NOTE_DE_COUVERTURE
+}
+
+/// A scan (PDF, JPEG or PNG) of an insurer's document, attached to a contract. The file lives on
+/// the server's disk (storageKey); it is never changed: a new scan replaces it, and a mistake is
+/// removed with a reason while the file and the row are kept.
+model Document {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId   String           @db.Uuid
+  contract     Contract         @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  type         DocumentType
+  /// The file's name on the employee's computer, shown only.
+  originalName String           @db.VarChar(200)
+  mimeType     String           @db.VarChar(40)
+  /// Bytes; 10 MB at most (agency answer).
+  size         Int
+  sha256       String           @db.Char(64)
+  storageKey   String           @unique @db.VarChar(80)
+  uploadedAt   DateTime         @default(now()) @db.Timestamptz(3)
+  uploadedById String           @db.Uuid
+  uploadedBy   User             @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  /// The scan this one replaces (same contract and type), e.g. a clearer scan.
+  replacesId   String?          @unique @db.Uuid
+  replaces     Document?        @relation("DocumentReplacement", fields: [replacesId], references: [id], onDelete: Restrict)
+  replacedBy   Document?        @relation("DocumentReplacement")
+  removedAt    DateTime?        @db.Timestamptz(3)
+  removedById  String?          @db.Uuid
+  removedBy    User?            @relation("DocumentRemover", fields: [removedById], references: [id], onDelete: Restrict)
+  removeReason String?          @db.VarChar(300)
+  capture      DocumentCapture?
+  scan         AttestationScan?
+
+  @@index([contractId])
+  @@map("document")
+}
+
+/// What the employee typed from a document, field by field (owner, 24/10/2026: typing first, so
+/// missing or wrong values can be corrected). One per document; checked per document type by the API.
+model DocumentCapture {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId   String   @unique @db.Uuid
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  /// The printed values, as typed; keys depend on the document type (documents/fields.js).
+  fields       Json
+  capturedAt   DateTime @db.Timestamptz(3)
+  capturedById String   @db.Uuid
+  capturedBy   User     @relation(fields: [capturedById], references: [id], onDelete: Restrict)
+  version      Int      @default(1)
+
+  @@map("document_capture")
+}
+
+enum ScanStatus {
+  /// Read, waiting for an employee to check it.
+  PENDING
+  /// Filed: customer, vehicle, contract and attestation recorded, scan attached to the contract.
+  FILED
+  /// Set aside with a reason (not an attestation, unreadable, sent twice…).
+  DISCARDED
+}
+
+/// A scanned attestation and what the server read on it (owner, 24/10/2026: scan the attestation,
+/// get its information and follow the insurance). Read offline; checked by an employee before
+/// anything is recorded. What filing has already created is kept, so a retry never doubles it.
+model AttestationScan {
+  id            String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storageKey    String     @unique @db.VarChar(80)
+  sha256        String     @db.Char(64)
+  originalName  String     @db.VarChar(200)
+  mimeType      String     @db.VarChar(40)
+  size          Int
+  uploadedAt    DateTime   @db.Timestamptz(3)
+  uploadedById  String     @db.Uuid
+  uploadedBy    User       @relation("ScanUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+  /// The text read and how sure the reader was (0–100); null when nothing could be read.
+  text          String?    @db.VarChar(20000)
+  confidence    Int?
+  /// The values proposed from the text (scans/parse.js).
+  proposed      Json
+  status        ScanStatus @default(PENDING)
+  customerId    String?    @db.Uuid
+  vehicleId     String?    @db.Uuid
+  contractId    String?    @db.Uuid
+  documentId    String?    @unique @db.Uuid
+  document      Document?  @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  closedAt      DateTime?  @db.Timestamptz(3)
+  closedById    String?    @db.Uuid
+  closedBy      User?      @relation("ScanCloser", fields: [closedById], references: [id], onDelete: Restrict)
+  discardReason String?    @db.VarChar(300)
+  version       Int        @default(1)
+
+  @@index([status, uploadedAt])
+  @@map("attestation_scan")
+}
