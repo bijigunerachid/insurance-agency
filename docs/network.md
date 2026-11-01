@@ -12,7 +12,19 @@ server's env file and in this document once the office network is known.
 | Server | `192.168.50.10` | Static IP (or DHCP reservation on the router) |
 | Admin PC | `192.168.50.20` | The only PC allowed to use SSH |
 | Agent PCs | `192.168.50.21`–`.29` | DHCP reservations recommended so the allow list stays accurate |
-| Hostname | Chosen for each agency at installation; `agence.internal` in the examples | Under `.internal` (reserved for private networks). Set on the router's DNS, or in each PC's `hosts` file. A setting (`APP_HOST`, `APP_ORIGIN`), never in the code |
+| Hostname | Chosen for each agency at installation; `insurance.internal` in the examples | Under `.internal` (reserved for private networks). Set on the router's DNS, or in each PC's `hosts` file. A setting (`APP_HOST`, `APP_ORIGIN`), never in the code |
+
+### Temporary test server (Dell, before the mini-PC)
+
+Not a production server: it only proves the installation steps (docs/deployment.md §12).
+
+| Item | Value |
+|---|---|
+| Server | Dell laptop, Ubuntu Server 26.04.1 LTS, hostname `agency-server`, interface `enp9s0` |
+| Address | `192.168.11.126` on `192.168.11.0/24`, gateway `192.168.11.1` |
+| Application address | `https://insurance.internal`, pointing to `192.168.11.126` (each test PC's `hosts` file: `192.168.11.126 insurance.internal`) |
+| Admin PC | The only PC allowed to use SSH once `firewall.sh` runs (`ADMIN_IP`): choose it **before**, or SSH from another PC stops working |
+| Already set | ufw enabled; SSH by public key only, passwords refused; Docker Engine 29.9.2, Compose 5.6.1; timezone `Africa/Casablanca` |
 
 ## 2. Ports
 
@@ -53,7 +65,7 @@ from an agent PC; nothing reachable from outside the subnet.
 
 ## 5. HTTPS on the LAN
 
-- Caddy's internal certificate authority issues the server certificate for `agence.internal` only: one
+- Caddy's internal certificate authority issues the server certificate for `insurance.internal` only: one
   address, so opening the app by its IP number is refused (the API's Origin check needs one origin).
 - The CA's **root certificate** (public part only) is exported once and installed on each agent PC in
   "Autorités de certification racines de confiance" (Windows). Browsers then show a normal padlock.
