@@ -1,4 +1,4 @@
-# The agency's one address, e.g. https://agence.internal (APP_HOST, from the server's .env).
+# The agency's one address, e.g. https://insurance.internal (APP_HOST, from the server's .env).
 # Unprivileged inside the container: 8080/8443, published as 80/443 on the office network only.
 {
 	admin off
