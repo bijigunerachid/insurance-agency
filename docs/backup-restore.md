@@ -126,12 +126,13 @@ Tout ce qui a été saisi après cette heure est perdu : notez-le avant de lance
 
 ## 6. Tester la restauration (tous les trois mois)
 
-Une sauvegarde jamais relue ne prouve rien. Tous les trois mois, sur la VM de répétition ou un PC de
+Une sauvegarde jamais relue ne prouve rien. Tous les trois mois, sur un serveur de test ou un PC de
 secours (jamais sur le serveur en service) : la restauration « serveur perdu » ci-dessus avec le disque de
 la semaine, puis connexion d'un employé et ouverture d'un document. Notez la date et la durée.
 
-Le développeur dispose aussi d'un exercice automatique sur son ordinateur
-(`deployment/rehearsal/run-drill.ps1`, voir docs/testing.md).
+Le développeur dispose aussi d'un exercice automatique sur son ordinateur Windows
+(`deployment/rehearsal/run-drill.ps1`, voir docs/testing.md). C'est un autre test que la restauration
+sur le serveur de test (deployment.md §12) : il ne remplace pas l'essai sur un vrai serveur Ubuntu.
 
 ## Ce que contient une sauvegarde
 

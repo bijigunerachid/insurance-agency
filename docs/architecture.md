@@ -289,7 +289,7 @@ comparison links to them).
   pinned by digest. Every service: `no-new-privileges`; the API and proxy `read_only` with `cap_drop: ALL`; memory
   limits, rotated logs; the database and the API on an internal network with no way out. The proxy is published
   only on `LAN_IP` (443 to 8443, 80 to 8080), sets the CSP, HSTS and other headers on the screens (the API keeps its
-  own on `/api`), and serves only the one address `APP_HOST` (chosen for each agency at installation; `agence.internal` in the examples).
+  own on `/api`), and serves only the one address `APP_HOST` (chosen for each agency at installation; `insurance.internal` in the examples).
   `release.ps1` builds the images and saves them with the database image (tagged `insurance-agency-postgres:18.6` from
   its pinned digest) in one file with `SHA256SUMS`; `install.sh` checks the sums, loads the images, sets
   `APP_VERSION`, runs `db-roles` and `prisma migrate deploy` through `tools`, then starts everything and waits
@@ -320,7 +320,10 @@ comparison links to them).
 | Power | UPS 600–1000 VA with USB, so the server shuts down cleanly on a long cut | Protects the database from sudden power loss |
 | OS | Ubuntu Server LTS: 26.04 LTS if its first point release (26.04.1) and Docker support are confirmed at install time, otherwise 24.04 LTS | Long support; checked at purchase time, not assumed |
 
-Until the server exists, development and the offline rehearsal use this laptop and a VMware Ubuntu Server VM.
+Until the mini-PC is bought, development and tests run on a Windows PC (Docker Desktop, where the disaster drill runs too), and a
+**temporary test server** stands in for the installation: a Dell laptop with Ubuntu Server 26.04.1 LTS (2-core Pentium T4500,
+3.3 GiB RAM, mechanical disk). It is far below the mini-PC above, so it proves the installation steps, not production capacity
+(docs/deployment.md §12).
 
 ## 8. What this design does not cover yet
 

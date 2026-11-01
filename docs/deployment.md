@@ -6,12 +6,12 @@ un mini-PC dédié, les PC du bureau seulement (réseau câblé), 4 à 10 postes
 (sauvegardes : [backup-restore.md](backup-restore.md)).
 
 **L'adresse de l'application** se choisit pour chaque agence, à l'installation (réglage `APP_HOST`, en
-`.internal`). Ce guide prend l'exemple **https://agence.internal** : remplacez-le partout par l'adresse
+`.internal`). Ce guide prend l'exemple **https://insurance.internal** : remplacez-le partout par l'adresse
 choisie.
 
 ```
   PC du bureau (Chrome / Edge)               Serveur (mini-PC, dans un endroit fermé)
-  https://agence.internal  ──réseau──▶  proxy (HTTPS, écrans) ──▶ api ──▶ base de données
+  https://insurance.internal  ──réseau──▶  proxy (HTTPS, écrans) ──▶ api ──▶ base de données
                                     câblé                                │
                                                                          └─▶ scans et documents
   Pas de port ouvert sur Internet. Le travail quotidien ne demande pas Internet.
@@ -35,15 +35,15 @@ du serveur. Une autre agence = une autre installation (README, « A new agency �
 1. Dans la box Internet, donnez une **adresse fixe** au serveur (réservation DHCP), par exemple
    `192.168.50.10`, et au PC admin (par exemple `192.168.50.20`). Des réservations pour les PC des agents
    sont recommandées.
-2. Le nom **agence.internal** doit mener au serveur sur chaque PC :
-   - si la box permet des noms locaux (DNS), ajoutez `agence.internal → 192.168.50.10` ;
+2. Le nom **insurance.internal** doit mener au serveur sur chaque PC :
+   - si la box permet des noms locaux (DNS), ajoutez `insurance.internal → 192.168.50.10` ;
    - sinon, sur chaque PC, ouvrez le Bloc-notes **en administrateur**, fichier
-     `C:\Windows\System32\drivers\etc\hosts`, ajoutez la ligne `192.168.50.10 agence.internal`.
+     `C:\Windows\System32\drivers\etc\hosts`, ajoutez la ligne `192.168.50.10 insurance.internal`.
 3. Aucune redirection de port (NAT) vers le serveur dans la box. UPnP et administration à distance
    de la box désactivés, mot de passe de la box changé.
 4. Le Wi-Fi du bureau (s'il existe) reste séparé du réseau câblé, ou en isolation « invités ».
 
-**Vérifier :** sur un PC, `ping agence.internal` répond depuis `192.168.50.10`.
+**Vérifier :** sur un PC, `ping insurance.internal` répond depuis `192.168.50.10`.
 
 ## 2. Installer Ubuntu Server et Docker
 
@@ -99,9 +99,9 @@ l'application (443, et 80 qui renvoie vers 443). Docker ouvrant ses ports avant 
 **Vérifier depuis un PC d'agent (PowerShell)**, une fois l'application installée :
 
 ```powershell
-Test-NetConnection agence.internal -Port 443    # TcpTestSucceeded : True
-Test-NetConnection agence.internal -Port 22     # False (seul le PC admin)
-Test-NetConnection agence.internal -Port 5432   # False (la base n'est jamais ouverte)
+Test-NetConnection insurance.internal -Port 443    # TcpTestSucceeded : True
+Test-NetConnection insurance.internal -Port 22     # False (seul le PC admin)
+Test-NetConnection insurance.internal -Port 5432   # False (la base n'est jamais ouverte)
 ```
 
 ## 5. Première installation
@@ -170,7 +170,7 @@ impose HTTPS (HSTS) : installez le certificat **avant** d'ouvrir l'application s
 
 Sur un PC du bureau :
 
-1. `https://agence.internal` s'ouvre avec le cadenas, le logo de l'agence sur la page de connexion ;
+1. `https://insurance.internal` s'ouvre avec le cadenas, le logo de l'agence sur la page de connexion ;
 2. l'administrateur se connecte ; « État du système » : serveur, base de données disponibles, horloge à
    l'heure ;
 3. un reçu de test s'imprime sur une feuille A4 (deux exemplaires) ;
@@ -227,17 +227,75 @@ documents.
 Mises à jour d'Ubuntu, une fois par mois avec Internet : `sudo apt update && sudo apt full-upgrade -y`,
 puis `sudo reboot` en dehors des heures de travail.
 
-## 12. Répétition avant l'installation réelle (développeur)
+## 12. Installation d'essai sur le serveur de test (développeur)
 
-Sur la VM Ubuntu (VMware), Internet coupé : étapes 2 à 8 avec une version de test, puis les vérifications
-du pare-feu depuis une seconde machine. Le test de fumée automatique se lance depuis l'ordinateur du
-développeur :
+Avant le mini-PC, l'installation est essayée sur un **serveur de test temporaire** : un portable Dell
+sous Ubuntu Server 26.04.1 LTS (nom `agency-server`, adresse `192.168.11.126`, voir network.md). Ce
+n'est **pas** un serveur de production : il prouve les étapes de ce guide, pas la capacité. Données
+**synthétiques uniquement**, jamais de vrais clients.
 
-```powershell
-$env:PRODUCTION_URL = 'https://agence.internal'
-$env:SMOKE_USERNAME = '<un compte agent>'; $env:SMOKE_PASSWORD = '<son mot de passe>'
-npm run test:production
+L'exercice de restauration automatique sur le PC Windows (`deployment/rehearsal/run-drill.ps1`) est un
+autre test : il ne remplace pas cet essai, et cet essai ne le remplace pas (docs/testing.md).
+
+### Les limites du Dell
+
+| | Dell (test) | Mini-PC (production, §0) |
+|---|---|---|
+| Processeur | Pentium T4500, 2 cœurs (2009) | 4 cœurs ou plus |
+| Mémoire | 3,3 Gio (+ 3,8 Gio d'échange sur le disque) | 16 Go |
+| Disque | 465,8 Go, disque mécanique | SSD |
+| TPM, chiffrement du disque | Non prévu pour ce test | Oui |
+
+Le fichier compose limite la mémoire de chaque service : base 2 Go, API 3 Go, proxy 256 Mo, soit
+5,25 Go au plus. Ce sont des **plafonds**, pas de la mémoire réservée : les services démarrent, mais si
+la base et la lecture des scans grossissent ensemble, le Dell passe sur l'échange (très lent sur un
+disque mécanique) ou Linux arrête un service faute de mémoire. **On ne baisse pas ces limites pour le
+Dell** : la production garde les siennes. On mesure plutôt la mémoire pendant l'essai.
+
+### Avant d'installer : vérifier le Dell (rien n'est modifié)
+
+```bash
+grep -o -w 'sse4_2\|popcnt\|avx' /proc/cpuinfo | sort -u   # instructions du processeur
+free -h                                                    # mémoire et échange
+df -h /opt /var/lib/docker                                 # place libre
+docker version && docker compose version
+timedatectl                                                # heure synchronisée, Africa/Casablanca
 ```
 
-Il vérifie HTTPS, les en-têtes de sécurité, qu'aucune requête ne sort du serveur, la connexion d'un agent
-et une liste lue dans la base.
+Le T4500 n'a ni `sse4_2`, ni `popcnt`, ni `avx` : si la première commande n'affiche rien, des programmes
+récents des images (Node.js, PostgreSQL, lecture des scans) peuvent refuser de démarrer. C'est à
+constater pendant l'essai, pas à supposer : notez le message exact. Le responsable approuve la suite
+au vu de ces résultats.
+
+### Déroulement
+
+1. Sur le PC Windows : `npm run check` entièrement vert, puis la version
+   (`powershell -File deployment/production/release.ps1`), construite depuis du code validé.
+2. Copiez le dossier de la version sur le Dell, dans `/opt/agency-stack/` (dossier de préparation ; le
+   programme d'installation crée ensuite `/opt/insurance-agency` lui-même, comme au §5).
+3. Choisissez le PC admin (`ADMIN_IP`) **avant** le pare-feu : après `firewall.sh`, seul ce PC se
+   connecte en SSH.
+4. Ubuntu et Docker sont déjà installés (§2 fait) : suivez les §3 à §8 avec `LAN_IP=192.168.11.126` et
+   l'adresse `insurance.internal` (`APP_HOST`, `APP_ORIGIN=https://insurance.internal`).
+5. Sur un autre PC du réseau : fichier `hosts` avec `192.168.11.126 insurance.internal`, certificat
+   racine installé (§7), le cadenas, connexion d'un agent.
+6. Pare-feu, depuis ce PC : 443 ouvert ; 22 fermé (sauf depuis le PC admin) ; 5432 fermé (§4).
+7. Le test de fumée automatique, depuis le PC du développeur :
+   ```powershell
+   $env:PRODUCTION_URL = 'https://insurance.internal'
+   $env:SMOKE_USERNAME = '<un compte agent>'; $env:SMOKE_PASSWORD = '<son mot de passe>'
+   npm run test:production
+   ```
+   Il vérifie HTTPS, les en-têtes de sécurité, qu'aucune requête ne sort du serveur, la connexion d'un
+   agent et une liste lue dans la base. Ajoutez `$env:SMOKE_RESOLVE = 'insurance.internal:192.168.11.126'`
+   si le fichier `hosts` de ce PC n'a pas encore le nom ; jamais `SMOKE_IGNORE_TLS` ici.
+8. Sauvegarde et restauration avec des données synthétiques et un disque USB (backup-restore.md §6).
+9. La mémoire pendant un scan et une recherche : `docker stats --no-stream`, et `free -h`.
+10. Notez les résultats et les limites (dans docs/roadmap.md), puis refaites l'installation sur le
+    mini-PC.
+
+### Ce que l'essai prouve, et ce qu'il ne prouve pas
+
+| Testable sur le Dell | Demande une machine plus puissante | À refaire sur le mini-PC |
+|---|---|---|
+| Copie de la version, `install.sh`, réglages, migrations ; HTTPS avec `insurance.internal` et le certificat sur un PC ; pare-feu vu d'un autre PC ; connexion, saisie, impression d'un reçu ; sauvegarde et restauration synthétiques ; le test de fumée | Plusieurs employés en même temps ; la lecture des scans en charge ; les temps de réponse réels | Tout le guide, plus le chiffrement du disque (TPM), l'onduleur, les deux disques échangés et la durée d'une restauration (objectif : le jour même, environ 4 h) |

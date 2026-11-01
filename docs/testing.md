@@ -10,8 +10,17 @@ All tests use synthetic data. Never put real customer data in tests, fixtures or
 | Backend integration | Vitest + Supertest + **real PostgreSQL** | `backend/test/integration/` | Code paths that talk to the database (test database `agency_test`) |
 | Frontend unit | Vitest + Testing Library + jsdom | `frontend/test/` | Pages and components, loading / error / empty states |
 | End-to-end | Playwright (Chromium) | `e2e/` | Real backend + built frontend, at 1366px (desktop) and 390px (phone) |
-| Production smoke | Playwright (Chromium) | `e2e-production/` | An installed server (rehearsal or the agency's): HTTPS, security headers, nothing loaded from outside, an agent signs in. `npm run test:production` with `PRODUCTION_URL`, `SMOKE_USERNAME`, `SMOKE_PASSWORD` (see `playwright.production.config.js`); not part of `npm run check` |
+| Production smoke | Playwright (Chromium) | `e2e-production/` | An installed server (the drill's, the Dell test server or the agency's): HTTPS, security headers, nothing loaded from outside, an agent signs in. `npm run test:production` with `PRODUCTION_URL`, `SMOKE_USERNAME`, `SMOKE_PASSWORD` (see `playwright.production.config.js`); not part of `npm run check` |
 | Disaster drill | bash in a `docker:cli` container | `deployment/rehearsal/` | On a development computer with Docker Desktop: `powershell -File deployment/rehearsal/run-drill.ps1 -Release release\insurance-agency-<version>`. Fresh install from the release, key, disk A, a backup, a client and a document entered after it, then volumes, settings and images erased and restored as on a new server; fails unless the client, the agent, the document and the same HTTPS authority are back. Erases this computer's `insurance-agency` volumes (drill data only). Run before a release that touches the database or the scripts |
+
+The disaster drill and the test installation on the Dell are **two different tests**. The drill runs on the Windows PC in
+Docker Desktop and proves that a backup restores everything on a fresh install. The Dell installation
+(docs/deployment.md §12) proves the real steps on a real Ubuntu server: the release copied over, `install.sh`, the
+firewall seen from another PC, HTTPS with the certificate installed on a PC, a backup and a restore. Neither one
+replaces the other, and both are repeated for the mini-PC.
+
+For the Dell: `PRODUCTION_URL=https://insurance.internal`; set `SMOKE_RESOLVE=insurance.internal:192.168.11.126`
+when the test PC's `hosts` file does not have the name yet. Never `SMOKE_IGNORE_TLS` there: the certificate must be trusted.
 
 ## Running
 
