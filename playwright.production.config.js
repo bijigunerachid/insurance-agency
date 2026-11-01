@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Smoke test of an installed server (rehearsal VM or the agency's mini-PC), never part of
 // `npm run check`: it needs the server running. Settings from the environment:
-//   PRODUCTION_URL     https://agence.internal (the agency's one address)
+//   PRODUCTION_URL     https://insurance.internal (the agency's one address)
 //   SMOKE_USERNAME / SMOKE_PASSWORD   an existing agent account (no two-step)
 //   SMOKE_RESOLVE      optional "host:ip" when the name is not in DNS or the hosts file
 //   SMOKE_IGNORE_TLS   "1" only when the local authority's root is not installed on this PC
