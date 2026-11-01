@@ -134,6 +134,7 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
           renewalId: r.id,
           toStatus: 'TO_PREPARE',
           toAssigneeId: r.assignedUserId,
+          at: clock.now(),
         })),
       });
     });
@@ -251,6 +252,7 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
             toStatus: next,
             note: next === 'NOT_RENEWED' ? outcomeReason : (note ?? null),
             userId: auth.user.id,
+            at: clock.now(),
           },
         });
         await record(tx, auth, request, 'renewal.updated', id, {
@@ -278,6 +280,7 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
             fromAssigneeId: current.assignedUserId,
             toAssigneeId: assignedUserId,
             userId: auth.user.id,
+            at: clock.now(),
           },
         });
         await record(tx, auth, request, 'renewal.assigned', id, { to: assignedUserId });
@@ -324,6 +327,7 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
             fromStatus: current.status,
             toStatus: 'RENEWED',
             userId: auth.user.id,
+            at: clock.now(),
           },
         });
         await record(tx, auth, request, 'renewal.renewed', id, { contractId: newId });

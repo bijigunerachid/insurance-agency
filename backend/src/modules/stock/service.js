@@ -91,12 +91,13 @@ export async function useStockForm(tx, auth, attestation) {
       toHolderId: form.holderId,
       attestationId: attestation.id,
       userId: auth.user.id,
+      at: attestation.createdAt,
     },
   });
 }
 
 /** Cancelling an attestation cancels the form it was printed on. */
-export async function cancelStockForm(tx, auth, attestationId, reason) {
+export async function cancelStockForm(tx, auth, attestationId, reason, at) {
   const form = await tx.attestationForm.findUnique({ where: { attestationId } });
   if (!form) return;
   await tx.attestationForm.update({
@@ -113,11 +114,12 @@ export async function cancelStockForm(tx, auth, attestationId, reason) {
       reason,
       attestationId,
       userId: auth.user.id,
+      at,
     },
   });
 }
 
-export function createStockService({ prisma, audit }) {
+export function createStockService({ prisma, audit, clock }) {
   const record = (tx, auth, request, action, entityType, entityId, details) =>
     audit.record({ actorUserId: auth.user.id, action, entityType, entityId, request, details }, tx);
 
@@ -240,6 +242,7 @@ export function createStockService({ prisma, audit }) {
             toStatus: 'AVAILABLE',
             toHolderId: body.holderId,
             userId: auth.user.id,
+            at: clock.now(),
           })),
         });
         await record(tx, auth, request, 'stock.batch_received', 'attestation_batch', batch.id, {
@@ -375,6 +378,7 @@ export function createStockService({ prisma, audit }) {
             toHolderId: holderId ?? form.holderId,
             reason: body.reason ?? null,
             userId: auth.user.id,
+            at: clock.now(),
           })),
         });
         await record(tx, auth, request, 'stock.moved', 'attestation_series', body.seriesId, {

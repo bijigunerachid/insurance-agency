@@ -361,6 +361,8 @@ describe('attestations', () => {
     expect(wrong.body.error.details).toEqual([
       { path: 'duplicateOfId', rule: 'DUPLICATE_MISMATCH' },
     ]);
+    // The original is lost later: the duplicate is the newest attestation.
+    ctx.clock.advance(60_000);
     const duplicate = await agent.post(
       path,
       attestation(car, tourisme, { duplicateOfId: original.id }),
@@ -399,6 +401,21 @@ describe('contract permissions and database protections', () => {
       contractBody(customer, products.RMA, [car.id]),
     );
     expect(refused.status).toBe(403);
+  });
+
+  it('lists the newest contracts first, by number when recorded at the same moment', async () => {
+    const manager = await signIn('manager.a', 'MANAGER');
+    const products = await prepareCatalogue(manager);
+    const { customer, car } = await customerWithVehicles(manager);
+    for (let i = 0; i < 3; i += 1) {
+      await manager.post('/api/contracts', contractBody(customer, products.RMA, [car.id]));
+    }
+    const list = (await manager.get('/api/contracts')).body;
+    expect(list.items.map((c) => c.ref)).toEqual([
+      'CTR-2026-00003',
+      'CTR-2026-00002',
+      'CTR-2026-00001',
+    ]);
   });
 
   it('never deletes contracts, keeps the status history append-only and enforces the rules', async () => {

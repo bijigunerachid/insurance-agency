@@ -90,7 +90,7 @@ export function createApp({
   app.use('/api', vehiclesRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', catalogueRoutes({ prisma, audit, clock, guards }));
   app.use('/api', contractsRoutes({ prisma, audit, clock, config, guards }));
-  app.use('/api', stockRoutes({ prisma, audit, guards }));
+  app.use('/api', stockRoutes({ prisma, audit, clock, guards }));
   app.use('/api', renewalsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', paymentsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', remittancesRoutes({ prisma, audit, clock, config, guards }));

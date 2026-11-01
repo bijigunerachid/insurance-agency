@@ -20,6 +20,11 @@ const { signIn, patch, prepareCatalogue, customerWithVehicles, contractBody, iss
 
 const userId = async (username) =>
   (await ctx.prisma.user.findUniqueOrThrow({ where: { username } })).id;
+/** Follow-up entries not dated by the agency clock (22/10/2026), whatever the computer's date. */
+const eventsOffClock = () =>
+  ctx.prisma.renewalEvent.count({
+    where: { NOT: { at: { gte: new Date('2026-10-22'), lt: new Date('2026-10-23') } } },
+  });
 
 /**
  * Today is 22/10/2026 (test clock). One contract ends on 15/11/2026 (24 days: listed), one
@@ -136,6 +141,7 @@ describe('renewals', () => {
     expect(again.body.error.code).toBe('RENEWAL_CLOSED');
     expect((await agent.get('/api/renewals')).body.total).toBe(0);
     expect((await agent.get('/api/renewals?status=NOT_RENEWED')).body.total).toBe(1);
+    expect(await eventsOffClock()).toBe(0);
   });
 
   it('lets only managers and the administrator give a renewal to another employee', async () => {
@@ -152,6 +158,7 @@ describe('renewals', () => {
       toAssignee: { displayName: 'Utilisateur agent.b' },
     });
     expect((await agent.get('/api/renewals?mine=true')).body.total).toBe(0);
+    expect(await eventsOffClock()).toBe(0);
   });
 
   it('prepares the next contract as a draft linked to the old one', async () => {
@@ -185,6 +192,7 @@ describe('renewals', () => {
     expect(twice.body.error.code).toBe('RENEWAL_CLOSED');
     // The renewed contract is not listed again.
     expect((await agent.get('/api/renewals')).body.total).toBe(0);
+    expect(await eventsOffClock()).toBe(0);
   });
 
   it('counts overdue renewals once their date has passed', async () => {

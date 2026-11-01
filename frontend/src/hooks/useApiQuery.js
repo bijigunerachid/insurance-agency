@@ -17,9 +17,12 @@ export function useApiQuery(path, { acceptStatuses } = {}) {
       signal: controller.signal,
       acceptStatuses: accepted ? accepted.split(',').map(Number) : [],
     })
-      .then((data) => setState({ status: 'done', data, loadedAt: new Date() }))
+      // An answer to a request already replaced (the path changed meanwhile) is dropped.
+      .then((data) => {
+        if (!controller.signal.aborted) setState({ status: 'done', data, loadedAt: new Date() });
+      })
       .catch((error) => {
-        if (error.name !== 'AbortError') setState({ status: 'error', error });
+        if (!controller.signal.aborted) setState({ status: 'error', error });
       });
     return () => controller.abort();
   }, [path, accepted, attempt]);

@@ -349,6 +349,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
         tacitRenewal: body.tacitRenewal,
         noticeDays: body.noticeDays ?? null,
         previousContractId: body.previousContractId ?? null,
+        createdAt: clock.now(),
         createdById: auth.user.id,
       },
     });
@@ -360,7 +361,12 @@ export function createContractsService({ prisma, audit, clock, config }) {
       })),
     });
     await tx.contractStatusChange.create({
-      data: { contractId: contract.id, toStatus: 'DRAFT', userId: auth.user.id },
+      data: {
+        contractId: contract.id,
+        toStatus: 'DRAFT',
+        userId: auth.user.id,
+        at: clock.now(),
+      },
     });
     await record(tx, auth, request, 'contract.created', contract.id, {
       ref: contract.ref,
@@ -449,6 +455,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
         medium: body.medium,
         coverNoteRef: body.coverNoteRef ?? null,
         duplicateOfId: body.duplicateOfId ?? null,
+        createdAt: clock.now(),
         createdById: auth.user.id,
       },
     });
@@ -495,7 +502,8 @@ export function createContractsService({ prisma, audit, clock, config }) {
         prisma.contract.findMany({
           where,
           include: listInclude,
-          orderBy: [{ createdAt: 'desc' }],
+          // Same time: the higher number was created last.
+          orderBy: [{ createdAt: 'desc' }, { ref: 'desc' }],
           ...toSkipTake({ page, pageSize }),
         }),
         prisma.contract.count({ where }),
@@ -681,6 +689,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
               insurerReference: body.insurerReference ?? null,
               effectiveDate: body.effectiveDate ? toDate(body.effectiveDate) : null,
               userId: auth.user.id,
+              at: clock.now(),
             },
           });
           await record(tx, auth, request, 'contract.status_changed', id, {
@@ -932,7 +941,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
           },
         });
         if (count === 0) throw conflict();
-        await cancelStockForm(tx, auth, id, reason);
+        await cancelStockForm(tx, auth, id, reason, clock.now());
         await record(tx, auth, request, 'attestation.cancelled', attestation.contractId, {
           attestationId: id,
         });

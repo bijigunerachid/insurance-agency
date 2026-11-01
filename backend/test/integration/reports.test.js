@@ -54,7 +54,7 @@ async function setup() {
     holderId: holder.id,
   });
   expect(batch.status).toBe(201);
-  return { manager, agent, contract };
+  return { manager, agent, contract, car };
 }
 const report = (client, name, from = '2026-10-01', to = '2026-10-31') =>
   client.get(`/api/reports/${name}?from=${from}&to=${to}`);
@@ -232,6 +232,49 @@ describe('reports', () => {
         renewals: 0,
       },
     ]);
+  });
+
+  it('dates stock movements and employee activity by the agency clock, not the database', async () => {
+    const { manager, contract, car } = await setup();
+    const seriesId = (await series('RMA', '14 A')).id;
+    await manager.post('/api/attestation-forms/move', {
+      seriesId,
+      firstNumber: '000000109',
+      lastNumber: '000000110',
+      to: 'DAMAGED',
+      reason: 'Imprimante bloquée',
+    });
+    const recorded = await manager.post(`/api/contracts/${contract.id}/attestations`, {
+      vehicleId: car.id,
+      seriesId,
+      number: '000000101',
+      validFrom: '2026-11-01',
+      validTo: '2027-10-31',
+    });
+    expect(recorded.status).toBe(201);
+    const cancelled = await manager.post(
+      `/api/attestations/${recorded.body.attestations[0].id}/cancel`,
+      { reason: 'Erreur de saisie', version: 1 },
+    );
+    expect(cancelled.status).toBe(200);
+
+    // Every record carries the agency's date (22/10/2026), whatever the computer's date.
+    const october = { gte: new Date('2026-10-01'), lt: new Date('2026-11-01') };
+    const outside = { NOT: { at: october } };
+    expect(await ctx.prisma.attestationFormMovement.count({ where: outside })).toBe(0);
+    expect(await ctx.prisma.contractStatusChange.count({ where: outside })).toBe(0);
+    expect(await ctx.prisma.attestation.count({ where: { NOT: { createdAt: october } } })).toBe(0);
+    expect(await ctx.prisma.contract.count({ where: { NOT: { createdAt: october } } })).toBe(0);
+
+    // 10 received, 2 damaged, 1 used then cancelled.
+    const stock = (await report(manager, 'stock-attestations')).body;
+    expect(stock.rows[0]).toMatchObject({ AVAILABLE: 7, DAMAGED: 2, CANCELLED: 1, movements: 14 });
+    const november = (await report(manager, 'stock-attestations', '2026-11-01', '2026-11-30')).body;
+    expect(november.rows[0].movements).toBe(0);
+    const activity = (await report(manager, 'activite-employes')).body;
+    expect(activity.rows).toContainEqual(
+      expect.objectContaining({ name: 'Utilisateur manager.a', attestations: 1 }),
+    );
   });
 
   it('exports as CSV or Excel for management only, after confirming their identity, audited', async () => {
