@@ -31,8 +31,7 @@ Guide pour le responsable de l'agence et le technicien informatique. Choix valid
 ## 1. La clé de sauvegarde (une seule fois)
 
 ```bash
-cd /opt/insurance-agency
-sudo ./backup.sh init-key
+sudo /opt/insurance-agency/backup.sh init-key
 ```
 
 La **clé privée** s'affiche **une seule fois** (une ligne `AGE-SECRET-KEY-…`). Immédiatement :
@@ -64,20 +63,22 @@ LABEL=AGENCY-BACKUP  /mnt/agency-backup  ext4  nofail,noatime,x-systemd.automoun
 Puis `sudo systemctl daemon-reload`, branchez le disque A, et :
 
 ```bash
-cd /opt/insurance-agency
-sudo ./backup.sh prepare-disk A
+sudo /opt/insurance-agency/backup.sh prepare-disk A
 ```
 
-Débranchez-le (`sudo umount /mnt/agency-backup`), branchez le disque B, `sudo ./backup.sh prepare-disk B`.
+Débranchez-le (`sudo umount /mnt/agency-backup`), branchez le disque B, `sudo /opt/insurance-agency/backup.sh prepare-disk B`.
 Collez une étiquette « A » et « B » sur les disques.
 
 ## 3. Lancer la sauvegarde automatique
 
 ```bash
-sudo ./backup.sh install-timer     # toutes les 5 minutes, et au démarrage du serveur
-sudo ./backup.sh run               # une première sauvegarde tout de suite
-sudo ./backup.sh status            # copies complètes, dernière copie, place libre
+sudo /opt/insurance-agency/backup.sh install-timer     # toutes les 5 minutes, et au démarrage du serveur
+sudo /opt/insurance-agency/backup.sh run               # une première sauvegarde tout de suite
+sudo /opt/insurance-agency/backup.sh status            # copies complètes, dernière copie, place libre
 ```
+
+Si `run` répond « une sauvegarde ou une restauration est déjà en cours » juste après `install-timer`,
+c'est normal : le minuteur vient d'en lancer une. `status` la montre une minute plus tard.
 
 **Vérifier :** « État du système » affiche « Sauvegardes : À jour — Disque A… ».
 
@@ -106,23 +107,24 @@ papier dans un fichier).
    `/opt/insurance-agency` et s'arrête : ne remplissez pas les réglages, ils sont dans la sauvegarde).
 2. Le disque de sauvegarde monté sur `/mnt/agency-backup` (étape 2, ligne `fstab`), puis :
    ```bash
-   cd /opt/insurance-agency
-   sudo ./backup.sh restore --identity /media/cle/cle-sauvegarde.txt --with-settings
+   sudo /opt/insurance-agency/backup.sh restore --identity /media/cle/cle-sauvegarde.txt --with-settings
    ```
    Il restaure les réglages, le logo, l'autorité HTTPS (les PC gardent leur cadenas), la base de données
    jusqu'à la dernière modification copiée, puis les documents, démarre l'application, prend une copie
    complète, et affiche la durée.
-3. `sudo ./backup.sh install-timer`, puis les vérifications de l'étape 8 de deployment.md.
+3. `sudo /opt/insurance-agency/backup.sh install-timer`, puis les vérifications de l'étape 8 de deployment.md.
 
 ### Une erreur à annuler (données effacées par erreur) sur le même serveur
 
 Restaurer l'état d'avant l'erreur, heure **UTC** (heure du Maroc moins une heure en général) :
 
 ```bash
-sudo ./backup.sh restore --identity /media/cle/cle-sauvegarde.txt --time "2026-11-02 09:30:00"
+sudo /opt/insurance-agency/backup.sh restore --identity /media/cle/cle-sauvegarde.txt --time "2026-11-02 09:30:00"
 ```
 
-Tout ce qui a été saisi après cette heure est perdu : notez-le avant de lancer.
+Tout ce qui a été saisi après cette heure est perdu : notez-le avant de lancer. Les modifications
+arrivent sur le disque en 10 minutes au plus (5 pour leur archivage, 5 pour le minuteur) : pour un essai,
+attendez qu'`status` affiche une « Dernière copie des modifications » postérieure à la dernière saisie.
 
 ## 6. Tester la restauration (tous les trois mois)
 
