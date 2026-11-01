@@ -107,7 +107,16 @@ Test-NetConnection insurance.internal -Port 5432   # False (la base n'est jamais
 ## 5. Première installation
 
 1. Copiez le dossier `insurance-agency-<version>` de la clé USB sur le serveur (par exemple dans
-   `/opt/insurance-agency-versions/`).
+   `/opt/insurance-agency-versions/`). Copié depuis Windows (`scp`), le dossier perd ses droits : il
+   devient illisible une fois à root et les scripts ne sont plus exécutables. Rendez-les-leur (le dossier
+   ne contient aucun secret ; les empreintes ne changent pas) :
+   ```bash
+   sudo chown -R root:root /opt/insurance-agency-versions/insurance-agency-<version>
+   sudo chmod -R u=rwX,go=rX /opt/insurance-agency-versions/insurance-agency-<version>
+   cd /opt/insurance-agency-versions/insurance-agency-<version>
+   sudo chmod +x install.sh firewall.sh export-root-ca.sh backup.sh
+   sha256sum --check SHA256SUMS       # OK sur chaque ligne
+   ```
 2. Lancez :
    ```bash
    cd /opt/insurance-agency-versions/insurance-agency-<version>
@@ -115,7 +124,28 @@ Test-NetConnection insurance.internal -Port 5432   # False (la base n'est jamais
    ```
    La première fois, il vérifie les fichiers, crée `/opt/insurance-agency` et ses fichiers de réglages, puis
    s'arrête.
-3. Remplissez les réglages (lisibles par root seulement) :
+3. Remplissez les réglages (lisibles par root seulement). Le plus sûr : ce bloc crée les deux mots de
+   passe et la clé et les écrit directement, sans les afficher (remplacez l'adresse du serveur). **Une
+   seule fois** : relancé, il change le mot de passe de `.env` sans celui de `.env.admin` (voir plus bas).
+   ```bash
+   sudo -i
+   cd /opt/insurance-agency
+   OWNER=$(openssl rand -hex 24); RUNTIME=$(openssl rand -hex 24); KEY=$(openssl rand -base64 32)
+   sed -i "s|^LAN_IP=.*|LAN_IP=192.168.50.10|; s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$OWNER|" .env
+   sed -i "s|OWNER_PASSWORD|$OWNER|" .env.admin
+   sed -i "s|RUNTIME_PASSWORD|$RUNTIME|; s|^TOTP_ENCRYPTION_KEY=.*|TOTP_ENCRYPTION_KEY=$KEY|" .env.api
+   unset OWNER RUNTIME KEY
+   exit
+   ```
+   S'il a tourné deux fois avant le premier démarrage, recopiez le mot de passe de `.env` dans `.env.admin` :
+   ```bash
+   sudo -i
+   cd /opt/insurance-agency
+   OWNER=$(sed -n 's/^POSTGRES_PASSWORD=//p' .env)
+   sed -i "s|^MIGRATION_DATABASE_URL=.*|MIGRATION_DATABASE_URL=postgresql://agency_owner:$OWNER@db:5432/agency|" .env.admin
+   unset OWNER; exit
+   ```
+   Le reste (adresse, coordonnées de l'agence) se règle à la main :
    ```bash
    sudo nano /opt/insurance-agency/.env          # LAN_IP, mot de passe du propriétaire de la base
    sudo nano /opt/insurance-agency/.env.admin    # le même mot de passe dans l'adresse
@@ -137,10 +167,11 @@ En cas de réglage refusé, l'application ne démarre pas et dit lequel :
 
 ## 6. Le premier administrateur et le catalogue
 
+Le dossier `/opt/insurance-agency` n'est lisible que par root : les commandes donnent son chemin complet.
+
 ```bash
-cd /opt/insurance-agency
-sudo docker compose run --rm -it tools node scripts/create-admin.js
-sudo docker compose run --rm -it tools node scripts/confirm-reference.js
+sudo docker compose -f /opt/insurance-agency/compose.yml run --rm -it tools node scripts/create-admin.js
+sudo docker compose -f /opt/insurance-agency/compose.yml run --rm -it tools node scripts/confirm-reference.js
 ```
 
 Le mot de passe se tape sans s'afficher. À la première connexion, l'administrateur active la connexion en
@@ -155,13 +186,33 @@ Le serveur a sa propre autorité de certification. Sa partie publique s'installe
 sudo /opt/insurance-agency/export-root-ca.sh
 ```
 
-Il crée `/opt/insurance-agency/insurance-agency-autorite-racine.crt` et affiche son **empreinte SHA-256**. Copiez le
-fichier sur une clé USB, puis sur chaque PC :
+Il crée `/opt/insurance-agency/insurance-agency-autorite-racine.crt` et affiche son **empreinte SHA-256**. Pour le
+récupérer depuis le PC admin, copiez-le d'abord dans votre dossier (le dossier d'installation est réservé à root) :
 
-1. double-cliquez le fichier, « Installer le certificat… », **Ordinateur local** ;
-2. « Placer tous les certificats dans le magasin suivant » → **Autorités de certification racines de
-   confiance** ;
-3. vérifiez que l'empreinte (onglet « Détails ») est celle affichée sur le serveur.
+```bash
+sudo cp /opt/insurance-agency/insurance-agency-autorite-racine.crt ~/ && sudo chown "$USER" ~/insurance-agency-autorite-racine.crt
+```
+
+Sur chaque PC, dans PowerShell **en administrateur** (la fenêtre de Windows n'affiche que l'empreinte SHA-1,
+d'où la commande pour la SHA-256) :
+
+```powershell
+cd $HOME\Downloads
+scp <utilisateur>@192.168.50.10:~/insurance-agency-autorite-racine.crt .      # ou depuis une clé USB
+$c = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 "$PWD\insurance-agency-autorite-racine.crt"
+[BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($c.RawData))
+```
+
+**Seulement si l'empreinte est celle du serveur** (mêmes chiffres, tirets au lieu de deux-points) :
+
+```powershell
+Import-Certificate -FilePath "$PWD\insurance-agency-autorite-racine.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+(Ou à la souris : double-clic sur le fichier, « Installer le certificat… », **Ordinateur local**, magasin
+**Autorités de certification racines de confiance**.) Pour un essai à la main avec `curl.exe` sous
+Windows, ajoutez `--ssl-no-revoke` : une autorité locale ne publie pas de liste de révocation (les
+navigateurs n'en ont pas besoin).
 
 La clé privée ne quitte jamais le serveur (volume `insurance-agency-proxy-data`, dans les sauvegardes). Le site
 impose HTTPS (HSTS) : installez le certificat **avant** d'ouvrir l'application sur un PC.
@@ -214,11 +265,14 @@ Le script s'arrête avec « La mise à jour a échoué. Version précédente : �
 ## 11. Commandes utiles (sur le serveur)
 
 ```bash
+sudo -i                                       # le dossier est réservé à root
 cd /opt/insurance-agency
-sudo docker compose ps                        # état des services
-sudo docker compose logs api --tail 50        # journal de l'application
-sudo docker compose restart api               # redémarrer l'application
-sudo docker compose stop && sudo docker compose up --detach --wait
+docker compose ps                             # état des services
+docker compose logs api --tail 50             # journal de l'application
+docker compose restart api                    # redémarrer l'application
+docker compose stop && docker compose up --detach --wait
+docker stats --no-stream                      # mémoire utilisée maintenant
+exit
 ```
 
 **Ne lancez jamais `docker compose down -v`** : `-v` efface les volumes, donc la base de données et les
@@ -280,17 +334,28 @@ au vu de ces résultats.
 5. Sur un autre PC du réseau : fichier `hosts` avec `192.168.11.126 insurance.internal`, certificat
    racine installé (§7), le cadenas, connexion d'un agent.
 6. Pare-feu, depuis ce PC : 443 ouvert ; 22 fermé (sauf depuis le PC admin) ; 5432 fermé (§4).
-7. Le test de fumée automatique, depuis le PC du développeur :
+7. Le test de fumée automatique, depuis le PC du développeur, avec un compte agent qui s'est déjà
+   connecté une fois dans le navigateur (un nouveau compte change d'abord son mot de passe provisoire) :
    ```powershell
    $env:PRODUCTION_URL = 'https://insurance.internal'
-   $env:SMOKE_USERNAME = '<un compte agent>'; $env:SMOKE_PASSWORD = '<son mot de passe>'
+   $env:SMOKE_USERNAME = '<un compte agent>'
+   $env:SMOKE_PASSWORD = Read-Host 'Mot de passe'
    npm run test:production
+   Remove-Item Env:SMOKE_PASSWORD
    ```
    Il vérifie HTTPS, les en-têtes de sécurité, qu'aucune requête ne sort du serveur, la connexion d'un
    agent et une liste lue dans la base. Ajoutez `$env:SMOKE_RESOLVE = 'insurance.internal:192.168.11.126'`
    si le fichier `hosts` de ce PC n'a pas encore le nom ; jamais `SMOKE_IGNORE_TLS` ici.
-8. Sauvegarde et restauration avec des données synthétiques et un disque USB (backup-restore.md §6).
-9. La mémoire pendant un scan et une recherche : `docker stats --no-stream`, et `free -h`.
+8. Sauvegarde et restauration avec des données synthétiques et un disque USB (backup-restore.md §6) :
+   un client créé avant l'heure choisie revient, un client créé après disparaît.
+9. La mémoire : `sudo docker stats --no-stream` et `free -h` pendant un scan (une **image**, pour la
+   lecture des caractères), puis le plus haut atteint par chaque service depuis son démarrage :
+   ```bash
+   for c in api db proxy; do
+     id=$(sudo docker inspect -f '{{.Id}}' insurance-agency-$c-1)
+     printf '%-6s pic : ' $c; numfmt --to=iec < /sys/fs/cgroup/system.slice/docker-$id.scope/memory.peak
+   done
+   ```
 10. Notez les résultats et les limites (dans docs/roadmap.md), puis refaites l'installation sur le
     mini-PC.
 
