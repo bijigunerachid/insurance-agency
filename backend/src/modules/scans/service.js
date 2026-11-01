@@ -188,6 +188,7 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
             toStatus: 'RENEWED',
             note: 'Renouvellement enregistré depuis un scan',
             userId: auth.user.id,
+            at: clock.now(),
           },
         });
         await audit.record(

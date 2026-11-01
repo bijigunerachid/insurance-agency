@@ -46,7 +46,11 @@ async function call(method, path, { body, file, signal, acceptStatuses = [] } = 
   }
 
   if (response.status === 204) return null;
-  const data = await response.json().catch(() => null);
+  // Cancelled while the answer was read: still cancelled, never an empty answer.
+  const data = await response.json().catch((err) => {
+    if (err.name === 'AbortError') throw err;
+    return null;
+  });
   if (response.ok || acceptStatuses.includes(response.status)) return data;
 
   const error = new ApiError(

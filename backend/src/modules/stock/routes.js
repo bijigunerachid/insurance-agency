@@ -4,8 +4,8 @@ import { idParams, listFormsQuery, moveFormsBody, receiveBatchBody } from './sch
 import { createStockService } from './service.js';
 
 /** Blank attestation stock: batches, forms and their movements. */
-export function stockRoutes({ prisma, audit, guards }) {
-  const service = createStockService({ prisma, audit });
+export function stockRoutes({ prisma, audit, clock, guards }) {
+  const service = createStockService({ prisma, audit, clock });
   const { authorize } = guards;
   const read = authorize(PERMISSIONS.STOCK_READ);
   const manage = authorize(PERMISSIONS.STOCK_MANAGE);

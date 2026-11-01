@@ -150,6 +150,11 @@ describe('a scanned renewal', () => {
     });
     const closed = await ctx.prisma.renewal.findUniqueOrThrow({ where: { id: open.id } });
     expect(closed).toMatchObject({ status: 'RENEWED', renewedContractId: next.id });
+    // Dated by the agency clock, like every follow-up entry.
+    const renewedOn = await ctx.prisma.renewalEvent.findFirstOrThrow({
+      where: { renewalId: open.id, toStatus: 'RENEWED' },
+    });
+    expect(renewedOn.at).toEqual(ctx.clock.now());
 
     // The same contract is not renewed twice.
     ctx.reading = {
