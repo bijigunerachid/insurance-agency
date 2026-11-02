@@ -13,13 +13,15 @@ const plain = (text) =>
     .toLowerCase();
 const isProvisionalProduct = (product) => plain(product.name).includes('provisoire');
 
-// The product lines of each attestation model. Models D (Divers), F (frontières) and G
-// (garagistes) say nothing about the product: every product is offered.
+// The product lines of each attestation model. Models D (Divers) and G (garagistes) say nothing
+// about the product: every product is offered, except border insurance, which only model F
+// (frontières) prints (rule C5).
 const LINES = {
   A: ['CAR', 'TAXI', 'FLEET'],
   B: ['PASSENGER_TRANSPORT', 'TAXI', 'FLEET'],
   C: ['COMMERCIAL', 'FLEET'],
   E: ['MOTORCYCLE', 'TRIPORTEUR'],
+  F: ['BORDER'],
 };
 const WHEELS = { '2.R': 'MOTORCYCLE', '3.R': 'TRIPORTEUR' };
 
@@ -79,6 +81,7 @@ function usageProduct(usage) {
 export function productFits(product, { modelCode, provisional, bodyType }) {
   if (provisional) return isProvisionalProduct(product);
   if (isProvisionalProduct(product)) return false;
+  if (product.line === 'BORDER') return modelCode === 'F';
   const lines = LINES[modelCode];
   if (!lines) return null;
   if (modelCode === 'E' && WHEELS[bodyType]) return product.line === WHEELS[bodyType];

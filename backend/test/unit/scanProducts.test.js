@@ -24,6 +24,7 @@ const products = [
   ['COMMERCIAL', 'Transport de marchandises'],
   ['PASSENGER_TRANSPORT', 'Transport scolaire'],
   ['DRIVING_SCHOOL', 'Auto-écoles'],
+  ['BORDER', 'Assurance aux frontières'],
 ].map(([line, name]) => ({ id: name, line, name }));
 const fitting = (sheet) =>
   products.filter((product) => productFits(product, sheet)).map((product) => product.name);
@@ -56,9 +57,19 @@ describe('products that fit a scanned attestation', () => {
     expect(fitting({ modelCode: 'A' })).not.toContain('Assurance provisoire');
   });
 
-  it('says nothing for a model that does not tell the product (D, F, G)', () => {
+  it('says nothing for a model that does not tell the product (D, G)', () => {
     expect(productFits(products[0], { modelCode: 'D' })).toBeNull();
     expect(fitting({ modelCode: 'G' })).toEqual([]);
+  });
+
+  it('offers border insurance on a model F sheet only, and nothing else there (rule C5)', () => {
+    const border = products.find((p) => p.line === 'BORDER');
+    expect(fitting({ modelCode: 'F' })).toEqual(['Assurance aux frontières']);
+    for (const modelCode of ['A', 'B', 'C', 'D', 'E', 'G']) {
+      expect(productFits(border, { modelCode })).toBe(false);
+    }
+    expect(productFits(border, { modelCode: 'P', provisional: true })).toBe(false);
+    expect(ruleProduct(products, { modelCode: 'F' })).toBe(border);
   });
 
   it('proposes a product only when the sheet points to one', () => {

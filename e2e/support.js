@@ -221,6 +221,36 @@ export async function prepareCatCoach() {
   });
 }
 
+/**
+ * Confirms model F with its usage, series CAT 91 F and the CAT product « Assurance aux
+ * frontières », for border insurance (owner, 02/11/2026).
+ */
+export async function prepareCatBorder() {
+  const { username } = await seedUser({ role: 'MANAGER' });
+  const manager = await db().user.findUniqueOrThrow({ where: { username } });
+  const confirmed = {
+    status: 'CONFIRMED',
+    confirmedAt: new Date(),
+    confirmedById: manager.id,
+    confirmationRef: 'Préparation des tests (synthétique)',
+  };
+  const pending = { status: 'TO_CONFIRM' };
+  await db().attestationModel.updateMany({ where: { code: 'F', ...pending }, data: confirmed });
+  await db().vehicleUsage.updateMany({
+    where: { label: 'Assurance aux frontières', ...pending },
+    data: confirmed,
+  });
+  const cat = await db().insurer.findUniqueOrThrow({ where: { code: 'CAT' } });
+  await db().attestationSeries.updateMany({
+    where: { insurerId: cat.id, code: '91 F', ...pending },
+    data: confirmed,
+  });
+  await db().product.updateMany({
+    where: { insurerId: cat.id, line: 'BORDER', ...pending },
+    data: confirmed,
+  });
+}
+
 /** Confirms the provisional model P and series RMA 14 P, for the provisional scan journey. */
 export async function prepareProvisionalSeries() {
   const { username } = await seedUser({ role: 'MANAGER' });

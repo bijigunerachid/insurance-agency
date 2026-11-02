@@ -70,6 +70,8 @@ describe('reference data', () => {
     expect(models[0].source).toMatch(/^Arrêté n° 213-05 .*art\. 2 \(modèle 1, jaune\)/);
     const usages = await items(agent, '/api/vehicle-usages');
     expect(usages.map((u) => [u.label, u.model.code, u.status])).toEqual([
+      // Model F: CAT border insurance, sold by the agency (02/11/2026).
+      ['Assurance aux frontières', 'F', 'TO_CONFIRM'],
       // Model D (arrêté 213-05): an RMA 14 D read on the platform's PDF (24/10/2026).
       ['Divers', 'D', 'TO_CONFIRM'],
       ['Tourisme', 'A', 'TO_CONFIRM'],
@@ -78,7 +80,7 @@ describe('reference data', () => {
       ['Transport public de voyageurs', 'B', 'TO_CONFIRM'],
       ['Véhicules à deux ou trois roues', 'E', 'TO_CONFIRM'],
     ]);
-    expect(usages[1].source).toMatch(/14 A/);
+    expect(usages[2].source).toMatch(/14 A/);
     // The agency's rule (owner, 23/10/2026): RMA 14 and CAT 91, one series per national model.
     const series = await items(agent, '/api/attestation-series');
     const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'P'];
@@ -113,23 +115,28 @@ describe('reference data', () => {
       /électriques relevant de la catégorie « Divers ».*Tous les véhicules électriques ne relèvent pas du modèle D/,
     );
     // The products the agency sells (owner, 23/10/2026), at RMA and at CAT, « à confirmer ».
+    // Border insurance (owner, 02/11/2026) exists at CAT only: RMA has no such product.
     const products = await items(agent, '/api/products?active=all');
-    expect(products).toHaveLength(36);
+    expect(products).toHaveLength(37);
     expect(products.every((p) => p.status === 'TO_CONFIRM' && !p.usable)).toBe(true);
-    for (const code of ['CAT', 'RMA']) {
-      expect(
-        products
-          .filter((p) => p.insurer.code === code)
-          .map((p) => p.name)
-          .sort(),
-      ).toEqual([...REFERENCE_PRODUCT_NAMES].sort());
-    }
+    const names = (code) =>
+      products
+        .filter((p) => p.insurer.code === code)
+        .map((p) => p.name)
+        .sort();
+    expect(names('CAT')).toEqual([...REFERENCE_PRODUCT_NAMES].sort());
+    expect(names('RMA')).toEqual(
+      REFERENCE_PRODUCT_NAMES.filter((n) => n !== 'Assurance aux frontières').sort(),
+    );
+    expect(products.find((p) => p.name === 'Assurance aux frontières').line).toBe('BORDER');
     expect(products.find((p) => p.name === 'Grand taxi').line).toBe('TAXI');
     // Sold with CAT only, inactive at RMA: passenger transport (owner, 28/10/2026), taxis and
     // three-wheelers (owner, 29/10/2026).
     const inactive = products.filter((p) => !p.active);
     expect(inactive.map((p) => `${p.insurer.code} ${p.name}`).sort()).toEqual(
-      CAT_ONLY_PRODUCT_NAMES.map((name) => `RMA ${name}`).sort(),
+      CAT_ONLY_PRODUCT_NAMES.filter((n) => n !== 'Assurance aux frontières')
+        .map((name) => `RMA ${name}`)
+        .sort(),
     );
     const active = (code, name) =>
       products.find((p) => p.insurer.code === code && p.name === name).active;
@@ -526,11 +533,15 @@ describe('products', () => {
     await manager.post('/api/products', product(cat));
     await manager.post('/api/products', product(rma, { line: 'CAR', name: 'Basic’OTO' }));
 
-    // The agency's 18 products are at each insurer too.
+    // The agency's 18 products are at each insurer too, border insurance at CAT only.
     const atCat = await items(manager, `/api/products?insurerId=${cat}`);
     expect(atCat.every((p) => p.insurer.code === 'CAT')).toBe(true);
     expect(atCat.map((p) => p.name)).toContain('RAHTI');
-    expect(atCat).toHaveLength(19);
+    expect(atCat).toHaveLength(20);
+    const border = await items(manager, '/api/products?line=BORDER');
+    expect(border.map((p) => [p.insurer.code, p.name, p.status])).toEqual([
+      ['CAT', 'Assurance aux frontières', 'TO_CONFIRM'],
+    ]);
     const cars = await items(manager, '/api/products?line=CAR');
     expect(cars.every((p) => p.line === 'CAR')).toBe(true);
     expect(cars.map((p) => p.name)).toContain('Basic’OTO');

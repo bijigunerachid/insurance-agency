@@ -20,7 +20,7 @@ const run = (username) =>
   );
 
 describe('confirming the reference catalogue configuration (command)', () => {
-  it('confirms the 8 models, the 3 usages, the 16 RMA 14 / CAT 91 series and the 28 products sold in the administrator’s name', async () => {
+  it('confirms the 8 models, the 3 usages, the 16 RMA 14 / CAT 91 series and the 29 products sold in the administrator’s name', async () => {
     const admin = await ctx.createUser({ username: 'directeur', role: 'ADMIN' });
 
     const result = await run('Directeur');
@@ -51,9 +51,11 @@ describe('confirming the reference catalogue configuration (command)', () => {
       where: { action: { in: ['attestation_model.confirmed', 'attestation_series.confirmed'] } },
     });
     const usages = await ctx.prisma.vehicleUsage.findMany({ orderBy: { label: 'asc' } });
-    // The three usages the owner confirmed; "Divers" (model D) and "Transport public de
-    // voyageurs" (model B, CAT 91 B form of 29/10/2026) wait for a manager.
+    // The three usages the owner confirmed; "Divers" (model D), "Transport public de voyageurs"
+    // (model B, CAT 91 B form of 29/10/2026) and "Assurance aux frontières" (model F, 02/11/2026)
+    // wait for a manager.
     expect(usages.map((u) => [u.label, u.status, u.confirmedById])).toEqual([
+      ['Assurance aux frontières', 'TO_CONFIRM', null],
       ['Divers', 'TO_CONFIRM', null],
       ['Tourisme', 'CONFIRMED', admin.id],
       ['Transport de marchandises', 'CONFIRMED', admin.id],
@@ -66,10 +68,10 @@ describe('confirming the reference catalogue configuration (command)', () => {
     expect(usageEvents).toBe(3);
     expect(events).toHaveLength(24);
     expect(events[0]).toMatchObject({ actorUserId: admin.id, details: { via: 'command' } });
-    // 28: passenger transport, taxis and three-wheelers are confirmed at CAT only; their 8 RMA
-    // products stay inactive.
+    // 29: passenger transport, taxis, three-wheelers and border insurance are confirmed at CAT
+    // only; the 8 RMA ones stay inactive (RMA has no border product).
     const products = await ctx.prisma.product.findMany({ where: { active: true } });
-    expect(products).toHaveLength(28);
+    expect(products).toHaveLength(29);
     expect(
       products.every(
         (p) => p.status === 'CONFIRMED' && p.confirmationRef === REFERENCE_PRODUCTS_DOCUMENT,
@@ -78,7 +80,7 @@ describe('confirming the reference catalogue configuration (command)', () => {
     const productEvents = await ctx.prisma.auditLog.findMany({
       where: { action: 'product.confirmed' },
     });
-    expect(productEvents).toHaveLength(28);
+    expect(productEvents).toHaveLength(29);
     expect(productEvents[0].details).toEqual({
       reference: REFERENCE_PRODUCTS_DOCUMENT,
       via: 'command',
@@ -93,8 +95,8 @@ describe('confirming the reference catalogue configuration (command)', () => {
     expect(again.series.confirmed).toEqual([]);
     expect(again.usages.confirmed).toEqual([]);
     expect(again.products.confirmed).toEqual([]);
-    // One event per model, usage, series and product (8 + 3 + 16 + 28), none more the second time.
-    expect(await ctx.prisma.auditLog.count()).toBe(55);
+    // One event per model, usage, series and product (8 + 3 + 16 + 29), none more the second time.
+    expect(await ctx.prisma.auditLog.count()).toBe(56);
   });
 
   it('refuses an agent or an unknown account, and leaves a series whose model is unconfirmed or a product of an inactive insurer', async () => {

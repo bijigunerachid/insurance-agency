@@ -767,6 +767,20 @@ export const fr = {
       details: 'Détails du contrat',
       history: 'Historique',
     },
+    border: {
+      duration: 'Durée de l’assurance aux frontières',
+      hint: 'La fin est calculée comme sur la plateforme CAT (règle C5). Vous pouvez la corriger.',
+      startFirst: 'Indiquez d’abord le début.',
+      durations: {
+        '5d': '5 jours',
+        '10d': '10 jours',
+        '1m': '1 mois',
+        '3m': '3 mois',
+        '6m': '6 mois',
+      },
+      noRenewal:
+        'Assurance aux frontières : pas de tacite reconduction ni de suivi de renouvellement. Une nouvelle assurance se prend à chaque entrée (règle C5).',
+    },
     fields: {
       ref: 'Référence',
       customer: 'Client',
@@ -928,6 +942,9 @@ export const fr = {
       REQUIRED: 'Ce champ est obligatoire.',
       PRODUCT_NOT_USABLE: 'Ce produit n’est pas (ou plus) confirmé dans le catalogue.',
       END_BEFORE_START: 'La fin doit être après le début.',
+      BORDER_TOO_LONG: 'Une assurance aux frontières dure 6 mois au plus (règle C5).',
+      BORDER_NO_TACIT_RENEWAL:
+        'Une assurance aux frontières ne se renouvelle pas toute seule (règle C5).',
       VEHICLE_NOT_OF_CUSTOMER: 'Ce véhicule n’appartient pas au client.',
       VEHICLE_ARCHIVED: 'Ce véhicule est archivé.',
       INVALID_AMOUNT: 'Montant invalide (par exemple 1234,50).',

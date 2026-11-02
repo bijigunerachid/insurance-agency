@@ -44,10 +44,23 @@ export const LONG_UNPAID_DAYS = 15;
 
 /** Same day next month, or the month's last day (as PostgreSQL adds "1 month"). */
 export function addOneMonth(iso) {
-  const [year, month, day] = iso.split('-').map(Number);
-  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(year, month, Math.min(day, lastDay))).toISOString().slice(0, 10);
+  return addMonths(iso, 1);
 }
+
+/** The same day `months` later, or that month's last day (31/08 + 6 months = 28 or 29/02). */
+export function addMonths(iso, months) {
+  const [year, month, day] = iso.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(year, month - 1 + months + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month - 1 + months, Math.min(day, lastDay)))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * Border insurance (rule C5, owner 02/11/2026): 5 days, 10 days, 1, 3 or 6 months, the platform
+ * counting like the provisional attestation (the same day a month later). Never renewed by itself.
+ */
+export const BORDER_MAX_MONTHS = 6;
 
 /**
  * Allowed status changes (docs/data-model.md §3.2) and what each one needs. `manager`:
@@ -303,6 +316,15 @@ export function createContractsService({ prisma, audit, clock, config }) {
     if (endDate <= startDate) throw invalid('endDate', 'END_BEFORE_START');
   }
 
+  /** Border insurance: 6 months at most, no tacit renewal (rule C5). */
+  function assertBorderTerms(product, { startDate, endDate, tacitRenewal }) {
+    if (product.line !== 'BORDER') return;
+    if (endDate > addMonths(startDate, BORDER_MAX_MONTHS)) {
+      throw invalid('endDate', 'BORDER_TOO_LONG');
+    }
+    if (tacitRenewal) throw invalid('tacitRenewal', 'BORDER_NO_TACIT_RENEWAL');
+  }
+
   const duplicatePolicy = () =>
     new HttpError(
       409,
@@ -333,6 +355,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
       throw new HttpError(409, 'OWNER_ARCHIVED', 'Ce client est archivé : restaurez-le d’abord.');
     }
     const product = await usableProduct(tx, body.productId);
+    assertBorderTerms(product, body);
     await assertVehiclesOf(tx, vehicleIds, customer.id);
 
     const year = Number(today().slice(0, 4));
@@ -545,8 +568,9 @@ export function createContractsService({ prisma, audit, clock, config }) {
         if (current.status !== 'DRAFT') throw notEditable();
         const data = {};
         const changed = [];
+        let product = current.product;
         if (changes.productId && changes.productId !== current.productId) {
-          const product = await usableProduct(tx, changes.productId);
+          product = await usableProduct(tx, changes.productId);
           Object.assign(data, { productId: product.id, insurerId: product.insurerId });
           changed.push('productId');
         }
@@ -556,10 +580,13 @@ export function createContractsService({ prisma, audit, clock, config }) {
             changed.push(field);
           }
         }
-        assertDates(
-          changes.startDate ?? fromDate(current.startDate),
-          changes.endDate ?? fromDate(current.endDate),
-        );
+        const terms = {
+          startDate: changes.startDate ?? fromDate(current.startDate),
+          endDate: changes.endDate ?? fromDate(current.endDate),
+          tacitRenewal: changes.tacitRenewal ?? current.tacitRenewal,
+        };
+        assertDates(terms.startDate, terms.endDate);
+        assertBorderTerms(product, terms);
         if (
           changes.premiumTotal !== undefined &&
           changes.premiumTotal !== money(current.premiumTotal)

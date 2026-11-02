@@ -109,12 +109,19 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
 
   /**
    * Opens a renewal for every issued contract that ends within the window and has none yet,
-   * nor a following contract. Run before each read: no background job is needed offline.
+   * nor a following contract. Run before each read: no background job is needed offline. Border
+   * insurance is never renewed: a new one is taken at the next entry (rule C5).
    */
   async function openDue() {
     const limit = toDate(addDays(today(), RENEWAL_WINDOW_DAYS));
     const due = await prisma.contract.findMany({
-      where: { status: 'ISSUED', endDate: { lte: limit }, renewal: null, nextContract: null },
+      where: {
+        status: 'ISSUED',
+        endDate: { lte: limit },
+        renewal: null,
+        nextContract: null,
+        product: { line: { not: 'BORDER' } },
+      },
       select: { id: true, endDate: true, createdById: true },
     });
     if (due.length === 0) return;

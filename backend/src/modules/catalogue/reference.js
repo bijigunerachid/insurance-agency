@@ -18,7 +18,8 @@ export const REFERENCE_SERIES = [
   ...REFERENCE_MODELS.map((letter) => ['RMA', `14 ${letter}`]),
   ...REFERENCE_MODELS.map((letter) => ['CAT', `91 ${letter}`]),
 ];
-// The products the agency sells, at RMA and at CAT (owner, 23/10/2026; Auto-écoles 29/10/2026).
+// The products the agency sells, at RMA and at CAT (owner, 23/10/2026; Auto-écoles 29/10/2026;
+// border insurance 02/11/2026).
 export const REFERENCE_PRODUCT_NAMES = [
   'Véhicules de tourisme',
   'Petit taxi',
@@ -38,9 +39,11 @@ export const REFERENCE_PRODUCT_NAMES = [
   'Transport scolaire',
   'Autocars et autobus',
   'Auto-écoles',
+  'Assurance aux frontières',
 ];
 // Sold with CAT only: passenger transport (owner, 28/10/2026), taxis and three-wheelers (owner,
-// 29/10/2026). The RMA ones stay inactive.
+// 29/10/2026), border insurance (owner, 02/11/2026). The RMA ones stay inactive; RMA has no border
+// product at all.
 export const CAT_ONLY_PRODUCT_NAMES = [
   'Petit taxi',
   'Grand taxi',
@@ -50,6 +53,7 @@ export const CAT_ONLY_PRODUCT_NAMES = [
   'Transport du personnel',
   'Transport scolaire',
   'Autocars et autobus',
+  'Assurance aux frontières',
 ];
 export const REFERENCE_PRODUCTS = ['RMA', 'CAT'].flatMap((insurer) =>
   REFERENCE_PRODUCT_NAMES.filter(
