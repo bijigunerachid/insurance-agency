@@ -169,4 +169,6 @@ a payment in a `SENT` remittance cannot be reversed without a manager note.
 ### 3.5 Renewal
 
 `TO_PREPARE` → `CUSTOMER_CONTACTED` → `DOCUMENTS_COMPLETE` → `RENEWED` (link to the new contract), or from any open
-state → `NOT_RENEWED` (reason). Renewals are created automatically for issued contracts within the reminder period.
+state → `NOT_RENEWED` (reason). Renewals are created automatically for issued contracts within the reminder period,
+except border insurance (product line `BORDER`, rule C5): it lasts 6 months at most, has no tacit renewal and is
+never renewed (a new insurance at each entry).

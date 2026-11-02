@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { me, mockApi } from './mockApi.js';
@@ -440,6 +440,83 @@ describe('contract form', () => {
       startDate: '2026-11-01',
       endDate: '2026-10-01',
       premiumTotal: '1 234,50',
+      tacitRenewal: false,
+      vehicleIds: ['v1'],
+    });
+  });
+  it('fills the end of border insurance from its five durations, without tacit renewal (rule C5)', async () => {
+    const fetchMock = mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      [`GET /api/customers/${CUSTOMER_ID}`]: () => [
+        200,
+        { id: CUSTOMER_ID, ref: 'CLI-000001', displayName: 'Lena Essai', archivedAt: null },
+      ],
+      'GET /api/products?status=CONFIRMED': () => [
+        200,
+        {
+          items: [
+            { id: 'p1', line: 'CAR', name: 'Produit RMA', insurer: { code: 'RMA' }, usable: true },
+            {
+              id: 'pb',
+              line: 'BORDER',
+              name: 'Assurance aux frontières',
+              insurer: { code: 'CAT' },
+              usable: true,
+            },
+          ],
+        },
+      ],
+      [`GET /api/vehicles?customerId=${CUSTOMER_ID}&pageSize=100`]: () => [
+        200,
+        { items: [vehicle] },
+      ],
+      // The new contract's page is not the subject here: the request stays pending.
+      'POST /api/contracts': () => new Promise(() => {}),
+    });
+    renderApp(`/contrats/nouveau?client=${CUSTOMER_ID}`);
+    const user = userEvent.setup();
+
+    // An ordinary product keeps tacit renewal and offers no durations.
+    const product = await screen.findByLabelText('Produit');
+    await user.selectOptions(product, 'RMA · Produit RMA');
+    await user.click(screen.getByRole('checkbox', { name: /tacite reconduction/ }));
+    expect(screen.queryByRole('group', { name: /Durée/ })).not.toBeInTheDocument();
+
+    await user.selectOptions(product, 'CAT · Assurance aux frontières');
+    const durations = screen.getByRole('group', { name: 'Durée de l’assurance aux frontières' });
+    expect(
+      within(durations)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual(['5 jours', '10 jours', '1 mois', '3 mois', '6 mois']);
+    expect(within(durations).getByRole('button', { name: '10 jours' })).toBeDisabled();
+    expect(screen.getByText('Indiquez d’abord le début.')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /tacite reconduction/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Délai pour résilier/)).not.toBeInTheDocument();
+    expect(screen.getByText(/pas de tacite reconduction ni de suivi/)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Début'), '2026-08-31');
+    await user.click(within(durations).getByRole('button', { name: '10 jours' }));
+    expect(screen.getByLabelText('Fin')).toHaveValue('2026-09-10');
+    expect(within(durations).getByRole('button', { name: '10 jours' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // A shorter month ends on its last day, like the server.
+    await user.click(within(durations).getByRole('button', { name: '6 mois' }));
+    expect(screen.getByLabelText('Fin')).toHaveValue('2027-02-28');
+    await user.click(await screen.findByRole('checkbox', { name: /12345-B-6/ }));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => url === '/api/contracts')).toBe(true),
+    );
+    const call = fetchMock.mock.calls.find(([url]) => url === '/api/contracts');
+    expect(JSON.parse(call[1].body)).toEqual({
+      customerId: CUSTOMER_ID,
+      productId: 'pb',
+      startDate: '2026-08-31',
+      endDate: '2027-02-28',
       tacitRenewal: false,
       vehicleIds: ['v1'],
     });

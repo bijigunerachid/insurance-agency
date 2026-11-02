@@ -1,6 +1,6 @@
 // Confirms the reference catalogue configuration (the 8 national attestation models, the 3 vehicle
-// usages, the 16 RMA 14 / CAT 91 series, one per model, and the 34 RMA and CAT products of the
-// agency) in the name of an administrator or manager. Run on the server:
+// usages, the 16 RMA 14 / CAT 91 series, one per model, and the 29 RMA and CAT products the
+// agency sells there) in the name of an administrator or manager. Run on the server:
 //   npm run catalogue:confirm-reference -w backend
 // Entries already confirmed are left as they are: the command can safely run again.
 import { createInterface } from 'node:readline/promises';

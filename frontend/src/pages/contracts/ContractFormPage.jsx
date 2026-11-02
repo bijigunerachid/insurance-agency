@@ -8,6 +8,7 @@ import { FormActions } from '../../components/FormActions.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
 import { Spinner } from '../../components/Spinner.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { BORDER_DURATIONS, borderEnd } from '../../features/contracts/borderDurations.js';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.jsx';
 import { errorMessage, fr } from '../../i18n/fr.js';
@@ -129,6 +130,25 @@ function ContractForm({ contract, customer }) {
     setFieldErrors(({ vehicleIds: _cleared, ...rest }) => rest);
   };
   const noProducts = products.state.status === 'done' && productOptions.length === 0;
+  const product =
+    products.state.status === 'done'
+      ? products.state.data.items.find((p) => p.id === form.productId)
+      : null;
+  // Border insurance: a fixed duration, never renewed by itself (rule C5).
+  const border = product?.line === 'BORDER';
+  const chooseProduct = (event) => {
+    const chosen = products.state.data.items.find((p) => p.id === event.target.value);
+    setForm({
+      ...form,
+      productId: event.target.value,
+      ...(chosen?.line === 'BORDER' ? { tacitRenewal: false, noticeDays: '' } : {}),
+    });
+    setFieldErrors(({ productId: _cleared, ...rest }) => rest);
+  };
+  const chooseDuration = (duration) => {
+    setForm({ ...form, endDate: borderEnd(form.startDate, duration) });
+    setFieldErrors(({ endDate: _cleared, ...rest }) => rest);
+  };
 
   return (
     <div className="space-y-6">
@@ -172,7 +192,7 @@ function ContractForm({ contract, customer }) {
               label={t.fields.productId}
               hint={t.hints.productId}
               value={form.productId}
-              onChange={set('productId')}
+              onChange={chooseProduct}
               error={fieldErrors.productId}
               options={[{ value: '', label: '—' }, ...productOptions]}
             />
@@ -191,6 +211,31 @@ function ContractForm({ contract, customer }) {
             onChange={set('endDate')}
             error={fieldErrors.endDate}
           />
+          {border && (
+            <fieldset className="space-y-2 sm:col-span-2">
+              <legend className="text-sm font-medium">{t.border.duration}</legend>
+              <p className="text-sm text-slate-600">
+                {form.startDate ? t.border.hint : t.border.startFirst}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {BORDER_DURATIONS.map((duration) => (
+                  <Button
+                    key={duration.key}
+                    variant="secondary"
+                    className="aria-pressed:bg-blue-50 aria-pressed:ring-2 aria-pressed:ring-blue-700"
+                    disabled={!form.startDate}
+                    aria-pressed={
+                      Boolean(form.startDate) &&
+                      form.endDate === borderEnd(form.startDate, duration)
+                    }
+                    onClick={() => chooseDuration(duration)}
+                  >
+                    {t.border.durations[duration.key]}
+                  </Button>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <TextField
             label={t.fields.premiumTotal}
             hint={t.hints.premiumTotal}
@@ -200,26 +245,35 @@ function ContractForm({ contract, customer }) {
             onChange={set('premiumTotal')}
             error={fieldErrors.premiumTotal}
           />
-          <TextField
-            label={t.fields.noticeDays}
-            hint={t.hints.noticeDays}
-            type="number"
-            min={1}
-            max={365}
-            inputMode="numeric"
-            value={form.noticeDays}
-            onChange={set('noticeDays')}
-            error={fieldErrors.noticeDays}
-          />
-          <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={form.tacitRenewal}
-              onChange={(e) => setForm({ ...form, tacitRenewal: e.target.checked })}
-              className="size-4 rounded border-slate-300"
+          {!border && (
+            <TextField
+              label={t.fields.noticeDays}
+              hint={t.hints.noticeDays}
+              type="number"
+              min={1}
+              max={365}
+              inputMode="numeric"
+              value={form.noticeDays}
+              onChange={set('noticeDays')}
+              error={fieldErrors.noticeDays}
             />
-            {t.fields.tacitRenewal}
-          </label>
+          )}
+          {border ? (
+            <p className="text-sm text-slate-600 sm:col-span-2">{t.border.noRenewal}</p>
+          ) : (
+            <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.tacitRenewal}
+                onChange={(e) => setForm({ ...form, tacitRenewal: e.target.checked })}
+                className="size-4 rounded border-slate-300"
+              />
+              {t.fields.tacitRenewal}
+            </label>
+          )}
+          {fieldErrors.tacitRenewal && (
+            <p className="text-sm text-red-700 sm:col-span-2">{fieldErrors.tacitRenewal}</p>
+          )}
         </section>
 
         {!contract && (
