@@ -102,6 +102,19 @@ the logo (one logo in the page, chosen by the screen's width). Passwords use `Pa
 buttons show their work (`loading`). The workspace cards (`WorkspacePage.jsx`) use the same top
 bar, colours and radius as the application.
 
+## Home page (stage 4)
+
+`frontend/src/pages/HomePage.jsx` (« Aujourd'hui »): a `PageHeader` with the greeting and the
+agency's day in words (the date the server gives, `formatLongDate`); the workspace banner when one
+insurer is chosen; two actions, the blue « Scanner une attestation » card and the search box,
+side by side from 1280 px and one under the other below; then two `Card`s. « À faire » lists what
+is waiting, late lines first (a red edge and « En retard »), with « N en retard » in its header;
+« Mes prochains renouvellements » shows five, with the way to all of them. Each card shows the
+shape of its rows while loading (`SkeletonList flush`), a plain sentence when empty and an error
+inside the card if its list cannot be read, so the rest of the page stays usable. The renewal rows
+(`RenewalList`, also on the renewals pages), the notifications line (`AlertsSwitch`) and the
+workspace banner (`WorkspaceNotice`, on every filtered list) moved to the tokens.
+
 ## Stages
 
 The redesign goes stage by stage, each on its own branch, merged by the owner before the next

@@ -443,3 +443,62 @@ describe('paying from the list of what is owed', () => {
     expect(paid).toMatchObject({ amount: '234,50', method: 'CASH' });
   });
 });
+
+describe('the home page says where it stands', () => {
+  it('shows the shape of the lists while they load, then the day and how many lines are late', async () => {
+    let answer;
+    const today = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': agent,
+      ...emptyHome,
+      'GET /api/today': () => today,
+    });
+    renderApp('/accueil');
+    const todo = await screen.findByRole('region', { name: 'À faire' });
+    expect(within(todo).getByRole('status')).toHaveTextContent('Chargement…');
+
+    answer([
+      200,
+      {
+        today: '2026-11-04',
+        items: [
+          { kind: 'RENEWALS_LATE', count: 2, to: '/renouvellements?overdue=1' },
+          { kind: 'SCANS', count: 1, to: '/scans' },
+        ],
+      },
+    ]);
+    expect(await within(todo).findByText('1 en retard')).toBeInTheDocument();
+    expect(within(todo).queryByRole('status')).toBeNull();
+    // The agency's day, as the server gives it.
+    expect(screen.getByText('Mercredi 4 novembre 2026')).toBeInTheDocument();
+  });
+
+  it('says plainly when nothing is waiting and when no renewal is due', async () => {
+    mockApi({ 'GET /api/auth/me': agent, ...emptyHome });
+    renderApp('/accueil');
+    const todo = await screen.findByRole('region', { name: 'À faire' });
+    expect(await within(todo).findByText('Rien en attente. Tout est à jour.')).toBeInTheDocument();
+    expect(within(todo).queryByText(/en retard/)).toBeNull();
+    const next = screen.getByRole('region', { name: 'Mes prochains renouvellements' });
+    expect(
+      await within(next).findByText('Aucun renouvellement à suivre pour vous.'),
+    ).toBeInTheDocument();
+    expect(
+      within(next).getByRole('link', { name: 'Voir tous les renouvellements' }),
+    ).toHaveAttribute('href', '/renouvellements');
+  });
+
+  it('keeps the page usable when the renewals cannot be read', async () => {
+    mockApi({
+      'GET /api/auth/me': agent,
+      ...emptyHome,
+      'GET /api/renewals/summary': () => [500, { error: { code: 'INTERNAL' } }],
+    });
+    renderApp('/accueil');
+    const next = await screen.findByRole('region', { name: 'Mes prochains renouvellements' });
+    expect(await within(next).findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Rechercher' })).toBeEnabled();
+  });
+});

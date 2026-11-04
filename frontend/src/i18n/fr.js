@@ -1027,6 +1027,7 @@ export const fr = {
     todo: 'À faire',
     nothingToDo: 'Rien en attente. Tout est à jour.',
     late: 'En retard',
+    lateCount: (n) => `${n} en retard`,
     todoItems: {
       SCANS: ({ count }) => (count === 1 ? '1 scan à vérifier' : `${count} scans à vérifier`),
       RENEWALS_LATE: ({ count }) =>

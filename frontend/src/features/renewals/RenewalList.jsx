@@ -19,23 +19,28 @@ export function DueBadge({ renewal }) {
   return <StatusBadge tone={tone}>{t.days(renewal.daysLeft)}</StatusBadge>;
 }
 
-/** Renewal rows; each opens its follow-up page, and the client's phone calls them. */
-export function RenewalList({ renewals }) {
+/**
+ * Renewal rows; each opens its follow-up page, and the client's phone calls them. `flush`:
+ * inside a card, without its own border.
+ */
+export function RenewalList({ renewals, flush = false }) {
   return (
-    <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    <ul
+      className={`divide-y divide-line bg-surface ${flush ? '' : 'rounded-card border border-line'}`}
+    >
       {renewals.map((renewal) => (
         <li
           key={renewal.id}
-          className="relative flex items-start justify-between gap-3 p-3 text-sm hover:bg-slate-50"
+          className="relative flex items-start justify-between gap-3 px-4 py-3.5 text-sm hover:bg-sunken/60 sm:px-5"
         >
           <div className="min-w-0 space-y-0.5">
             <Link
               to={`/renouvellements/${renewal.id}`}
-              className="font-medium text-blue-700 underline-offset-2 after:absolute after:inset-0 hover:underline focus-visible:outline-2 focus-visible:outline-blue-700"
+              className="focus-ring rounded-control font-semibold text-ink underline-offset-2 after:absolute after:inset-0 hover:text-primary hover:underline"
             >
               {renewal.contract.customer.displayName}
             </Link>
-            <p className="text-slate-700">
+            <p className="text-ink-soft">
               <span className="font-mono">{renewal.contract.ref}</span> ·{' '}
               {renewal.contract.insurer.code} · {renewal.contract.product.name}
               {renewal.contract.vehicles.length > 0 && (
@@ -45,7 +50,7 @@ export function RenewalList({ renewals }) {
                 </span>
               )}
             </p>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-ink-muted">
               {t.dueDate} {formatDate(renewal.dueDate)} · {t.statuses[renewal.status]} ·{' '}
               {t.assignedUser} {renewal.assignedUser.displayName}
               {renewal.noticeDeadline &&
@@ -54,7 +59,7 @@ export function RenewalList({ renewals }) {
             {renewal.open && renewal.contract.customer.phone && (
               <a
                 href={`tel:${renewal.contract.customer.phone}`}
-                className="relative mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 font-medium text-blue-800 ring-1 ring-inset ring-blue-200 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-700"
+                className="focus-ring relative mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 font-medium text-primary-hover ring-1 ring-inset ring-primary/25 hover:bg-primary/10"
               >
                 <PhoneIcon aria-hidden="true" className="size-4" />
                 {formatPhone(renewal.contract.customer.phone)}

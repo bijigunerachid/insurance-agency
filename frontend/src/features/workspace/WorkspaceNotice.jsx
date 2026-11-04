@@ -15,14 +15,14 @@ export function WorkspaceNotice({ text = t.notice }) {
     <div
       role="status"
       style={{ '--brand': insurer.colour ?? '#334155' }}
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-slate-200 border-l-4 border-l-(--brand) bg-white px-3 py-2 text-sm text-slate-700"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-line border-l-4 border-l-(--brand) bg-surface px-4 py-2.5 text-sm text-ink-soft shadow-hairline"
     >
-      <FunnelIcon aria-hidden="true" className="size-4 shrink-0 text-slate-500" />
+      <FunnelIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
       <span className="min-w-0 flex-1">{text(insurer.code)}</span>
       <button
         type="button"
         onClick={() => choose(BOTH)}
-        className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-900 focus-visible:outline-2 focus-visible:outline-blue-700"
+        className="focus-ring rounded-control font-medium text-primary underline underline-offset-2 hover:text-primary-hover"
       >
         {t.showBoth}
       </button>
