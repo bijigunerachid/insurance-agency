@@ -13,6 +13,8 @@ export const listCustomersQuery = z.strictObject({
   q: z.string().trim().max(80).optional(),
   type: z.enum(['INDIVIDUAL', 'BUSINESS']).optional(),
   archived: z.enum(['exclude', 'include', 'only']).default('exclude'),
+  /** The workspace chosen after sign-in: clients with a contract there, or with none. */
+  insurerId: z.uuid().optional(),
   ...paginationFields,
 });
 

@@ -323,23 +323,26 @@ export async function prepareSeriesForStock() {
 export async function seedContractEndingSoon(
   username,
   lastName,
-  { premiumTotal = null, insurerCode = 'RMA' } = {},
+  { premiumTotal = null, insurerCode = 'RMA', customerId = null } = {},
 ) {
   const productName = `Produit renouvellement ${lastName}`;
   await prepareCatalogueForContracts(productName, insurerCode);
   const user = await db().user.findUniqueOrThrow({ where: { username } });
   const product = await db().product.findFirstOrThrow({ where: { name: productName } });
   const suffix = randomBytes(3).readUIntBE(0, 3) % 100000;
-  const customer = await db().customer.create({
-    data: {
-      ref: `CLI-${String(900000 + (suffix % 99999)).padStart(6, '0')}`,
-      type: 'INDIVIDUAL',
-      firstName: 'Sara',
-      lastName,
-      searchText: `sara ${lastName.toLowerCase()}`,
-      createdById: user.id,
-    },
-  });
+  // A second contract for a customer already seeded (one at each insurer), or a new customer.
+  const customer = customerId
+    ? { id: customerId }
+    : await db().customer.create({
+        data: {
+          ref: `CLI-${String(900000 + (suffix % 99999)).padStart(6, '0')}`,
+          type: 'INDIVIDUAL',
+          firstName: 'Sara',
+          lastName,
+          searchText: `sara ${lastName.toLowerCase()}`,
+          createdById: user.id,
+        },
+      });
   const day = (offset) => {
     const date = new Date();
     date.setUTCHours(0, 0, 0, 0);

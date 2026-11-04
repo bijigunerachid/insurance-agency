@@ -9,6 +9,7 @@ import {
 import { pageResult, toSkipTake } from '../../utils/pagination.js';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { checkCombined } from './schemas.js';
+import { customerInWorkspace } from '../workspaces/filters.js';
 
 const notFound = () => new HttpError(404, 'NOT_FOUND', 'Client introuvable.');
 const conflict = () =>
@@ -97,6 +98,8 @@ function toListItem(customer) {
     archivedAt: customer.archivedAt,
     // Issued contracts: the insurances the person has with the agency now.
     activeContracts: customer._count?.contracts ?? 0,
+    // Any contract at all, whatever its status: « sans contrat » otherwise.
+    hasContract: customer.hasContract ?? false,
   };
 }
 
@@ -208,11 +211,12 @@ export function createCustomersService({ prisma, audit, clock }) {
   }
 
   return {
-    async list(auth, { q, type, archived, page, pageSize }) {
+    async list(auth, { q, type, archived, insurerId, page, pageSize }) {
       const where = {
         ...(archived === 'exclude' ? { archivedAt: null } : {}),
         ...(archived === 'only' ? { archivedAt: { not: null } } : {}),
         ...(type ? { type } : {}),
+        ...(insurerId ? { AND: [customerInWorkspace(insurerId)] } : {}),
       };
       if (q) {
         const text = searchable(q);
@@ -237,7 +241,19 @@ export function createCustomersService({ prisma, audit, clock }) {
         }),
         prisma.customer.count({ where }),
       ]);
-      return pageResult(rows.map(toListItem), total, { page, pageSize });
+      const withContracts = new Set(
+        (
+          await prisma.contract.groupBy({
+            by: ['customerId'],
+            where: { customerId: { in: rows.map((row) => row.id) } },
+          })
+        ).map((group) => group.customerId),
+      );
+      return pageResult(
+        rows.map((row) => toListItem({ ...row, hasContract: withContracts.has(row.id) })),
+        total,
+        { page, pageSize },
+      );
     },
 
     async get(auth, id) {

@@ -306,6 +306,7 @@ export const fr = {
     details: 'Coordonnées et suivi',
     activeContracts: 'Assurances en cours',
     activeCount: (n) => (n === 1 ? '1 contrat émis' : `${n} contrats émis`),
+    noContract: 'Sans contrat',
     newFleet: 'Créer une flotte',
     fields: {
       firstName: 'Prénom',
@@ -1599,6 +1600,12 @@ export const fr = {
     change: 'Changer d’espace',
     changeLabel: (current) => `${current} — changer d’espace`,
     notice: (code) => `Espace ${code} : seuls les dossiers ${code} sont affichés ici.`,
+    noticeCustomers: (code) =>
+      `Espace ${code} : les clients qui ont un contrat ${code}, et ceux qui n’ont encore aucun contrat.`,
+    noticeVehicles: (code) =>
+      `Espace ${code} : les véhicules qui ont un contrat ${code}, et ceux qui n’en ont encore aucun.`,
+    otherInsurers: 'Autres compagnies',
+    otherInsurersHint: (code) => `Contrats de ce client chez une autre compagnie que ${code}.`,
     showBoth: 'Voir les deux',
   },
   notFound: {

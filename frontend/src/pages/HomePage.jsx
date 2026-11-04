@@ -158,7 +158,9 @@ function SearchBox() {
     const timer = setTimeout(() => setQuery(text.trim()), SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
   }, [text]);
-  const results = useApiQuery(query.length >= 2 ? `/search?q=${encodeURIComponent(query)}` : null);
+  // In one insurer's workspace: its clients, vehicles and contracts (and those without any).
+  const params = useInsurerFilter().apply(new URLSearchParams({ q: query }));
+  const results = useApiQuery(query.length >= 2 ? `/search?${params}` : null);
   const data = results.state.status === 'done' && query.length >= 2 ? results.state.data : null;
   const count = data ? data.customers.length + data.vehicles.length + data.contracts.length : 0;
 
