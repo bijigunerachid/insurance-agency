@@ -164,6 +164,26 @@ describe('the workspace cards after sign-in', () => {
     expect(requested(fetchMock)).not.toContain('/api/workspaces');
   });
 
+  it('make the logo the picture when an insurer has a logo and no photo', async () => {
+    mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/workspaces': () => [200, { items: cards }],
+    });
+    renderApp('/');
+    // RMA: a logo, no photo. One image, the logo, and the insurer's colour.
+    const rma = await screen.findByRole('button', { name: 'Accéder à l’espace RMA' });
+    const images = rma.querySelectorAll('img');
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute('src', '/api/workspaces/RMA/logo');
+    expect(rma.style.getPropertyValue('--brand')).toBe('#272F65');
+    // No decorative shield behind it (that is the card without a picture): the arrow only.
+    expect(rma.querySelectorAll('svg')).toHaveLength(1);
+    // CAT: a photo, no logo. The photo layout, with the code instead of a logo.
+    const cat = screen.getByRole('button', { name: 'Accéder à l’espace CAT' });
+    expect(cat.querySelector('img')).toHaveAttribute('src', '/api/workspaces/CAT/photo');
+    expect(within(cat).getByText('CAT', { selector: 'span[aria-hidden="true"]' })).toBeVisible();
+  });
+
   it('show the colour and the code when a logo or photo cannot be loaded', async () => {
     mockApi({
       'GET /api/auth/me': agent,

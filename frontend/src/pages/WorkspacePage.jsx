@@ -87,6 +87,47 @@ function WorkspaceCard({ item, onChoose }) {
   const [logo, setLogo] = useState(item.logo);
   const colour = item.colour ?? NEUTRAL;
 
+  // A logo without a photo: the logo itself is the picture.
+  if (logo && !photo) {
+    return (
+      <button
+        type="button"
+        onClick={onChoose}
+        aria-labelledby={ctaId}
+        aria-describedby={item.tagline ? `${titleId} ${taglineId}` : titleId}
+        // A colour from the settings: a CSS variable, set through the DOM (allowed by the CSP).
+        style={{ '--brand': colour }}
+        className="group flex h-72 w-full flex-col overflow-hidden rounded-3xl bg-white text-left shadow-lg ring-1 ring-slate-200 transition duration-300 hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-(--brand) motion-reduce:transition-none motion-reduce:hover:translate-y-0 sm:h-80 lg:h-[26rem]"
+      >
+        <span className="flex min-h-0 flex-1 items-center justify-center px-8 py-6">
+          <img
+            src={`/api/workspaces/${encodeURIComponent(item.code)}/logo`}
+            alt=""
+            onError={() => setLogo(false)}
+            className="max-h-20 w-auto max-w-full object-contain transition-transform duration-500 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100 sm:max-h-24 lg:max-h-28"
+          />
+        </span>
+        <span className="block bg-(--brand) p-5 text-white sm:p-7">
+          <span id={titleId} className="block text-xl font-semibold tracking-tight sm:text-2xl">
+            {item.title}
+          </span>
+          {item.tagline && (
+            <span id={taglineId} className="mt-1 block text-sm text-white/90 sm:text-base">
+              {item.tagline}
+            </span>
+          )}
+          <span
+            id={ctaId}
+            className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm transition group-hover:gap-3 motion-reduce:transition-none"
+          >
+            {t.enter(item.code)}
+            <ArrowRightIcon aria-hidden="true" className="size-4 text-(--brand)" />
+          </span>
+        </span>
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"

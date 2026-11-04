@@ -147,7 +147,8 @@ an agency is in the code, so giving the application to another agency is a new i
    An insurer's logo only with **its written permission** and the files it supplies (never copied
    from its website); a photo only under a licence that allows it (bought, or Creative Commons /
    Unsplash), its author and licence in `photoCredit`. Without the file, each card shows the insurer's
-   name in a neutral colour. Insurer logos appear on these screen cards only, never on a printed
+   name in a neutral colour. A logo without a photo makes a card where the logo itself is the
+   picture (white top, the insurer's colour below): photos are optional. Insurer logos appear on these screen cards only, never on a printed
    document (rules L2, L3).
 5. Restart the API: it refuses to start, naming the setting, if the ICE, the e-mail, an image or the
    insurers' file is wrong.
