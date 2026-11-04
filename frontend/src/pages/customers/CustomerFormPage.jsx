@@ -1,12 +1,14 @@
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
+import { BuildingOffice2Icon, UserIcon } from '@heroicons/react/24/outline';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { FormActions } from '../../components/FormActions.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { DuplicateDialog } from '../../features/customers/DuplicateDialog.jsx';
@@ -42,7 +44,7 @@ export function CustomerFormPage() {
   const { id } = useParams();
   const existing = useApiQuery(id ? `/customers/${id}` : null);
   if (!id) return <CustomerForm />;
-  if (existing.state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (existing.state.status === 'loading') return <SkeletonDetail />;
   if (existing.state.status === 'error') {
     return (
       <ErrorState
@@ -143,16 +145,14 @@ function CustomerForm({ customer }) {
 
   return (
     <div className="space-y-6">
-      <Link
-        to={customer ? `/clients/${customer.id}` : '/clients'}
-        className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-      >
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {customer ? customer.displayName : t.back}
-      </Link>
-      <h1 className="text-2xl font-semibold">
-        {customer ? `${t.edit} · ${customer.ref}` : t.create}
-      </h1>
+      <PageHeader
+        back={
+          customer
+            ? { to: `/clients/${customer.id}`, label: customer.displayName }
+            : { to: '/clients', label: t.back }
+        }
+        title={customer ? `${t.edit} · ${customer.ref}` : t.create}
+      />
 
       <form
         onSubmit={(event) => {
@@ -165,83 +165,99 @@ function CustomerForm({ customer }) {
         {error && <Alert>{errorMessage(error)}</Alert>}
 
         {!customer && (
-          <fieldset className="rounded-lg border border-slate-200 bg-white p-4">
-            <legend className="px-1 text-sm font-semibold">{t.typeLabel}</legend>
-            <div className="flex flex-wrap gap-4">
-              {['INDIVIDUAL', 'BUSINESS'].map((value) => (
-                <label key={value} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="type"
-                    value={value}
-                    checked={type === value}
-                    onChange={() => setType(value)}
-                    className="size-4 accent-blue-700"
-                  />
-                  {t.types[value]}
-                </label>
-              ))}
+          <fieldset className="rounded-card border border-line bg-surface p-4 shadow-hairline sm:p-5">
+            {/* Floated, the legend sits inside the box like a heading. */}
+            <legend className="float-left mb-3 w-full text-section text-ink">{t.typeLabel}</legend>
+            <div className="clear-both grid gap-3 sm:grid-cols-2">
+              {['INDIVIDUAL', 'BUSINESS'].map((value) => {
+                const Icon = value === 'INDIVIDUAL' ? UserIcon : BuildingOffice2Icon;
+                return (
+                  <label
+                    key={value}
+                    className="flex cursor-pointer items-center gap-3 rounded-control border border-line-strong/50 px-4 py-3 text-sm font-medium text-ink hover:bg-sunken/60 has-checked:border-primary has-checked:bg-primary-soft has-checked:ring-1 has-checked:ring-primary has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary"
+                  >
+                    <input
+                      type="radio"
+                      name="type"
+                      value={value}
+                      checked={type === value}
+                      onChange={() => setType(value)}
+                      className="size-4 accent-primary focus:outline-none"
+                    />
+                    <Icon aria-hidden="true" className="size-5 text-ink-muted" />
+                    {t.types[value]}
+                  </label>
+                );
+              })}
             </div>
           </fieldset>
         )}
 
-        <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">{t.sections.identity}</h2>
-          {type === 'INDIVIDUAL' ? (
-            <>
-              {field('firstName', { required: true, maxLength: 80, autoComplete: 'off' })}
-              {field('lastName', { required: true, maxLength: 80, autoComplete: 'off' })}
-            </>
-          ) : (
-            <>
-              {field('legalName', { required: true, maxLength: 160, autoComplete: 'off' })}
-              {field('ice', { hint: t.hints.ice, inputMode: 'numeric', maxLength: 20 })}
-            </>
-          )}
-          <SelectField
-            label={t.fields.identityType}
-            hint={identityLocked ? t.identityMaskedNote : t.hints.identity}
-            disabled={identityLocked}
-            value={form.identityType}
-            onChange={(e) => setForm({ ...form, identityType: e.target.value })}
-            options={[
-              { value: '', label: t.noIdentity },
-              ...Object.entries(t.identityTypes).map(([value, label]) => ({ value, label })),
-            ]}
-          />
-          {field('identityNumber', {
-            disabled: identityLocked || !form.identityType,
-            maxLength: 40,
-            autoComplete: 'off',
-            spellCheck: 'false',
-          })}
-        </section>
-
-        <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">{t.sections.contact}</h2>
-          {field('phone', { type: 'tel', hint: t.hints.phone, maxLength: 30, autoComplete: 'off' })}
-          {field('email', { type: 'email', maxLength: 254, autoComplete: 'off' })}
-          {field('addressLine', {
-            maxLength: 200,
-            className: 'sm:col-span-2',
-            autoComplete: 'off',
-          })}
-          {field('city', { maxLength: 80, autoComplete: 'off' })}
-        </section>
-
-        {canAssign && assignees.state.status === 'done' && (
-          <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-            <h2 className="font-semibold sm:col-span-2">{t.sections.management}</h2>
+        <Card title={t.sections.identity}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {type === 'INDIVIDUAL' ? (
+              <>
+                {field('firstName', { required: true, maxLength: 80, autoComplete: 'off' })}
+                {field('lastName', { required: true, maxLength: 80, autoComplete: 'off' })}
+              </>
+            ) : (
+              <>
+                {field('legalName', { required: true, maxLength: 160, autoComplete: 'off' })}
+                {field('ice', { hint: t.hints.ice, inputMode: 'numeric', maxLength: 20 })}
+              </>
+            )}
             <SelectField
-              label={t.fields.assignedUserId}
-              value={form.assignedUserId}
-              onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
+              label={t.fields.identityType}
+              hint={identityLocked ? t.identityMaskedNote : t.hints.identity}
+              disabled={identityLocked}
+              value={form.identityType}
+              onChange={(e) => setForm({ ...form, identityType: e.target.value })}
               options={[
-                { value: '', label: t.unassigned },
-                ...assignees.state.data.items.map((u) => ({ value: u.id, label: u.displayName })),
+                { value: '', label: t.noIdentity },
+                ...Object.entries(t.identityTypes).map(([value, label]) => ({ value, label })),
               ]}
             />
-          </section>
+            {field('identityNumber', {
+              disabled: identityLocked || !form.identityType,
+              maxLength: 40,
+              autoComplete: 'off',
+              spellCheck: 'false',
+            })}
+          </div>
+        </Card>
+
+        <Card title={t.sections.contact}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {field('phone', {
+              type: 'tel',
+              hint: t.hints.phone,
+              maxLength: 30,
+              autoComplete: 'off',
+            })}
+            {field('email', { type: 'email', maxLength: 254, autoComplete: 'off' })}
+            {field('addressLine', {
+              maxLength: 200,
+              className: 'sm:col-span-2',
+              autoComplete: 'off',
+            })}
+            {field('city', { maxLength: 80, autoComplete: 'off' })}
+          </div>
+        </Card>
+
+        {canAssign && assignees.state.status === 'done' && (
+          <Card title={t.sections.management}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label={t.fields.assignedUserId}
+                value={form.assignedUserId}
+                onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
+                options={[
+                  { value: '', label: t.unassigned },
+                  ...assignees.state.data.items.map((u) => ({ value: u.id, label: u.displayName })),
+                ]}
+              />
+            </div>
+          </Card>
         )}
 
         <FormActions hint={customer && fr.common.unsaved(changed.length)}>
@@ -251,7 +267,7 @@ function CustomerForm({ customer }) {
           >
             {fr.common.cancel}
           </Button>
-          <Button type="submit" disabled={busy || (customer && changed.length === 0)}>
+          <Button type="submit" loading={busy} disabled={customer && changed.length === 0}>
             {fr.common.save}
           </Button>
         </FormActions>

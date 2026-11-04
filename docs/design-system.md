@@ -58,10 +58,14 @@ Amounts, dates and table cells use tabular figures.
 | `PasswordField` | A password field like `TextField`, with « Afficher les caractères » (a toggle; its name avoids « mot de passe » so the field alone answers to its label) and a warning while Caps Lock is on. |
 | `PageHeader`, `BackLink` | Every page's top: way back, h1, one line of purpose, actions. |
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
-| `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). |
+| `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). `renderCard(row)` draws a list's own phone card (a client's card calls them). |
 | `EmptyState` | Nothing to show, and the real next step if there is one. |
 | `Menu` | A small menu opened by a button (space switch, profile): arrows, Home, End, Enter; Escape, Tab or a click elsewhere closes it and gives the focus back; `menuitemradio` for a choice, `menuitem` for an action. |
-| `Skeleton`, `SkeletonList` | The shape of a list while it loads (announced as « Chargement… »). |
+| `Skeleton`, `SkeletonList`, `SkeletonDetail` | The shape of a list (`flush` inside a card) or of a record's page while it loads (announced as « Chargement… »). |
+| `DetailList`, `DetailItem` | A record's facts, label above value, two columns from a small tablet; an empty value shows « — » (or the page's own word), never a blank. |
+| `SectionHeading` | The top of a part of a page that holds its own list (h2 and its action). |
+| `PhoneLink` | A client's number that calls them, written 06 12 34 56 78. |
+| `TextLink`, `textLinkClasses` | A link inside text or a table, in the action colour. |
 | `ToastProvider`, `useToast` | Short messages after an action, over the page; success and information leave after 6 s, an error stays until closed; announced politely / at once. |
 | `Alert` | A message inside a form or page: error, warning, info, success. |
 | `StatusBadge` | A status with icon and word. |
@@ -114,6 +118,19 @@ shape of its rows while loading (`SkeletonList flush`), a plain sentence when em
 inside the card if its list cannot be read, so the rest of the page stays usable. The renewal rows
 (`RenewalList`, also on the renewals pages), the notifications line (`AlertsSwitch`) and the
 workspace banner (`WorkspaceNotice`, on every filtered list) moved to the tokens.
+
+## Clients and vehicles (stage 5)
+
+Lists (`CustomersPage`, `VehiclesPage`, `VehicleTable`): `PageHeader` with the page's action, the
+search in a card (filters behind « Filtres » on a phone, now also for vehicles), `DataTable` (a
+client's phone card keeps its call button), the shape of the rows while loading, and an
+`EmptyState` that says to try another search when one was typed or a filter set. Record pages
+(`CustomerDetailPage`, `VehicleDetailPage`): `PageHeader` with the way back, the badges (type,
+archived), the number to call and the actions; facts in `Card`s with `DetailList`; the shape of
+the page while loading. On a client's page, contracts and vehicles sit under a `SectionHeading`
+with their « + » action; the folded details keep their three parts. Forms (`CustomerFormPage`,
+`VehicleFormPage`): `PageHeader`, one `Card` per part, the client type as two choice tiles, and
+« Enregistrer » showing its work.
 
 ## Stages
 

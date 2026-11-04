@@ -7,12 +7,14 @@ import { Alert } from '../src/components/Alert.jsx';
 import { Button, ButtonLink } from '../src/components/Button.jsx';
 import { Card } from '../src/components/Card.jsx';
 import { DataTable } from '../src/components/DataTable.jsx';
+import { DetailItem, DetailList } from '../src/components/DetailList.jsx';
 import { EmptyState } from '../src/components/EmptyState.jsx';
 import { Menu } from '../src/components/Menu.jsx';
 import { PageHeader } from '../src/components/PageHeader.jsx';
 import { PasswordField } from '../src/components/PasswordField.jsx';
+import { PhoneLink } from '../src/components/PhoneLink.jsx';
 import { SelectField } from '../src/components/SelectField.jsx';
-import { SkeletonList } from '../src/components/Skeleton.jsx';
+import { SkeletonDetail, SkeletonList } from '../src/components/Skeleton.jsx';
 import { TextField } from '../src/components/TextField.jsx';
 import { ToastProvider, useToast } from '../src/components/Toast.jsx';
 import { phoneScreen } from './phoneScreen.js';
@@ -183,6 +185,49 @@ describe('data tables', () => {
     expect(cards[0].firstChild).toHaveTextContent('CTR-1');
     expect(within(cards[0]).getByText('Montant')).toBeVisible();
     expect(within(cards[0]).queryByText('Note')).toBeNull();
+  });
+
+  it('let a list draw its own phone card, still one list item per record', () => {
+    restore = phoneScreen();
+    render(
+      <DataTable
+        caption="Contrats"
+        columns={columns}
+        rows={rows}
+        renderCard={(row) => <p>Carte {row.ref}</p>}
+      />,
+    );
+    const cards = within(screen.getByRole('list', { name: 'Contrats' })).getAllByRole('listitem');
+    expect(cards.map((card) => card.textContent)).toEqual(['Carte CTR-1', 'Carte CTR-2']);
+  });
+});
+
+describe('record details', () => {
+  it('show each fact under its label, and a dash rather than a blank', () => {
+    render(
+      <DetailList>
+        <DetailItem label="Ville" value="Casablanca" />
+        <DetailItem label="Courriel" value="" />
+        <DetailItem label="Châssis" value={null} empty="Non renseigné" />
+      </DetailList>,
+    );
+    const terms = screen.getAllByRole('term').map((dt) => dt.textContent);
+    const values = screen.getAllByRole('definition').map((dd) => dd.textContent);
+    expect(terms).toEqual(['Ville', 'Courriel', 'Châssis']);
+    expect(values).toEqual(['Casablanca', '—', 'Non renseigné']);
+  });
+
+  it('call a client from their number, written the familiar way', () => {
+    render(<PhoneLink phone="+212612345678" />);
+    expect(screen.getByRole('link', { name: '06 12 34 56 78' })).toHaveAttribute(
+      'href',
+      'tel:+212612345678',
+    );
+  });
+
+  it('announce a record being loaded', () => {
+    render(<SkeletonDetail />);
+    expect(screen.getByRole('status')).toHaveTextContent('Chargement…');
   });
 });
 

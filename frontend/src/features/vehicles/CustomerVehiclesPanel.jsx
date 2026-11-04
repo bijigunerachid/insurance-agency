@@ -1,9 +1,11 @@
 import { PlusIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
-import { Button } from '../../components/Button.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { Button, ButtonLink } from '../../components/Button.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
@@ -44,27 +46,24 @@ export function CustomerVehiclesPanel({ customer }) {
   return (
     <>
       <section aria-labelledby="vehicles-heading" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="vehicles-heading" className="text-lg font-semibold">
-            {t.title}
-          </h2>
-          {canWrite && (
-            <Link
-              to={`/vehicules/nouveau?client=${customer.id}`}
-              className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
-            >
-              <PlusIcon aria-hidden="true" className="size-4" />
-              {t.create}
-            </Link>
-          )}
-        </div>
-        {vehicles.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+        <SectionHeading
+          id="vehicles-heading"
+          title={t.title}
+          actions={
+            canWrite && (
+              <ButtonLink to={`/vehicules/nouveau?client=${customer.id}`} size="sm" icon={PlusIcon}>
+                {t.create}
+              </ButtonLink>
+            )
+          }
+        />
+        {vehicles.state.status === 'loading' && <SkeletonList rows={2} />}
         {vehicles.state.status === 'error' && <Alert>{errorMessage(vehicles.state.error)}</Alert>}
         {vehicles.state.status === 'done' &&
           (vehicles.state.data.items.length ? (
             <VehicleTable vehicles={vehicles.state.data.items} showOwner={false} />
           ) : (
-            <p className="text-sm text-slate-600">{t.none}</p>
+            <EmptyState title={t.none} />
           ))}
       </section>
 
@@ -74,14 +73,18 @@ export function CustomerVehiclesPanel({ customer }) {
         !addingFleet && (
           <section
             aria-labelledby="fleets-heading"
-            className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-slate-300 bg-white px-4 py-2 text-sm"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-dashed border-line-strong/50 bg-surface px-4 py-2.5 text-sm"
           >
-            <h2 id="fleets-heading" className="font-medium">
+            <h2 id="fleets-heading" className="font-semibold text-ink">
               {t.fleets.title}
             </h2>
-            <span className="flex-1 text-slate-600">{t.fleets.none}</span>
-            <Button variant="secondary" onClick={() => setAddingFleet(true)}>
-              <PlusIcon aria-hidden="true" className="size-4" />
+            <span className="flex-1 text-ink-muted">{t.fleets.none}</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={PlusIcon}
+              onClick={() => setAddingFleet(true)}
+            >
               {fr.customers.newFleet}
             </Button>
           </section>
@@ -89,33 +92,37 @@ export function CustomerVehiclesPanel({ customer }) {
       {(fleets.state.data?.items?.length > 0 || (canWrite && addingFleet)) && (
         <section
           aria-labelledby="fleets-heading"
-          className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+          className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-hairline sm:p-5"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="fleets-heading" className="font-semibold">
-              {t.fleets.title}
-            </h2>
-            {canWrite && !addingFleet && (
-              <Button variant="secondary" onClick={() => setAddingFleet(true)}>
-                <PlusIcon aria-hidden="true" className="size-4" />
-                {fr.customers.newFleet}
-              </Button>
-            )}
-          </div>
+          <SectionHeading
+            id="fleets-heading"
+            title={t.fleets.title}
+            actions={
+              canWrite &&
+              !addingFleet && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={PlusIcon}
+                  onClick={() => setAddingFleet(true)}
+                >
+                  {fr.customers.newFleet}
+                </Button>
+              )
+            }
+          />
           {fleets.state.status === 'done' &&
             (fleets.state.data.items.length ? (
-              <ul className="divide-y divide-slate-200 text-sm">
+              <ul className="divide-y divide-line text-sm">
                 {fleets.state.data.items.map((fleet) => (
-                  <li key={fleet.id} className="flex justify-between gap-2 py-2">
-                    <Link to={`/vehicules?flotte=${fleet.id}`} className="font-medium">
-                      {fleet.name}
-                    </Link>
-                    <span className="text-slate-600">{t.fleets.vehicles(fleet.vehicleCount)}</span>
+                  <li key={fleet.id} className="flex justify-between gap-2 py-2.5">
+                    <TextLink to={`/vehicules?flotte=${fleet.id}`}>{fleet.name}</TextLink>
+                    <span className="text-ink-muted">{t.fleets.vehicles(fleet.vehicleCount)}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-600">{t.fleets.none}</p>
+              <p className="text-sm text-ink-muted">{t.fleets.none}</p>
             ))}
           {canWrite && addingFleet && (
             <form onSubmit={createFleet} className="flex flex-wrap items-end gap-2" noValidate>
@@ -132,7 +139,7 @@ export function CustomerVehiclesPanel({ customer }) {
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
-              <Button type="submit" variant="secondary" disabled={busy || !name.trim()}>
+              <Button type="submit" loading={busy} disabled={!name.trim()}>
                 {t.fleets.create}
               </Button>
               <Button variant="secondary" disabled={busy} onClick={() => setAddingFleet(false)}>

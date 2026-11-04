@@ -1,8 +1,11 @@
 import { PlusIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { ButtonLink } from '../../components/Button.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -32,38 +35,36 @@ export function CustomerContractsPanel({ customer }) {
 
   return (
     <section aria-labelledby="contracts-heading" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="contracts-heading" className="text-lg font-semibold">
-          {t.title}
-        </h2>
-        {can('contracts.write') && !customer.archivedAt && (
-          <Link
-            to={`/contrats/nouveau?client=${customer.id}`}
-            className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
-          >
-            <PlusIcon aria-hidden="true" className="size-4" />
-            {t.create}
-          </Link>
-        )}
-      </div>
-      {contracts.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      <SectionHeading
+        id="contracts-heading"
+        title={t.title}
+        actions={
+          can('contracts.write') &&
+          !customer.archivedAt && (
+            <ButtonLink to={`/contrats/nouveau?client=${customer.id}`} size="sm" icon={PlusIcon}>
+              {t.create}
+            </ButtonLink>
+          )
+        }
+      />
+      {contracts.state.status === 'loading' && <SkeletonList rows={2} />}
       {contracts.state.status === 'error' && <Alert>{errorMessage(contracts.state.error)}</Alert>}
       {contracts.state.status === 'done' &&
         (mine.length ? (
           <ContractTable contracts={mine} showCustomer={false} onPay={onPay} />
         ) : (
-          <p className="text-sm text-slate-600">{t.none}</p>
+          <EmptyState title={t.none} />
         ))}
       {others.length > 0 && (
         <section
           aria-labelledby="other-insurers"
-          className="space-y-2 rounded-lg border border-dashed border-slate-300 bg-slate-100 p-3"
+          className="space-y-3 rounded-card border border-dashed border-line-strong/50 bg-sunken/60 p-3 sm:p-4"
         >
           <div>
-            <h3 id="other-insurers" className="text-base font-semibold text-slate-700">
+            <h3 id="other-insurers" className="text-sm font-semibold text-ink-soft">
               {fr.workspace.otherInsurers}
             </h3>
-            <p className="text-xs text-slate-600">{fr.workspace.otherInsurersHint(insurer.code)}</p>
+            <p className="text-xs text-ink-muted">{fr.workspace.otherInsurersHint(insurer.code)}</p>
           </div>
           <ContractTable contracts={others} showCustomer={false} onPay={onPay} />
         </section>
