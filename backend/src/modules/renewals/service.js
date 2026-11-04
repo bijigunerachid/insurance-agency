@@ -162,9 +162,10 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
   }
 
   return {
-    async list(auth, { status, mine, page, pageSize }) {
+    async list(auth, { status, mine, insurerId, page, pageSize }) {
       await openDue();
       const where = {
+        ...(insurerId ? { contract: { insurerId } } : {}),
         ...(status === 'open' ? { status: { in: OPEN_STATUSES } } : {}),
         ...(['RENEWED', 'NOT_RENEWED'].includes(status) ? { status } : {}),
         ...(mine === 'true' ? { assignedUserId: auth.user.id } : {}),
@@ -188,10 +189,13 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
     },
 
     /** For the home dashboard: what the signed-in employee must follow. */
-    async summary(auth) {
+    async summary(auth, { insurerId } = {}) {
       await openDue();
       const day = toDate(today());
-      const open = { status: { in: OPEN_STATUSES } };
+      const open = {
+        status: { in: OPEN_STATUSES },
+        ...(insurerId ? { contract: { insurerId } } : {}),
+      };
       const mine = { ...open, assignedUserId: auth.user.id };
       const [mineCount, mineOverdue, allOpen, next] = await prisma.$transaction([
         prisma.renewal.count({ where: mine }),

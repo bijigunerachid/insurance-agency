@@ -14,6 +14,8 @@ import { RecordDialog } from '../../features/payments/ContractPayments.jsx';
 import { newRequestId } from '../../utils/ids.js';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.contracts;
 
@@ -31,6 +33,7 @@ export function ContractsPage() {
   if (filters.q) params.set('q', filters.q);
   if (filters.status) params.set('status', filters.status);
   if (unpaid) params.set('unpaid', '1');
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/contracts?${params}`);
 
   return (
@@ -41,6 +44,7 @@ export function ContractsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
       </div>
+      <WorkspaceNotice />
       {unpaid && (
         <Alert tone="info">
           {t.unpaidOnly}{' '}

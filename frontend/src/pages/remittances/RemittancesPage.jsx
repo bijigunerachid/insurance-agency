@@ -13,6 +13,8 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDate, formatDateTime, formatMoney } from '../../utils/format.js';
 import { newRequestId } from '../../utils/ids.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.remittances;
 const monthFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -31,9 +33,16 @@ export function RemittancesPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
   const summary = useApiQuery('/remittances/summary');
+  // In one insurer's workspace: its card and its remittances only.
+  const { insurer: workspace } = useInsurerFilter();
+  const insurers =
+    summary.state.status === 'done'
+      ? summary.state.data.insurers.filter((i) => !workspace || i.id === workspace.id)
+      : [];
   const [filters, setFilters] = useState({ insurerId: '', status: '', page: 1 });
   const params = new URLSearchParams({ page: String(filters.page) });
   for (const key of ['insurerId', 'status']) if (filters[key]) params.set(key, filters[key]);
+  if (workspace) params.set('insurerId', workspace.id);
   const history = useApiQuery(`/remittances?${params}`);
   const [dialog, setDialog] = useState(null);
   const set = (name) => (event) => setFilters({ ...filters, [name]: event.target.value, page: 1 });
@@ -46,6 +55,7 @@ export function RemittancesPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
       </div>
+      <WorkspaceNotice />
 
       {summary.state.status === 'loading' && <Spinner label={fr.app.loading} />}
       {summary.state.status === 'error' && (
@@ -57,7 +67,7 @@ export function RemittancesPage() {
       )}
       {summary.state.status === 'done' && (
         <div className="grid gap-4 lg:grid-cols-2">
-          {summary.state.data.insurers.map((insurer) => (
+          {insurers.map((insurer) => (
             <InsurerCard
               key={insurer.id}
               insurer={insurer}
@@ -73,17 +83,17 @@ export function RemittancesPage() {
           {t.history}
         </h2>
         <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <SelectField
-            label={t.insurer}
-            value={filters.insurerId}
-            onChange={set('insurerId')}
-            options={[
-              { value: '', label: t.allInsurers },
-              ...(summary.state.status === 'done'
-                ? summary.state.data.insurers.map((i) => ({ value: i.id, label: i.name }))
-                : []),
-            ]}
-          />
+          {!workspace && (
+            <SelectField
+              label={t.insurer}
+              value={filters.insurerId}
+              onChange={set('insurerId')}
+              options={[
+                { value: '', label: t.allInsurers },
+                ...insurers.map((i) => ({ value: i.id, label: i.name })),
+              ]}
+            />
+          )}
           <SelectField
             label={t.status}
             value={filters.status}

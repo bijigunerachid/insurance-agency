@@ -70,5 +70,7 @@ export const listPaymentsQuery = z.strictObject({
   to: z.iso.date().optional(),
   method: z.enum(PAYMENT_METHODS).optional(),
   receivedById: z.uuid().optional(),
+  /** The workspace chosen after sign-in: one insurer's payments only. */
+  insurerId: z.uuid().optional(),
   ...paginationFields,
 });

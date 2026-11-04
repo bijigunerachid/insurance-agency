@@ -42,6 +42,13 @@ test('the installed server answers over HTTPS, locked down, and an agent signs i
   // 3. The right one: the home page, then a list read from the database.
   await page.getByLabel('Mot de passe').fill(SMOKE_PASSWORD);
   await page.getByRole('button', { name: 'Se connecter' }).click();
+  // With two active insurers the workspace cards come first (their images through the proxy).
+  const landing = page.getByRole('heading', { level: 1, name: /^(Bonjour |Bienvenue, )/ });
+  await expect(landing).toBeVisible();
+  if ((await landing.textContent()).startsWith('Bienvenue')) {
+    await page.screenshot({ path: testInfo.outputPath('production-workspaces.png') });
+    await page.getByRole('button', { name: 'Travailler sur les deux compagnies' }).click();
+  }
   await expect(page.getByRole('heading', { level: 1, name: /^Bonjour / })).toBeVisible();
   await page.getByRole('link', { name: 'Clients', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Clients' })).toBeVisible();

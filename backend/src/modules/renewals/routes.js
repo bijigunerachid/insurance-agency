@@ -5,6 +5,7 @@ import {
   idParams,
   listRenewalsQuery,
   renewBody,
+  renewalSummaryQuery,
   updateRenewalBody,
 } from './schemas.js';
 import { createRenewalsService } from './service.js';
@@ -23,7 +24,7 @@ export function renewalsRoutes({ prisma, audit, clock, config, guards }) {
     res.json(await service.list(req.auth, listRenewalsQuery.parse(req.query)));
   });
   router.get('/renewals/summary', read, async (req, res) => {
-    res.json(await service.summary(req.auth));
+    res.json(await service.summary(req.auth, renewalSummaryQuery.parse(req.query)));
   });
   router.get('/renewals/assignees', assign, async (req, res) => {
     res.json({ items: await service.assignees() });

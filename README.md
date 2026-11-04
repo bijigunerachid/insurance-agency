@@ -87,6 +87,7 @@ Copy-Item backend/.env.example backend/.env.test
 #   AGENCY_NAME, AGENCY_TAGLINE, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_FAX, AGENCY_EMAIL, AGENCY_ICE,
 #   AGENCY_ACAPS_NUMBER, AGENCY_LEGAL_FORM, AGENCY_PATENTE, AGENCY_IF, AGENCY_RC, AGENCY_CNSS,
 #   AGENCY_LOGO_FILE, AGENCY_ICON_FILE. Until they are set, receipts show a warning on screen.
+#   INSURER_BRANDING_FILE: the insurers' cards after sign-in (see "A new agency", step 4).
 #   DOCUMENTS_DIR: folder of the attached scans (default backend/storage/documents, git-ignored; an
 #   absolute path in production, included in the backups). The API refuses to start if it cannot write there.
 
@@ -129,8 +130,29 @@ an agency is in the code, so giving the application to another agency is a new i
    phones, e-mail, ICE (15 digits), agrément, legal form and capital, Patente, I.F, R.C, CNSS.
 3. Put its logo (wide) and tab icon (square) outside the code, as PNG or JPEG of 1 MB at most, and give
    their full paths in `AGENCY_LOGO_FILE` and `AGENCY_ICON_FILE`. Never an insurer's logo (rules L2, L3).
-4. Restart the API: it refuses to start, naming the setting, if the ICE, the e-mail or an image is wrong.
-5. Check the sign-in page (logo, tab title and icon) and print a test receipt: one A4 sheet, two copies.
+4. The workspace cards after sign-in (one per active insurer of the catalogue, plus « both »): put a
+   folder outside the code with `insurers.json` and its images, and give the file's full path in
+   `INSURER_BRANDING_FILE`. Per insurer code (as in the catalogue): `title`, `tagline`, `colour`
+   (`#272F65`), `logo` and `photo` (file names in the same folder, PNG or JPEG of 1 MB at most) and
+   `photoCredit` (author and licence, shown on the card). Example:
+   ```json
+   {
+     "RMA": { "title": "RMA Assurance", "tagline": "Royale Marocaine d'Assurance", "colour": "#272F65",
+              "logo": "rma-logo.png", "photo": "rma-photo.jpg", "photoCredit": "Auteur, licence" },
+     "CAT": { "title": "CAT Assurance & Réassurance", "tagline": "Transport de voyageurs",
+              "colour": "#00877F", "logo": "cat-logo.png", "photo": "cat-photo.jpg",
+              "photoCredit": "Auteur, licence" }
+   }
+   ```
+   An insurer's logo only with **its written permission** and the files it supplies (never copied
+   from its website); a photo only under a licence that allows it (bought, or Creative Commons /
+   Unsplash), its author and licence in `photoCredit`. Without the file, each card shows the insurer's
+   name in a neutral colour. Insurer logos appear on these screen cards only, never on a printed
+   document (rules L2, L3).
+5. Restart the API: it refuses to start, naming the setting, if the ICE, the e-mail, an image or the
+   insurers' file is wrong.
+6. Check the sign-in page (logo, tab title and icon), the workspace cards, and print a test receipt:
+   one A4 sheet, two copies.
 
 ## Checks
 

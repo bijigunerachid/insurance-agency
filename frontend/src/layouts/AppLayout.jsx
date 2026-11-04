@@ -1,6 +1,7 @@
 import {
   ArchiveBoxIcon,
   ArrowPathIcon,
+  ArrowsRightLeftIcon,
   BanknotesIcon,
   BuildingLibraryIcon,
   ChartBarIcon,
@@ -21,10 +22,11 @@ import {
   UsersIcon,
 } from '@heroicons/react/24/outline';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { AgencyMark } from '../features/agency/AgencyBrand.jsx';
 import { useAuth } from '../features/auth/AuthContext.jsx';
 import { useRenewalAlerts } from '../features/renewals/useRenewalAlerts.js';
+import { useWorkspace } from '../features/workspace/Workspace.jsx';
 import { useWideScreen } from '../hooks/useWideScreen.js';
 import { fr } from '../i18n/fr.js';
 
@@ -159,8 +161,41 @@ function DailyItem({ to, label, short, Icon }) {
   );
 }
 
+/** The workspace in use, and the way back to the cards (to the home page, once chosen). */
+function WorkspaceSwitch() {
+  const workspace = useWorkspace();
+  const navigate = useNavigate();
+  if (!workspace.enabled) return null;
+  const { insurer } = workspace;
+  const current = insurer ? fr.workspace.current(insurer.code) : fr.workspace.currentBoth;
+  // On a phone the code alone ("RMA"), so the agency's logo keeps its place.
+  const short = insurer ? insurer.code : fr.workspace.currentBothShort;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigate('/');
+        workspace.change();
+      }}
+      aria-label={fr.workspace.changeLabel(current)}
+      title={fr.workspace.change}
+      style={{ '--brand': insurer?.colour ?? '#334155' }}
+      className="inline-flex max-w-44 items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-2 pr-3 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
+    >
+      <span
+        aria-hidden="true"
+        className={`size-3 shrink-0 rounded-full ${insurer ? 'bg-(--brand)' : 'bg-linear-to-r from-slate-400 to-slate-700'}`}
+      />
+      <span className="truncate sm:hidden">{short}</span>
+      <span className="hidden truncate sm:inline">{current}</span>
+      <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-slate-500" />
+    </button>
+  );
+}
+
 export function AppLayout() {
   const { me, can, logout } = useAuth();
+  const { insurer, enabled: workspaceShown } = useWorkspace();
   const { pathname } = useLocation();
   // Windows notifications for insurances ending, on every page while the app is open.
   useRenewalAlerts(can('renewals.read'));
@@ -195,13 +230,21 @@ export function AppLayout() {
         Aller au contenu
       </a>
 
-      <header className="border-b border-slate-200 bg-white print:hidden">
+      {/* The workspace's colour along the top of every page. */}
+      <header
+        style={insurer?.colour ? { borderTopColor: insurer.colour } : undefined}
+        className={`border-b border-slate-200 bg-white print:hidden ${insurer ? 'border-t-4 border-t-slate-700' : ''}`}
+      >
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <AgencyMark fallbackIcon={ShieldCheckIcon} />
           </div>
           <div className="flex items-center gap-3">
-            <p className="text-right text-sm leading-tight">
+            <WorkspaceSwitch />
+            {/* With the workspace button, a phone has no room for the name (the home page says it). */}
+            <p
+              className={`text-right text-sm leading-tight ${workspaceShown ? 'hidden sm:block' : ''}`}
+            >
               <span className="sr-only">{fr.nav.signedInAs} </span>
               <span className="block font-medium">{me.user.displayName}</span>
               <span className="block text-xs text-slate-500">{me.user.role.name}</span>

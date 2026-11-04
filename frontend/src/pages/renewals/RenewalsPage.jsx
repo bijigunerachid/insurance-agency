@@ -6,6 +6,8 @@ import { Spinner } from '../../components/Spinner.jsx';
 import { RenewalList } from '../../features/renewals/RenewalList.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.renewals;
 /** The renewal window (30 days); shown in the introduction. */
@@ -15,6 +17,7 @@ export function RenewalsPage() {
   const [filters, setFilters] = useState({ status: 'open', mine: false, page: 1 });
   const params = new URLSearchParams({ status: filters.status, page: String(filters.page) });
   if (filters.mine) params.set('mine', 'true');
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/renewals?${params}`);
 
   return (
@@ -25,6 +28,7 @@ export function RenewalsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-600">{t.intro(WINDOW_DAYS)}</p>
       </div>
+      <WorkspaceNotice />
       <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-4">
         <SelectField
           label={t.statusLabel}

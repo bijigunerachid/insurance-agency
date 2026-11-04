@@ -23,6 +23,7 @@ import { stockRoutes } from './modules/stock/routes.js';
 import { todayRoutes } from './modules/today/routes.js';
 import { usersRoutes } from './modules/users/routes.js';
 import { vehiclesRoutes } from './modules/vehicles/routes.js';
+import { workspacesRoutes } from './modules/workspaces/routes.js';
 import { createAuditService } from './services/audit.js';
 import { createDocumentStore } from './services/documentStore.js';
 import { createOcr } from './services/ocr.js';
@@ -95,6 +96,7 @@ export function createApp({
   app.use('/api', paymentsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', remittancesRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', scansRoutes({ prisma, audit, clock, config, guards, store: documentStore, ocr }));
+  app.use('/api', workspacesRoutes({ prisma, config, guards }));
   app.use('/api', todayRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', reportsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', documentsRoutes({ prisma, audit, clock, guards, store: documentStore }));

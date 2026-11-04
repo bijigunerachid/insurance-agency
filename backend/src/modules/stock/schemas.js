@@ -77,6 +77,8 @@ export const listFormsQuery = z.strictObject({
   seriesId: z.uuid().optional(),
   status: z.enum(STOCK_STATUSES).optional(),
   holderId: z.uuid().optional(),
+  /** The workspace chosen after sign-in: one insurer's series only. */
+  insurerId: z.uuid().optional(),
   q: z
     .string()
     .trim()

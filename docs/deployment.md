@@ -159,6 +159,11 @@ Test-NetConnection insurance.internal -Port 5432   # False (la base n'est jamais
    - Coordonnées de l'agence (`AGENCY_*`) : depuis le papier à en-tête.
    - Logo et icône : copiez-les dans `/opt/insurance-agency/agency/` (`logo.png`, `icon.png`), puis
      `AGENCY_LOGO_FILE=/data/agency/logo.png` et `AGENCY_ICON_FILE=/data/agency/icon.png`.
+   - Cartes des compagnies après la connexion (facultatif) : `sudo mkdir /opt/insurance-agency/agency/insurers`,
+     copiez-y `insurers.json` et ses images (README « A new agency », étape 4 : logos fournis par les
+     compagnies avec leur accord, photos sous licence), puis
+     `INSURER_BRANDING_FILE=/data/agency/insurers/insurers.json`. Sans ce fichier, chaque carte montre le
+     nom de la compagnie.
 4. Relancez `sudo ./install.sh` : il charge les images, prépare la base de données et démarre
    l'application. À la fin : « Version … installée ».
 
