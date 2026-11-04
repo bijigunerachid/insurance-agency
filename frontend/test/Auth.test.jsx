@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { renderApp } from './renderApp.jsx';
@@ -135,5 +135,27 @@ describe('sign-in', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
     expect(await screen.findByText('Vous êtes déconnecté.')).toBeInTheDocument();
+  });
+
+  it('says « déconnecté », not « session ended », when a page was still loading', async () => {
+    // The home page asks for its to-do list; the answer comes back only after the sign-out,
+    // refused (401) because the session is gone. Found by the e2e run of 04/11/2026.
+    let answerLate;
+    const late = new Promise((resolve) => {
+      answerLate = () => resolve(unauthenticated);
+    });
+    mockApi({
+      'GET /api/auth/me': () => [200, me({ role: 'AGENT', permissions: ['renewals.read'] })],
+      'GET /api/today': () => late,
+      'GET /api/renewals/summary': () => late,
+      'POST /api/auth/logout': () => [204, null],
+    });
+    renderApp('/accueil');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
+    expect(await screen.findByText('Vous êtes déconnecté.')).toBeInTheDocument();
+    answerLate();
+    await waitFor(() => expect(screen.getByText('Vous êtes déconnecté.')).toBeInTheDocument());
+    expect(screen.queryByText(/Votre session a pris fin/)).toBeNull();
   });
 });

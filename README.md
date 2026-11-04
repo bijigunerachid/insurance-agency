@@ -175,5 +175,6 @@ Details in [docs/testing.md](docs/testing.md).
 | [docs/network.md](docs/network.md) | LAN addresses, ports, firewall, HTTPS |
 | [docs/data-model.md](docs/data-model.md) | Entities, database constraints, status machines |
 | [docs/testing.md](docs/testing.md) | Test levels, how to run them, proof that they catch problems |
+| [docs/design-system.md](docs/design-system.md) | The application's look: tokens (colours, type, radii), components, contrast, redesign stages |
 
 Deployment, backup and operations instructions will be added in Phases 11 and 12.

@@ -1,0 +1,202 @@
+import { act, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { PlusIcon } from '@heroicons/react/20/solid';
+import { MemoryRouter } from 'react-router';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Alert } from '../src/components/Alert.jsx';
+import { Button, ButtonLink } from '../src/components/Button.jsx';
+import { Card } from '../src/components/Card.jsx';
+import { DataTable } from '../src/components/DataTable.jsx';
+import { EmptyState } from '../src/components/EmptyState.jsx';
+import { PageHeader } from '../src/components/PageHeader.jsx';
+import { SelectField } from '../src/components/SelectField.jsx';
+import { SkeletonList } from '../src/components/Skeleton.jsx';
+import { TextField } from '../src/components/TextField.jsx';
+import { ToastProvider, useToast } from '../src/components/Toast.jsx';
+import { phoneScreen } from './phoneScreen.js';
+
+const inRouter = (ui) => render(<MemoryRouter>{ui}</MemoryRouter>);
+
+describe('buttons', () => {
+  it('refuse a second click while busy, keeping their name', async () => {
+    const onClick = vi.fn();
+    const { rerender } = render(<Button onClick={onClick}>Enregistrer</Button>);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <Button onClick={onClick} loading>
+        Enregistrer
+      </Button>,
+    );
+    const busy = screen.getByRole('button', { name: 'Enregistrer' });
+    expect(busy).toBeDisabled();
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    await user.click(busy);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('name an icon-only button for screen readers, and link to a page as a button', () => {
+    inRouter(
+      <>
+        <Button icon={PlusIcon} iconOnly variant="ghost">
+          Ajouter un véhicule
+        </Button>
+        <ButtonLink to="/clients/nouveau" icon={PlusIcon}>
+          Nouveau client
+        </ButtonLink>
+      </>,
+    );
+    const add = screen.getByRole('button', { name: 'Ajouter un véhicule' });
+    expect(add.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByRole('link', { name: 'Nouveau client' })).toHaveAttribute(
+      'href',
+      '/clients/nouveau',
+    );
+  });
+});
+
+describe('form fields', () => {
+  it('say when a field is optional, and tie the hint and the error to it', () => {
+    render(
+      <>
+        <TextField label="E-mail" optional hint="Pour les rappels." error="Adresse invalide." />
+        <SelectField label="Ville" options={[{ value: '', label: '—' }]} />
+      </>,
+    );
+    const email = screen.getByLabelText('E-mail (facultatif)');
+    expect(email).toHaveAttribute('aria-invalid', 'true');
+    expect(email).toHaveAccessibleDescription('Pour les rappels. Adresse invalide.');
+    expect(screen.getByLabelText('Ville')).not.toHaveAttribute('aria-invalid');
+  });
+});
+
+describe('page structure', () => {
+  it('heads a page with its title, a way back and its actions', () => {
+    inRouter(
+      <PageHeader
+        title="Karim Alaoui"
+        titleId="customer-title"
+        description="Client particulier"
+        back={{ to: '/clients', label: 'Retour aux clients' }}
+        actions={<Button>Modifier</Button>}
+      />,
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Karim Alaoui' })).toHaveAttribute(
+      'id',
+      'customer-title',
+    );
+    expect(screen.getByRole('link', { name: 'Retour aux clients' })).toHaveAttribute(
+      'href',
+      '/clients',
+    );
+    expect(screen.getByRole('button', { name: 'Modifier' })).toBeVisible();
+  });
+
+  it('names a card by its title, and says plainly when there is nothing', () => {
+    render(
+      <>
+        <Card title="Contrats" actions={<Button size="sm">Nouveau contrat</Button>}>
+          <EmptyState title="Aucun contrat" description="Ce client n’a pas encore de contrat." />
+        </Card>
+        <Card>Sans titre</Card>
+      </>,
+    );
+    const region = screen.getByRole('region', { name: 'Contrats' });
+    expect(within(region).getByText('Aucun contrat')).toBeVisible();
+    expect(screen.getAllByRole('region')).toHaveLength(1);
+  });
+
+  it('announces a list being loaded, and a success', () => {
+    render(
+      <>
+        <SkeletonList rows={3} />
+        <Alert tone="success">Client enregistré.</Alert>
+      </>,
+    );
+    const statuses = screen.getAllByRole('status');
+    expect(statuses[0]).toHaveTextContent('Chargement…');
+    expect(statuses[0]).toHaveAttribute('aria-busy', 'true');
+    expect(statuses[1]).toHaveTextContent('Client enregistré.');
+  });
+});
+
+describe('data tables', () => {
+  const columns = [
+    { key: 'ref', header: 'Référence', primary: true, cell: (row) => row.ref },
+    { key: 'client', header: 'Client', cell: (row) => row.client },
+    { key: 'amount', header: 'Montant', align: 'right', cell: (row) => row.amount },
+    { key: 'note', header: 'Note', hideOnPhone: true, cell: (row) => row.note },
+  ];
+  const rows = [
+    { id: 'a', ref: 'CTR-1', client: 'Sara Test', amount: '600,00 MAD', note: 'Ok' },
+    { id: 'b', ref: 'CTR-2', client: 'Badr Test', amount: '400,00 MAD', note: 'Ok' },
+  ];
+  let restore;
+  afterEach(() => restore?.());
+
+  it('show a table with column headers on a computer', () => {
+    render(<DataTable caption="Contrats" columns={columns} rows={rows} />);
+    const table = screen.getByRole('table', { name: 'Contrats' });
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((th) => th.textContent),
+    ).toEqual(['Référence', 'Client', 'Montant', 'Note']);
+    expect(within(table).getAllByRole('row')).toHaveLength(3);
+  });
+
+  it('show one card per record on a phone, its main column first', () => {
+    restore = phoneScreen();
+    render(<DataTable caption="Contrats" columns={columns} rows={rows} />);
+    expect(screen.queryByRole('table')).toBeNull();
+    const cards = within(screen.getByRole('list', { name: 'Contrats' })).getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    expect(cards[0].firstChild).toHaveTextContent('CTR-1');
+    expect(within(cards[0]).getByText('Montant')).toBeVisible();
+    expect(within(cards[0]).queryByText('Note')).toBeNull();
+  });
+});
+
+describe('toast messages', () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A button that shows one message: built per test, so it needs no props. */
+  const saverOf = (message, tone) =>
+    function Saver() {
+      const toast = useToast();
+      return <Button onClick={() => toast.show(message, { tone })}>Enregistrer</Button>;
+    };
+
+  it('announce a success over the page, then go away by themselves', async () => {
+    vi.useFakeTimers();
+    const Saver = saverOf('Paiement enregistré.');
+    render(
+      <ToastProvider>
+        <Saver />
+      </ToastProvider>,
+    );
+    act(() => screen.getByRole('button', { name: 'Enregistrer' }).click());
+    const message = screen.getByText('Paiement enregistré.');
+    expect(message.closest('[aria-live="polite"]')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(6100));
+    expect(screen.queryByText('Paiement enregistré.')).toBeNull();
+  });
+
+  it('keep an error until it is closed, announced at once', async () => {
+    vi.useFakeTimers();
+    const Saver = saverOf('Le serveur ne répond pas.', 'error');
+    render(
+      <ToastProvider>
+        <Saver />
+      </ToastProvider>,
+    );
+    act(() => screen.getByRole('button', { name: 'Enregistrer' }).click());
+    act(() => vi.advanceTimersByTime(60_000));
+    const message = screen.getByText('Le serveur ne répond pas.');
+    expect(message.closest('[aria-live="assertive"]')).not.toBeNull();
+    act(() => screen.getByRole('button', { name: 'Fermer le message' }).click());
+    expect(screen.queryByText('Le serveur ne répond pas.')).toBeNull();
+  });
+});

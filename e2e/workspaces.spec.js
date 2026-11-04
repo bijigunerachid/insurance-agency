@@ -117,7 +117,12 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   await expect(
     page.getByRole('button', { name: 'Les deux compagnies — changer d’espace' }),
   ).toBeVisible();
+  // Signing out once the page has loaded: the background requests (renewal alerts) are
+  // answered, so the error check below stays strict. Signing out sooner is covered by the
+  // screen test « says déconnecté, not session ended » (Auth.test.jsx).
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
   await login(page, username, undefined, { workspaces: 'ask' });
   await expect(page.getByRole('heading', { level: 1, name: /^Bienvenue, / })).toBeVisible();
   // From the cards, signing out is one click.

@@ -23,7 +23,7 @@ export function ConfirmDialog({ title, message, confirmLabel, busy, onConfirm, o
         </>
       }
     >
-      <p className="text-sm text-slate-700">{message}</p>
+      <p className="text-sm text-ink-soft">{message}</p>
     </Dialog>
   );
 }

@@ -19,7 +19,7 @@ export function MoreFilters({ active = 0, children }) {
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 justify-self-start rounded-md py-1 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-700"
+        className="focus-ring inline-flex items-center gap-1.5 justify-self-start rounded-control py-1 text-sm font-medium text-primary hover:text-primary-hover"
       >
         <AdjustmentsHorizontalIcon aria-hidden="true" className="size-4" />
         {fr.common.filters(active)}
