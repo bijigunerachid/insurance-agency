@@ -180,7 +180,7 @@ function WorkspaceSwitch() {
       aria-label={fr.workspace.changeLabel(current)}
       title={fr.workspace.change}
       style={{ '--brand': insurer?.colour ?? '#334155' }}
-      className="inline-flex max-w-44 items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-2 pr-3 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
+      className="inline-flex max-w-44 lg:max-w-none items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-2 pr-3 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
     >
       <span
         aria-hidden="true"

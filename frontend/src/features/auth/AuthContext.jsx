@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { apiGet, apiPost, setCsrfToken, setUnauthenticatedHandler } from '../../services/api.js';
 
 const AuthContext = createContext(null);
@@ -28,12 +36,21 @@ export function AuthProvider({ children }) {
   const [state, setState] = useState({ status: 'loading', me: null, notice: null });
 
   const refresh = useCallback(async () => setState(await fetchMe()), []);
+  // True while « Se déconnecter » runs: the page's requests still on their way come back 401.
+  const signingOut = useRef(false);
 
   useEffect(() => {
-    // Any later 401 means the session ended (expiry, logout elsewhere, account disabled).
+    // Any later 401 means the session ended (expiry, logout elsewhere, account disabled), unless
+    // the person is signing out or already signed out: a late answer to a request sent just
+    // before must not replace « Vous êtes déconnecté » with « Votre session a pris fin ».
     setUnauthenticatedHandler(() => {
+      if (signingOut.current) return;
       setCsrfToken(null);
-      setState({ status: 'anonymous', me: null, notice: 'SESSION_ENDED' });
+      setState((previous) =>
+        previous.status === 'anonymous'
+          ? previous
+          : { status: 'anonymous', me: null, notice: 'SESSION_ENDED' },
+      );
     });
     fetchMe().then(setState);
     return () => setUnauthenticatedHandler(null);
@@ -54,6 +71,7 @@ export function AuthProvider({ children }) {
         await refresh();
       },
       async logout() {
+        signingOut.current = true;
         try {
           await apiPost('/auth/logout');
         } catch {
@@ -61,6 +79,7 @@ export function AuthProvider({ children }) {
         } finally {
           setCsrfToken(null);
           setState({ status: 'anonymous', me: null, notice: 'SIGNED_OUT' });
+          signingOut.current = false;
         }
       },
       can(permission) {

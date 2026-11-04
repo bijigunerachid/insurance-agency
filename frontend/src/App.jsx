@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { ErrorState } from './components/ErrorState.jsx';
 import { Spinner } from './components/Spinner.jsx';
+import { ToastProvider } from './components/Toast.jsx';
 import { AgencyBrandProvider } from './features/agency/AgencyBrand.jsx';
 import { AuthProvider, useAuth } from './features/auth/AuthContext.jsx';
 import { useWorkspace, WorkspaceProvider } from './features/workspace/Workspace.jsx';
@@ -47,7 +48,9 @@ export function App() {
     <AgencyBrandProvider>
       <AuthProvider>
         <WorkspaceProvider>
-          <AuthGate />
+          <ToastProvider>
+            <AuthGate />
+          </ToastProvider>
         </WorkspaceProvider>
       </AuthProvider>
     </AgencyBrandProvider>

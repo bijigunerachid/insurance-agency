@@ -1,6 +1,119 @@
 @import 'tailwindcss';
+/* Inter, bundled with the application (SIL Open Font License): nothing is downloaded at run time,
+   so the interface works offline. */
+@import '@fontsource-variable/inter';
 
-/* System fonts only: nothing is downloaded, so the interface works offline. */
+/*
+ * Design tokens (redesign, 04/11/2026). One place for the application's look: colours, type,
+ * radii, shadows and motion. Pages use these names (bg-canvas, text-ink-muted, rounded-card…);
+ * Tailwind's own palette stays available for the pages not yet moved over.
+ * Contrast checked (WCAG 2.2 AA): text 4.5:1 at least on its background, field borders and
+ * icons 3:1. The brief's green and orange fail as text (3.3 and 3.2): they colour icons and
+ * fills only, and text uses their darker "-ink" shade.
+ */
+@theme {
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+
+  /* Surfaces and text */
+  --color-canvas: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-sunken: #eef1f5;
+  --color-ink: #0f172a; /* 16.6:1 on canvas */
+  --color-ink-soft: #334155;
+  --color-ink-muted: #617188; /* 4.6:1 on canvas, 5.0:1 on white */
+  --color-line: #e2e8f0; /* separators (decoration) */
+  --color-line-strong: #8391a5; /* field borders: 3:1 on white */
+
+  /* Action */
+  --color-primary: #2563eb; /* white text 5.2:1 */
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #eff6ff;
+
+  /* Status: the plain colour for icons and fills, "-ink" for text, "-soft" for backgrounds */
+  --color-success: #16a34a;
+  --color-success-ink: #15803d;
+  --color-success-soft: #f0fdf4;
+  --color-warning: #d97706;
+  --color-warning-ink: #b45309;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #dc2626; /* white text 4.8:1 */
+  --color-danger-hover: #b91c1c;
+  --color-danger-ink: #b91c1c;
+  --color-danger-soft: #fef2f2;
+
+  /* Two radii only */
+  --radius-control: 6px; /* fields, buttons, badges */
+  --radius-card: 10px; /* cards, dialogs, menus */
+
+  /* Two elevations */
+  --shadow-hairline: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-raised: 0 12px 32px -12px rgb(15 23 42 / 0.28), 0 2px 6px -2px rgb(15 23 42 / 0.08);
+
+  /* Type scale (14 px body): page title, section title, label */
+  --text-page: 1.5rem;
+  --text-page--line-height: 2rem;
+  --text-page--letter-spacing: -0.015em;
+  --text-page--font-weight: 600;
+  --text-section: 1rem;
+  --text-section--line-height: 1.5rem;
+  --text-section--font-weight: 600;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.25rem;
+  --text-label--font-weight: 500;
+
+  /* Motion: short, and none when the person asks for less */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --animate-enter: enter 150ms var(--ease-standard);
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* The same visible focus everywhere: a 2 px ring in the action colour, outside the element. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+  }
+  /* Amounts, dates and numbers line up in columns. */
+  .tabular-nums,
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
 
 /* Receipts: two copies on one A4 sheet. */
 @page {

@@ -21,7 +21,7 @@ export function ReasonDialog({ title, intro, confirmLabel, busy, error, onConfir
         className="space-y-4"
         noValidate
       >
-        <p className="text-sm text-slate-700">{intro}</p>
+        <p className="text-sm text-ink-soft">{intro}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <TextField
           label={fr.customers.reason}
