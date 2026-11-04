@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { expect as expectPage } from '@playwright/test';
 import { hashPassword } from '../backend/src/modules/auth/passwords.js';
 import { generateTotpSecret, timeStep, totpCode } from '../backend/src/modules/auth/totp.js';
 import { createPrisma } from '../backend/src/services/prisma.js';
@@ -90,7 +91,25 @@ export async function guardOffline(page) {
   return { external, consoleMessages, errorResponses };
 }
 
-export async function login(page, username, password = PASSWORD) {
+// Pages whose workspace cards are answered by the journeys below (once per page).
+const bothWorkspaces = new WeakSet();
+
+/**
+ * The workspace cards come after every sign-in. Journeys about another subject work on both
+ * insurers, as before the cards: whenever the cards show, "both" is chosen for them. The
+ * workspace journey itself signs in with `{ workspaces: 'ask' }` and chooses.
+ */
+async function answerWorkspaceCards(page) {
+  if (bothWorkspaces.has(page)) return;
+  bothWorkspaces.add(page);
+  await page.addLocatorHandler(
+    page.getByRole('button', { name: 'Travailler sur les deux compagnies' }),
+    (button) => button.click(),
+  );
+}
+
+export async function login(page, username, password = PASSWORD, { workspaces = 'both' } = {}) {
+  if (workspaces === 'both') await answerWorkspaceCards(page);
   await page.goto('/');
   await page.getByLabel('Identifiant').fill(username);
   await page.getByLabel('Mot de passe').fill(password);
@@ -367,9 +386,19 @@ export async function seedPaymentToRemit(username, contract, { amount, daysAgo }
   });
 }
 
+/** The first entry of the menu, a page or « Plus », at both widths. */
+const menuEntry = (nav) =>
+  nav
+    .getByRole('link')
+    .or(nav.getByRole('button', { name: 'Plus' }))
+    .first();
+
 /** Opens a page of the menu: the daily pages are always shown, the others under "Plus". */
 export async function openMenu(page, name) {
   const nav = page.getByRole('navigation', { name: 'Navigation principale' });
+  // An assertion first: it lets the workspace cards be answered (isVisible would not). On a
+  // phone the menu is a bar fixed at the bottom: its first entry is what shows.
+  await expectPage(menuEntry(nav)).toBeVisible();
   const link = nav.getByRole('link', { name, exact: true });
   if (!(await link.isVisible())) {
     const more = nav.getByRole('button', { name: 'Plus' });
@@ -381,6 +410,7 @@ export async function openMenu(page, name) {
 /** The page is in neither part of the menu (the person may not open it). */
 export async function expectNoMenuLink(page, expect, name) {
   const nav = page.getByRole('navigation', { name: 'Navigation principale' });
+  await expect(menuEntry(nav)).toBeVisible();
   const more = nav.getByRole('button', { name: 'Plus' });
   if ((await more.count()) && (await more.getAttribute('aria-expanded')) !== 'true') {
     await more.click();

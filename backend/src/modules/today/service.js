@@ -1,3 +1,4 @@
+import { Prisma } from '../../generated/prisma/client.ts';
 import { PERMISSIONS } from '../auth/permissions.js';
 import { DUE_KNOWN_SQL, DUE_SQL, LONG_UNPAID_DAYS } from '../contracts/service.js';
 import { displayNameOf } from '../customers/service.js';
@@ -116,8 +117,12 @@ export function createTodayService({ prisma, audit, clock, config }) {
       return result;
     },
 
-    /** What is waiting today, as lines that each open the right page. */
-    async todo(auth) {
+    /**
+     * What is waiting today, as lines that each open the right page. With an insurer (the
+     * workspace chosen after sign-in), only that insurer's contracts count; scans are counted
+     * for every insurer, as the insurer is only known once a scan is read.
+     */
+    async todo(auth, { insurerId } = {}) {
       const can = (permission) => auth.permissions.has(permission);
       const day = today();
       const items = [];
@@ -127,7 +132,7 @@ export function createTodayService({ prisma, audit, clock, config }) {
         if (pending) items.push({ kind: 'SCANS', count: pending, to: '/scans' });
       }
       if (can(PERMISSIONS.RENEWALS_READ)) {
-        const summary = await renewals.summary(auth);
+        const summary = await renewals.summary(auth, { insurerId });
         if (summary.mineOverdue) {
           items.push({ kind: 'RENEWALS_LATE', count: summary.mineOverdue, to: '/renouvellements' });
         }
@@ -146,7 +151,8 @@ export function createTodayService({ prisma, audit, clock, config }) {
           LEFT JOIN (SELECT "contractId", sum("amount") AS "paid" FROM "payment" GROUP BY 1) p
             ON p."contractId" = c."id"
           WHERE c."status" = 'ISSUED' AND ${DUE_KNOWN_SQL}
-            AND ${DUE_SQL} > coalesce(p."paid", 0)`;
+            AND ${DUE_SQL} > coalesce(p."paid", 0)
+            ${insurerId ? Prisma.sql`AND c."insurerId" = ${insurerId}::uuid` : Prisma.empty}`;
         if (owed.count) {
           items.push({
             kind: 'UNPAID',
@@ -160,7 +166,10 @@ export function createTodayService({ prisma, audit, clock, config }) {
       }
       if (can(PERMISSIONS.REMITTANCES_READ)) {
         const summary = await remittances.summary();
-        for (const insurer of summary.insurers.filter((i) => Number(i.overdueAmount) > 0)) {
+        const late = summary.insurers.filter(
+          (i) => Number(i.overdueAmount) > 0 && (!insurerId || i.id === insurerId),
+        );
+        for (const insurer of late) {
           items.push({
             kind: 'REMITTANCE_LATE',
             insurer: insurer.code,
@@ -177,6 +186,7 @@ export function createTodayService({ prisma, audit, clock, config }) {
             provisional: true,
             cancelledAt: null,
             validTo: { gte: new Date(day), lte: limit },
+            ...(insurerId ? { contract: { insurerId } } : {}),
           },
         });
         if (provisional) {

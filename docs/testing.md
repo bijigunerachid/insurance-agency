@@ -42,6 +42,11 @@ The first time, download the Playwright browser: `npx playwright install chromiu
 - End-to-end tests block and record **every request to a non-local address**: the interface must work without Internet.
   They also fail on any browser console message and on horizontal scrolling.
 - E2E screenshots are saved under `test-results/e2e/` (git-ignored) for the layout review at both widths.
+- The workspace cards come after every sign-in. `login()` in `e2e/support.js` answers them with
+  « Travailler sur les deux compagnies » (a Playwright locator handler), so the other journeys work on both
+  insurers as before; `e2e/workspaces.spec.js` signs in with `{ workspaces: 'ask' }` and chooses. The test
+  server reads synthetic insurer logos and photos (`backend/test/fixtures/insurer-branding/`, drawn by
+  `make-insurer-branding.mjs`): never an insurer's real mark.
 
 ## Proof that important tests work
 

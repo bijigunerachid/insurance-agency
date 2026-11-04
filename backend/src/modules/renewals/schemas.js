@@ -15,8 +15,12 @@ export const listRenewalsQuery = z.strictObject({
   /** "open" = still to follow; otherwise one final status. */
   status: z.enum(['open', 'RENEWED', 'NOT_RENEWED', 'all']).default('open'),
   mine: z.enum(['true', 'false']).default('false'),
+  /** The workspace chosen after sign-in: one insurer's renewals only. */
+  insurerId: z.uuid().optional(),
   ...paginationFields,
 });
+
+export const renewalSummaryQuery = z.strictObject({ insurerId: z.uuid().optional() });
 
 export const updateRenewalBody = z
   .strictObject({

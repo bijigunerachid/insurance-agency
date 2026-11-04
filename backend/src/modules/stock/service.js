@@ -255,8 +255,9 @@ export function createStockService({ prisma, audit, clock }) {
       return (await this.listBatches()).find((batch) => batch.id === id);
     },
 
-    async listForms({ seriesId, status, holderId, q, page, pageSize }) {
+    async listForms({ seriesId, status, holderId, insurerId, q, page, pageSize }) {
       const where = {
+        ...(insurerId ? { series: { insurerId } } : {}),
         ...(seriesId ? { seriesId } : {}),
         ...(status ? { status } : {}),
         ...(holderId ? { holderId } : {}),

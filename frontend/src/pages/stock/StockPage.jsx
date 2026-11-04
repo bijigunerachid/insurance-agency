@@ -16,6 +16,8 @@ import {
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDate, formatDay } from '../../utils/format.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.stock;
 const STATUSES = Object.keys(t.statuses);
@@ -30,11 +32,29 @@ const TONES = {
 };
 const seriesLabel = (s) => `${s.insurer.code} ${s.code}`;
 
+/** The same query, its data passed through `pick` once loaded (reload kept). */
+const withData = (query, pick) =>
+  query.state.status === 'done'
+    ? { ...query, state: { ...query.state, data: pick(query.state.data) } }
+    : query;
+
 export function StockPage() {
   const { can } = useAuth();
   const canManage = can('stock.manage');
-  const summary = useApiQuery('/attestation-stock/summary');
-  const batches = useApiQuery('/attestation-batches');
+  const summaryQuery = useApiQuery('/attestation-stock/summary');
+  const batchesQuery = useApiQuery('/attestation-batches');
+  // In one insurer's workspace: its series, batches and forms only.
+  const { insurer: workspace } = useInsurerFilter();
+  const ofWorkspace = (series) => !workspace || series?.insurer.id === workspace.id;
+  const summary = withData(summaryQuery, (data) => ({
+    ...data,
+    series: data.series.filter((row) => ofWorkspace(row.series)),
+    assigned: data.assigned.filter((row) => ofWorkspace(row.series)),
+  }));
+  const batches = withData(batchesQuery, (data) => ({
+    ...data,
+    items: data.items.filter((batch) => ofWorkspace(batch.series)),
+  }));
   const [dialog, setDialog] = useState(null);
   const [notice, setNotice] = useState(null);
   const [changes, setChanges] = useState(0);
@@ -67,6 +87,7 @@ export function StockPage() {
           </div>
         )}
       </div>
+      <WorkspaceNotice />
       {notice && <Alert tone="info">{notice}</Alert>}
 
       <section aria-labelledby="summary-title" className="space-y-3">
@@ -227,6 +248,7 @@ function FormSearch({ tracked, onHistory }) {
   const [filters, setFilters] = useState({ q: '', seriesId: '', status: '', page: 1 });
   const params = new URLSearchParams({ page: String(filters.page) });
   for (const key of ['q', 'seriesId', 'status']) if (filters[key]) params.set(key, filters[key]);
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/attestation-forms?${params}`);
 
   return (

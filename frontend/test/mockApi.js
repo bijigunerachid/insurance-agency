@@ -10,6 +10,8 @@ export function jsonResponse(status, body) {
 /** Asked by every page: a new installation, with no agency set, unless a test says otherwise. */
 const DEFAULT_ROUTES = {
   'GET /api/agency/brand': () => [200, { name: null, tagline: null, logo: false, icon: false }],
+  // One insurer or none: no workspace cards (the cards have their own tests).
+  'GET /api/workspaces': () => [200, { items: [] }],
 };
 
 /**

@@ -1,0 +1,18 @@
+{
+  "RMA": {
+    "title": "RMA Essai",
+    "tagline": "Assurance automobile (synthétique)",
+    "colour": "#272F65",
+    "logo": "rma-logo-synthetique.png",
+    "photo": "rma-photo-synthetique.jpg",
+    "photoCredit": "Dessin synthétique des tests"
+  },
+  "CAT": {
+    "title": "CAT Essai",
+    "tagline": "Transport de voyageurs (synthétique)",
+    "colour": "#00877F",
+    "logo": "cat-logo-synthetique.png",
+    "photo": "cat-photo-synthetique.jpg",
+    "photoCredit": "Dessin synthétique des tests"
+  }
+}

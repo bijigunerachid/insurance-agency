@@ -8,6 +8,8 @@ import { TextField } from '../../components/TextField.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { APP_TIME_ZONE, formatDateTime, formatMoney, signedMoney } from '../../utils/format.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.payments;
 const todayHere = () =>
@@ -23,6 +25,7 @@ export function PaymentsPage() {
   });
   const params = new URLSearchParams({ page: String(filters.page) });
   for (const key of ['from', 'to', 'method']) if (filters[key]) params.set(key, filters[key]);
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/payments?${params}`);
   const set = (name) => (event) => setFilters({ ...filters, [name]: event.target.value, page: 1 });
 
@@ -34,6 +37,7 @@ export function PaymentsPage() {
         </h1>
         <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
       </div>
+      <WorkspaceNotice />
       <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3 sm:p-4">
         <TextField label={t.from} type="date" value={filters.from} onChange={set('from')} />
         <TextField label={t.to} type="date" value={filters.to} onChange={set('to')} />

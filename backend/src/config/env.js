@@ -1,5 +1,5 @@
 import { readFileSync, statSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 /** Empty means not set. */
@@ -64,6 +64,9 @@ const schema = z.object({
   // PNG or JPEG files outside the code (1 MB at most): the logo, and a square tab icon.
   AGENCY_LOGO_FILE: optionalText(500),
   AGENCY_ICON_FILE: optionalText(500),
+  // The insurers' cards on the workspace screen (colour, tagline, logo and photo per insurer
+  // code): a JSON file outside the code, its images in the same folder. Optional.
+  INSURER_BRANDING_FILE: optionalText(500),
   // Folder of the documents attached to contracts (scans of the insurers' documents). Outside
   // the web root and inside the backups. Relative paths are resolved from the backend folder.
   DOCUMENTS_DIR: z.string().trim().min(1).default('storage/documents'),
@@ -110,7 +113,74 @@ export function loadConfig(env = process.env) {
     DOCUMENTS_DIR: resolve(config.DOCUMENTS_DIR),
     AGENCY_LOGO: readImage('AGENCY_LOGO_FILE', config.AGENCY_LOGO_FILE),
     AGENCY_ICON: readImage('AGENCY_ICON_FILE', config.AGENCY_ICON_FILE),
+    INSURER_BRANDING: readInsurerBranding(config.INSURER_BRANDING_FILE),
   });
+}
+
+const imageName = z
+  .string()
+  .regex(
+    /^[\w-][\w.-]{0,99}\.(png|jpe?g)$/i,
+    'must be a .png or .jpg file name in the same folder',
+  );
+const brandingText = (max) => z.string().trim().min(1).max(max).optional();
+const insurerBranding = z.strictObject({
+  /** Title on the card; the catalogue's name when absent. */
+  title: brandingText(80),
+  tagline: brandingText(80),
+  /** The insurer's colour: the card's overlay and the header mark. */
+  colour: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'must be a colour like #272F65')
+    .optional(),
+  logo: imageName.optional(),
+  photo: imageName.optional(),
+  /** Author and licence of the photo, shown on the card (a CC BY licence asks for it). */
+  photoCredit: brandingText(160),
+});
+const brandingFile = z.record(z.string().regex(/^[A-Z0-9_-]{1,16}$/), insurerBranding);
+
+/**
+ * Reads the insurers' branding: per insurer code, texts and colour, and its logo and photo read
+ * like the agency's images (PNG or JPEG by their first bytes, 1 MB at most). Only file names in
+ * the JSON file's own folder are accepted. Null when unset.
+ */
+function readInsurerBranding(path) {
+  if (!path) return null;
+  const name = 'INSURER_BRANDING_FILE';
+  const fail = (problem) =>
+    new ConfigError(`Invalid configuration:
+- ${name}: ${problem}`);
+  let raw;
+  try {
+    raw = JSON.parse(readFileSync(resolve(path), 'utf8'));
+  } catch (err) {
+    if (err instanceof SyntaxError) throw fail('not valid JSON');
+    throw fail(err.code === 'EACCES' ? 'file not readable (permissions)' : 'file not found');
+  }
+  const result = brandingFile.safeParse(raw);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    throw fail(`${issue.path.join('.') || 'file'}: ${issue.message}`);
+  }
+  const folder = dirname(resolve(path));
+  const image = (code, key, file) =>
+    file ? readImage(`${name} ${code}.${key}`, join(folder, basename(file))) : null;
+  return Object.freeze(
+    Object.fromEntries(
+      Object.entries(result.data).map(([code, entry]) => [
+        code,
+        Object.freeze({
+          title: entry.title ?? null,
+          tagline: entry.tagline ?? null,
+          colour: entry.colour?.toUpperCase() ?? null,
+          photoCredit: entry.photoCredit ?? null,
+          logo: image(code, 'logo', entry.logo),
+          photo: image(code, 'photo', entry.photo),
+        }),
+      ]),
+    ),
+  );
 }
 
 /**

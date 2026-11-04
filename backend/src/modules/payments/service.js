@@ -206,7 +206,7 @@ export function createPaymentsService({ prisma, audit, clock, config }) {
     },
 
     /** Payments of a period, with their totals per method (the cash list of the day). */
-    async list({ from, to, method, receivedById, page, pageSize }) {
+    async list({ from, to, method, receivedById, insurerId, page, pageSize }) {
       const receivedAt = {
         ...(from ? { gte: startOfZonedDay(from, config.APP_TIMEZONE) } : {}),
         ...(to ? { lt: startOfNextZonedDay(to, config.APP_TIMEZONE) } : {}),
@@ -215,6 +215,7 @@ export function createPaymentsService({ prisma, audit, clock, config }) {
         ...(from || to ? { receivedAt } : {}),
         ...(method ? { method } : {}),
         ...(receivedById ? { receivedById } : {}),
+        ...(insurerId ? { contract: { insurerId } } : {}),
       };
       const [rows, total, byMethod, rounded] = await prisma.$transaction([
         prisma.payment.findMany({

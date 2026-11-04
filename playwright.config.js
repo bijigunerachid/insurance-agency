@@ -72,6 +72,9 @@ export default defineConfig({
         AGENCY_ICON_FILE: fileURLToPath(
           new URL('backend/test/fixtures/agency-icon-synthetique.png', import.meta.url),
         ),
+        INSURER_BRANDING_FILE: fileURLToPath(
+          new URL('backend/test/fixtures/insurer-branding/insurers.json', import.meta.url),
+        ),
       },
       reuseExistingServer: false,
       timeout: 60_000,

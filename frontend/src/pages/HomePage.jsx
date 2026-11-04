@@ -17,6 +17,8 @@ import { RenewalList } from '../features/renewals/RenewalList.jsx';
 import { useApiQuery } from '../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../i18n/fr.js';
 import { formatDate, formatMoney } from '../utils/format.js';
+import { useInsurerFilter } from '../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.home;
 const SEARCH_DELAY_MS = 300;
@@ -44,8 +46,9 @@ const byUrgency = (items) => [...items.filter(isLate), ...items.filter((i) => !i
  */
 export function HomePage() {
   const { me, can } = useAuth();
-  const todo = useApiQuery('/today');
-  const renewals = useApiQuery(can('renewals.read') ? '/renewals/summary' : null);
+  const filter = useInsurerFilter();
+  const todo = useApiQuery(filter.path('/today'));
+  const renewals = useApiQuery(can('renewals.read') ? filter.path('/renewals/summary') : null);
 
   return (
     <div className="space-y-6">
@@ -53,6 +56,7 @@ export function HomePage() {
         <h1 className="text-2xl font-semibold">{t.hello(me.user.displayName)}</h1>
         <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
       </div>
+      <WorkspaceNotice />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
         {can('scans.manage') && (

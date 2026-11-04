@@ -3,6 +3,7 @@ import { ErrorState } from './components/ErrorState.jsx';
 import { Spinner } from './components/Spinner.jsx';
 import { AgencyBrandProvider } from './features/agency/AgencyBrand.jsx';
 import { AuthProvider, useAuth } from './features/auth/AuthContext.jsx';
+import { useWorkspace, WorkspaceProvider } from './features/workspace/Workspace.jsx';
 import { fr } from './i18n/fr.js';
 import { AppLayout, NAV_ITEMS } from './layouts/AppLayout.jsx';
 import { AccountPage } from './pages/AccountPage.jsx';
@@ -38,13 +39,16 @@ import { UserDetailPage } from './pages/users/UserDetailPage.jsx';
 import { VehicleDetailPage } from './pages/vehicles/VehicleDetailPage.jsx';
 import { VehicleFormPage } from './pages/vehicles/VehicleFormPage.jsx';
 import { VehiclesPage } from './pages/vehicles/VehiclesPage.jsx';
+import { WorkspacePage } from './pages/WorkspacePage.jsx';
 import { UsersPage } from './pages/users/UsersPage.jsx';
 
 export function App() {
   return (
     <AgencyBrandProvider>
       <AuthProvider>
-        <AuthGate />
+        <WorkspaceProvider>
+          <AuthGate />
+        </WorkspaceProvider>
       </AuthProvider>
     </AgencyBrandProvider>
   );
@@ -87,6 +91,20 @@ function AuthGate() {
 }
 
 function SignedInRoutes() {
+  const workspace = useWorkspace();
+  if (workspace.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner label={fr.app.loading} />
+      </div>
+    );
+  }
+  // The workspace cards first; the page asked for (the address) opens once one is chosen.
+  if (workspace.mustChoose) return <WorkspacePage />;
+  return <AppRoutes />;
+}
+
+function AppRoutes() {
   const { can } = useAuth();
   const home = NAV_ITEMS.find((item) => !item.permission || can(item.permission)).to;
 
