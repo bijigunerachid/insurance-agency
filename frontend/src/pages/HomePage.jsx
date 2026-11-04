@@ -2,21 +2,27 @@ import {
   ArrowPathIcon,
   BanknotesIcon,
   BuildingLibraryIcon,
+  CalendarDaysIcon,
   CameraIcon,
+  CheckCircleIcon,
   ChevronRightIcon,
   DocumentTextIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
+import { ArrowRightIcon } from '@heroicons/react/20/solid';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert } from '../components/Alert.jsx';
-import { Spinner } from '../components/Spinner.jsx';
+import { Card } from '../components/Card.jsx';
+import { PageHeader } from '../components/PageHeader.jsx';
+import { SkeletonList } from '../components/Skeleton.jsx';
+import { StatusBadge } from '../components/StatusBadge.jsx';
 import { useAuth } from '../features/auth/AuthContext.jsx';
 import { AlertsSwitch } from '../features/renewals/AlertsSwitch.jsx';
 import { RenewalList } from '../features/renewals/RenewalList.jsx';
 import { useApiQuery } from '../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../i18n/fr.js';
-import { formatMoney } from '../utils/format.js';
+import { formatLongDate, formatMoney } from '../utils/format.js';
 import { SearchResults, useGlobalSearch } from '../features/search/GlobalSearch.jsx';
 import { useInsurerFilter } from '../features/workspace/Workspace.jsx';
 import { WorkspaceNotice } from '../features/workspace/WorkspaceNotice.jsx';
@@ -49,102 +55,166 @@ export function HomePage() {
   const filter = useInsurerFilter();
   const todo = useApiQuery(filter.path('/today'));
   const renewals = useApiQuery(can('renewals.read') ? filter.path('/renewals/summary') : null);
+  // The agency's day, as the server counts it (its time zone), once known.
+  const today = todo.state.status === 'done' ? todo.state.data.today : null;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{t.hello(me.user.displayName)}</h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
+      <PageHeader
+        title={t.hello(me.user.displayName)}
+        description={t.intro}
+        meta={
+          today && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft">
+              <CalendarDaysIcon aria-hidden="true" className="size-4 text-ink-muted" />
+              {formatLongDate(today)}
+            </span>
+          )
+        }
+      />
       <WorkspaceNotice />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
-        {can('scans.manage') && (
-          <Link
-            to="/scans"
-            className="flex items-center gap-4 rounded-xl bg-blue-700 p-5 text-white shadow-sm hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-          >
-            <CameraIcon aria-hidden="true" className="size-10 shrink-0" />
-            <span>
-              <span className="block text-lg font-semibold">{t.scan}</span>
-              <span className="block text-sm text-blue-100">{t.scanHint}</span>
-            </span>
-          </Link>
-        )}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,24rem)_1fr]">
+        {can('scans.manage') && <ScanAction />}
         <SearchBox />
       </div>
 
-      <section aria-labelledby="todo-heading" className="space-y-3">
-        <h2 id="todo-heading" className="text-lg font-semibold">
-          {t.todo}
-        </h2>
-        {todo.state.status === 'loading' && <Spinner label={fr.app.loading} />}
-        {todo.state.status === 'error' && <Alert>{errorMessage(todo.state.error)}</Alert>}
-        {todo.state.status === 'done' &&
-          (todo.state.data.items.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 bg-white p-5 text-center text-sm text-slate-600">
-              {t.nothingToDo}
-            </p>
-          ) : (
-            <ul className="divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              {byUrgency(todo.state.data.items).map((item) => {
-                const late = isLate(item);
-                const Icon = ICONS[item.kind] ?? DocumentTextIcon;
-                return (
-                  <li key={`${item.kind}-${item.insurer ?? ''}`}>
-                    <Link
-                      to={item.to}
-                      className={`flex items-center gap-3 p-4 text-sm font-medium hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700 ${
-                        late ? 'border-l-4 border-red-600 pl-3' : ''
-                      }`}
-                    >
-                      <span
-                        aria-hidden="true"
-                        className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-                          late ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        <Icon className="size-5" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        {late && (
-                          // Visual only: the line itself says it is late.
-                          <span
-                            aria-hidden="true"
-                            className="mb-0.5 block text-xs font-semibold uppercase tracking-wide text-red-700"
-                          >
-                            {t.late}
-                          </span>
-                        )}
-                        {t.todoItems[item.kind](withMoney(item))}
-                      </span>
-                      <ChevronRightIcon
-                        aria-hidden="true"
-                        className="size-5 shrink-0 text-slate-400"
-                      />
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          ))}
+      <div className="space-y-3">
+        <TodoCard query={todo} />
         {can('renewals.read') && <AlertsSwitch />}
-      </section>
+      </div>
 
-      {renewals.state.status === 'done' && renewals.state.data.next.length > 0 && (
-        <section aria-labelledby="next-renewals" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="next-renewals" className="text-lg font-semibold">
-              {t.next}
-            </h2>
-            <Link to="/renouvellements" className="text-sm font-medium text-blue-700 underline">
-              {t.seeAll}
-            </Link>
-          </div>
-          <RenewalList renewals={renewals.state.data.next.slice(0, 5)} />
-        </section>
-      )}
+      {can('renewals.read') && <NextRenewals query={renewals} />}
     </div>
+  );
+}
+
+/** The first thing of the day: a document from the platform to read into the app. */
+function ScanAction() {
+  return (
+    <Link
+      to="/scans"
+      className="focus-ring group flex items-center gap-4 rounded-card bg-primary p-5 text-white shadow-raised transition-colors hover:bg-primary-hover"
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-12 shrink-0 items-center justify-center rounded-card bg-white/15"
+      >
+        <CameraIcon className="size-7" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-semibold">{t.scan}</span>
+        <span className="mt-0.5 block text-sm text-white/80">{t.scanHint}</span>
+      </span>
+      <ArrowRightIcon
+        aria-hidden="true"
+        className="size-5 shrink-0 text-white/80 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none"
+      />
+    </Link>
+  );
+}
+
+/** What is waiting, late first; each line opens the page where it is done. */
+function TodoCard({ query }) {
+  const { state } = query;
+  const items = state.status === 'done' ? byUrgency(state.data.items) : [];
+  const lateCount = items.filter(isLate).length;
+  return (
+    <Card
+      title={t.todo}
+      flush
+      actions={lateCount > 0 && <StatusBadge tone="error">{t.lateCount(lateCount)}</StatusBadge>}
+    >
+      {state.status === 'loading' && <SkeletonList rows={3} flush />}
+      {state.status === 'error' && (
+        <div className="p-4 sm:p-5">
+          <Alert>{errorMessage(state.error)}</Alert>
+        </div>
+      )}
+      {state.status === 'done' &&
+        (items.length === 0 ? (
+          <p className="flex items-center justify-center gap-2 px-5 py-8 text-sm text-ink-soft">
+            <CheckCircleIcon aria-hidden="true" className="size-5 text-success" />
+            {t.nothingToDo}
+          </p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {items.map((item) => (
+              <TodoLine key={`${item.kind}-${item.insurer ?? ''}`} item={item} />
+            ))}
+          </ul>
+        ))}
+    </Card>
+  );
+}
+
+function TodoLine({ item }) {
+  const late = isLate(item);
+  const Icon = ICONS[item.kind] ?? DocumentTextIcon;
+  return (
+    <li className="relative">
+      {late && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-danger" />}
+      <Link
+        to={item.to}
+        // Inside the card (which clips): the focus ring is drawn on the inner edge.
+        className="flex items-center gap-3 px-4 py-3.5 text-sm font-medium text-ink hover:bg-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:px-5"
+      >
+        <span
+          aria-hidden="true"
+          className={`flex size-9 shrink-0 items-center justify-center rounded-control ${
+            late ? 'bg-danger-soft text-danger-ink' : 'bg-warning-soft text-warning-ink'
+          }`}
+        >
+          <Icon className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          {late && (
+            // Visual only: the line itself says it is late.
+            <span
+              aria-hidden="true"
+              className="mb-0.5 block text-xs font-semibold uppercase tracking-wide text-danger-ink"
+            >
+              {t.late}
+            </span>
+          )}
+          {t.todoItems[item.kind](withMoney(item))}
+        </span>
+        <ChevronRightIcon aria-hidden="true" className="size-5 shrink-0 text-ink-muted" />
+      </Link>
+    </li>
+  );
+}
+
+/** The employee's next renewals (five), with the way to all of them. */
+function NextRenewals({ query }) {
+  const { state } = query;
+  return (
+    <Card
+      title={t.next}
+      flush
+      actions={
+        <Link
+          to="/renouvellements"
+          className="focus-ring inline-flex items-center gap-1 rounded-control text-sm font-medium text-primary hover:text-primary-hover hover:underline"
+        >
+          {t.seeAll}
+          <ChevronRightIcon aria-hidden="true" className="size-4" />
+        </Link>
+      }
+    >
+      {state.status === 'loading' && <SkeletonList rows={3} flush />}
+      {state.status === 'error' && (
+        <div className="p-4 sm:p-5">
+          <Alert>{errorMessage(state.error)}</Alert>
+        </div>
+      )}
+      {state.status === 'done' &&
+        (state.data.next.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-ink-muted">{t.none}</p>
+        ) : (
+          <RenewalList renewals={state.data.next.slice(0, 5)} flush />
+        ))}
+    </Card>
   );
 }
 
@@ -158,7 +228,7 @@ function SearchBox() {
     <section
       role="search"
       aria-labelledby={`${id}-label`}
-      className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-hairline"
+      className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-hairline sm:p-5"
     >
       <label id={`${id}-label`} htmlFor={id} className="block text-label text-ink-soft">
         {t.search}

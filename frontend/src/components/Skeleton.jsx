@@ -12,14 +12,14 @@ export function Skeleton({ className = '' }) {
 
 /**
  * A list being loaded: the shape of its rows, so the page does not jump when the data arrives.
- * Read as « Chargement… » by screen readers.
+ * Read as « Chargement… » by screen readers. `flush`: inside a card, without its own border.
  */
-export function SkeletonList({ rows = 5, label = fr.app.loading }) {
+export function SkeletonList({ rows = 5, label = fr.app.loading, flush = false }) {
   return (
     <div
       role="status"
       aria-busy="true"
-      className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface"
+      className={`divide-y divide-line bg-surface ${flush ? '' : 'overflow-hidden rounded-card border border-line'}`}
     >
       <span className="sr-only">{label}</span>
       {Array.from({ length: rows }, (_, index) => (

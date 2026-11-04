@@ -23,6 +23,21 @@ export function formatDate(isoDate) {
   return `${day}/${month}/${year}`;
 }
 
+const longDateFormatter = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'UTC',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+});
+
+/** A calendar date "YYYY-MM-DD" in words, e.g. « Mercredi 4 novembre 2026 » (no time zone). */
+export function formatLongDate(isoDate) {
+  if (!isoDate) return isoDate;
+  const text = longDateFormatter.format(new Date(`${isoDate}T00:00:00Z`));
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** Date and time in the agency's time zone, e.g. 22/10/2026 14:05:09. Accepts ISO strings. */
 export function formatDateTime(date) {
   return dateTimeFormatter.format(typeof date === 'string' ? new Date(date) : date);
