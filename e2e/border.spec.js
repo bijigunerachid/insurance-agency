@@ -62,7 +62,8 @@ test('an agent records CAT border insurance for a car registered abroad, 10 days
   await shot('border-form');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
 
-  await expect(page.getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
+  // In the page (the header shows it too, as « Contrats › CTR-… »).
+  await expect(page.locator('#contenu').getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
   await expect(page.getByText('Assurance aux frontières').first()).toBeVisible();
   await expect(page.getByText('Assuré jusqu’au 12/11/2026')).toBeVisible();
   await expect(page.getByText('Chargement…')).toHaveCount(0);

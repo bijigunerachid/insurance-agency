@@ -1,6 +1,13 @@
 import { randomInt } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { disconnect, expectNoHorizontalScroll, guardOffline, login, seedUser } from './support.js';
+import {
+  disconnect,
+  expectNoHorizontalScroll,
+  guardOffline,
+  login,
+  seedUser,
+  signOut,
+} from './support.js';
 
 test.afterAll(disconnect);
 
@@ -62,7 +69,7 @@ test('agents create a customer, are warned about a duplicate, and reveal a maske
     .getByRole('button', { name: 'Ce n’est pas le même client : enregistrer' })
     .click();
   await expect(page.getByRole('heading', { level: 1, name: `Salma ${lastName}` })).toBeVisible();
-  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  await signOut(page);
   await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
 
   // 3. Another agent finds the customer; the CIN is masked until a reason is given.

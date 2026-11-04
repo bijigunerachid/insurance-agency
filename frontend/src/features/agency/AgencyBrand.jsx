@@ -40,7 +40,15 @@ export const useAgencyBrand = () => useContext(AgencyBrandContext);
 /** The agency's logo and name, or the application's mark when none is set. */
 export function AgencyMark({ fallbackIcon: Icon, size = 'md' }) {
   const brand = useAgencyBrand();
-  const height = size === 'lg' ? 'h-20' : 'h-9';
+  const height = { lg: 'h-20', md: 'h-9', sm: 'h-7' }[size];
+  // In the phone header the logo leaves room for the search and the menus.
+  const width = size === 'sm' ? 'max-w-[34vw]' : 'max-w-[45vw]';
+  // A narrow phone header: the agency's square icon when there is one, rather than a cut logo.
+  if (size === 'sm' && brand.icon) {
+    return (
+      <img src="/api/agency/icon" alt={brand.name ?? fr.app.name} className="size-8 rounded" />
+    );
+  }
   return (
     <>
       {brand.logo ? (
@@ -48,18 +56,18 @@ export function AgencyMark({ fallbackIcon: Icon, size = 'md' }) {
         <img
           src="/api/agency/logo"
           alt={brand.name ?? ''}
-          className={`${height} w-auto max-w-[45vw]`}
+          className={`${height} w-auto ${width} object-contain object-left`}
         />
       ) : (
         <Icon
           aria-hidden="true"
-          className={`${size === 'lg' ? 'size-9' : 'size-8'} text-blue-700`}
+          className={`${size === 'lg' ? 'size-9' : 'size-8'} text-primary`}
         />
       )}
       {!brand.logo && (
         <div className="min-w-0">
           <p className="font-semibold leading-tight">{brand.name ?? fr.app.name}</p>
-          <p className={`text-xs text-slate-500 ${size === 'lg' ? '' : 'hidden sm:block'}`}>
+          <p className={`text-xs text-ink-muted ${size === 'lg' ? '' : 'hidden sm:block'}`}>
             {brand.tagline ?? fr.app.tagline}
           </p>
         </div>

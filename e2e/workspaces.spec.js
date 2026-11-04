@@ -7,6 +7,7 @@ import {
   login,
   seedContractEndingSoon,
   seedUser,
+  signOut,
 } from './support.js';
 
 test.afterAll(disconnect);
@@ -92,14 +93,16 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   await expectNoHorizontalScroll(page, expect);
   await shot('workspace-rma-client');
 
-  // Another workspace from the header: back to the cards, then CAT.
+  // Another space from the header's menu: CAT, staying on Sara's page.
+  const clientUrl = page.url();
   await page.getByRole('button', { name: 'Espace RMA — changer d’espace' }).click();
-  await expect(page).toHaveURL(/\/$/);
-  await catCard.click();
+  await page.getByRole('menuitemradio', { name: 'CAT Essai' }).click();
+  await expect(page.getByRole('button', { name: 'Espace CAT — changer d’espace' })).toBeVisible();
+  expect(page.url()).toBe(clientUrl);
+  await searchContracts();
   await expect(
     page.getByText('Espace CAT : seuls les dossiers CAT sont affichés ici.'),
   ).toBeVisible();
-  await searchContracts();
   await expect(page.getByRole('link', { name: cat.ref }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: rma.ref })).toHaveCount(0);
   await shot('workspace-cat-contracts');
@@ -121,7 +124,14 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   // answered, so the error check below stays strict. Signing out sooner is covered by the
   // screen test « says déconnecté, not session ended » (Auth.test.jsx).
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  // The big cards are still one choice away, from any page.
+  await page.getByRole('button', { name: 'Les deux compagnies — changer d’espace' }).click();
+  await page.getByRole('menuitem', { name: 'Voir les cartes des espaces' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: /^Bienvenue, / })).toBeVisible();
+  await catCard.click();
+  await expect(page.getByRole('button', { name: 'Espace CAT — changer d’espace' })).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  await signOut(page);
   await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
   await login(page, username, undefined, { workspaces: 'ask' });
   await expect(page.getByRole('heading', { level: 1, name: /^Bienvenue, / })).toBeVisible();

@@ -1,7 +1,6 @@
 import {
   ArchiveBoxIcon,
   ArrowPathIcon,
-  ArrowsRightLeftIcon,
   BanknotesIcon,
   BuildingLibraryIcon,
   ChartBarIcon,
@@ -9,6 +8,7 @@ import {
   BookOpenIcon,
   CameraIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   HomeIcon,
@@ -23,12 +23,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/20/solid';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Menu } from '../components/Menu.jsx';
 import { AgencyMark, useAgencyBrand } from '../features/agency/AgencyBrand.jsx';
+import { PageTitleProvider, useCurrentPageTitle } from '../features/layout/PageTitle.jsx';
 import { QuickSearch } from '../features/search/QuickSearch.jsx';
 import { useAuth } from '../features/auth/AuthContext.jsx';
 import { useRenewalAlerts } from '../features/renewals/useRenewalAlerts.js';
-import { useWorkspace } from '../features/workspace/Workspace.jsx';
+import { BOTH, useWorkspace } from '../features/workspace/Workspace.jsx';
 import { useWideScreen } from '../hooks/useWideScreen.js';
 import { fr } from '../i18n/fr.js';
 
@@ -183,7 +185,7 @@ const linkState = ({ isActive }) =>
 
 /**
  * A page of the side menu (computer). Reduced, the label stays for screen readers and as the
- * tooltip; the current page has a coloured bar on its left.
+ * tooltip; the current page is marked by its blue background.
  */
 function SideLink({ to, label, Icon, collapsed }) {
   return (
@@ -195,18 +197,8 @@ function SideLink({ to, label, Icon, collapsed }) {
           `${linkBase} relative ${collapsed ? 'size-10 justify-center' : 'px-3 py-2'} ${linkState(state)}`
         }
       >
-        {({ isActive }) => (
-          <>
-            {isActive && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-y-1.5 -left-3 w-1 rounded-r bg-primary"
-              />
-            )}
-            <Icon aria-hidden="true" className="size-5 shrink-0" />
-            <span className={collapsed ? 'sr-only' : 'truncate'}>{label}</span>
-          </>
-        )}
+        <Icon aria-hidden="true" className="size-5 shrink-0" />
+        <span className={collapsed ? 'sr-only' : 'truncate'}>{label}</span>
       </NavLink>
     </li>
   );
@@ -281,63 +273,190 @@ function MoreGroups({ items, collapsed, onPick }) {
   });
 }
 
-/** The workspace in use, and the way back to the cards (to the home page, once chosen). */
-function WorkspaceSwitch({ variant = 'header' }) {
+const insurerDot = (colour) => (
+  <span
+    aria-hidden="true"
+    // A colour from the settings, set through the DOM (allowed by the CSP).
+    style={{ backgroundColor: colour ?? '#334155' }}
+    className="size-2.5 shrink-0 rounded-full"
+  />
+);
+
+/**
+ * The space in use (header): a small menu to change it — each insurer, both, or back to the
+ * cards. Changing keeps the page; its lists load again for the new space.
+ */
+function WorkspaceMenu({ compact = false }) {
   const workspace = useWorkspace();
   const navigate = useNavigate();
   if (!workspace.enabled) return null;
   const { insurer } = workspace;
   const current = insurer ? fr.workspace.current(insurer.code) : fr.workspace.currentBoth;
-  // On a phone the code alone ("RMA"), so the agency's logo keeps its place.
   const short = insurer ? insurer.code : fr.workspace.currentBothShort;
-  const dot = (
-    <span
-      aria-hidden="true"
-      className={`size-2.5 shrink-0 rounded-full ${insurer ? 'bg-(--brand)' : 'bg-linear-to-r from-ink-muted to-ink'}`}
+  const items = [
+    ...workspace.items.map((item) => ({
+      key: item.id,
+      label: item.title,
+      leading: insurerDot(item.colour),
+      checked: insurer?.id === item.id,
+      onSelect: () => workspace.choose(item.id),
+    })),
+    {
+      key: 'both',
+      label: fr.workspace.currentBoth,
+      leading: (
+        <span
+          aria-hidden="true"
+          className="size-2.5 shrink-0 rounded-full bg-linear-to-r from-ink-muted to-ink"
+        />
+      ),
+      checked: !insurer,
+      onSelect: () => workspace.choose(BOTH),
+    },
+    { key: 'sep', separator: true },
+    {
+      key: 'cards',
+      label: fr.workspace.showCards,
+      icon: Squares2X2Icon,
+      onSelect: () => {
+        navigate('/');
+        workspace.change();
+      },
+    },
+  ];
+  return (
+    <Menu
+      label={fr.workspace.menuLabel}
+      items={items}
+      renderButton={(props) => (
+        <button
+          type="button"
+          {...props}
+          aria-label={fr.workspace.changeLabel(current)}
+          title={fr.workspace.change}
+          className="focus-ring inline-flex h-9 max-w-64 items-center gap-2 rounded-control border border-line bg-surface px-3 text-sm font-medium text-ink hover:bg-canvas"
+        >
+          {insurer ? (
+            insurerDot(insurer.colour)
+          ) : (
+            <span
+              aria-hidden="true"
+              className="size-2.5 shrink-0 rounded-full bg-linear-to-r from-ink-muted to-ink"
+            />
+          )}
+          {compact ? (
+            <span className="truncate">{short}</span>
+          ) : (
+            <>
+              <span className="truncate xl:hidden">{short}</span>
+              <span className="hidden truncate xl:inline">{current}</span>
+            </>
+          )}
+          <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+        </button>
+      )}
     />
   );
-  const common = {
-    type: 'button',
-    onClick: () => {
-      navigate('/');
-      workspace.change();
-    },
-    'aria-label': fr.workspace.changeLabel(current),
-    title: fr.workspace.change,
-    // A colour from the settings: a CSS variable, set through the DOM (allowed by the CSP).
-    style: { '--brand': insurer?.colour ?? '#334155' },
-  };
-  if (variant === 'collapsed') {
-    return (
-      <button
-        {...common}
-        className="focus-ring flex size-10 items-center justify-center rounded-control hover:bg-sunken"
-      >
-        {dot}
-      </button>
-    );
-  }
-  if (variant === 'sidebar') {
-    return (
-      <button
-        {...common}
-        className="focus-ring flex w-full items-center gap-2.5 rounded-control border border-line bg-canvas px-3 py-2 text-left text-sm font-medium text-ink hover:border-line-strong/50 hover:bg-surface"
-      >
-        {dot}
-        <span className="min-w-0 flex-1 truncate">{current}</span>
-        <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
-      </button>
-    );
-  }
+}
+
+/** Initials of a name: « Karim Test » → « KT ». */
+const initialsOf = (name) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+
+/** The person signed in (header): their initials, opening « Mon compte » and « Se déconnecter ». */
+function UserMenu() {
+  const { me, logout } = useAuth();
+  const navigate = useNavigate();
+  const { displayName, role } = me.user;
   return (
-    <button
-      {...common}
-      className="focus-ring inline-flex max-w-36 items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-2.5 pr-3 text-sm font-medium text-ink hover:bg-canvas"
-    >
-      {dot}
-      <span className="truncate">{short}</span>
-      <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
-    </button>
+    <Menu
+      label={fr.nav.userMenu(displayName)}
+      items={[
+        {
+          key: 'who',
+          heading: (
+            <>
+              <span className="block truncate text-sm font-medium text-ink">{displayName}</span>
+              <span className="block truncate text-xs text-ink-muted">{role.name}</span>
+            </>
+          ),
+        },
+        { key: 'sep', separator: true },
+        {
+          key: 'account',
+          label: fr.nav.account,
+          icon: UserCircleIcon,
+          onSelect: () => navigate('/compte'),
+        },
+        {
+          key: 'logout',
+          label: fr.nav.logout,
+          icon: ArrowRightStartOnRectangleIcon,
+          onSelect: logout,
+        },
+      ]}
+      renderButton={(props) => (
+        <button
+          type="button"
+          {...props}
+          aria-label={fr.nav.userMenu(displayName)}
+          className="focus-ring flex h-9 items-center gap-1.5 rounded-full pl-0.5 pr-1.5 hover:bg-sunken"
+        >
+          <span
+            aria-hidden="true"
+            className="flex size-8 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary"
+          >
+            {initialsOf(displayName)}
+          </span>
+          <ChevronDownIcon aria-hidden="true" className="size-4 text-ink-muted" />
+        </button>
+      )}
+    />
+  );
+}
+
+/**
+ * Where the person is (header): the section of the menu, then the record a detail page shows
+ * (« Clients › Sara Test »). Nothing for a page that is not in the menu.
+ */
+function Breadcrumb({ items }) {
+  const { pathname } = useLocation();
+  const record = useCurrentPageTitle();
+  const section = items.find((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
+  if (!section) return <div className="min-w-0 flex-1" />;
+  const deeper = pathname !== section.to;
+  return (
+    <nav aria-label={fr.nav.breadcrumb} className="min-w-0 flex-1">
+      <ol className="flex min-w-0 items-center gap-1.5 text-sm">
+        <li className="shrink-0">
+          {deeper ? (
+            <Link
+              to={section.to}
+              className="focus-ring rounded-control text-ink-muted hover:text-ink"
+            >
+              {section.label}
+            </Link>
+          ) : (
+            <span aria-current="page" className="font-semibold text-ink">
+              {section.label}
+            </span>
+          )}
+        </li>
+        {deeper && record && (
+          <li className="flex min-w-0 items-center gap-1.5">
+            <ChevronRightIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+            <span aria-current="page" className="truncate font-semibold text-ink">
+              {record}
+            </span>
+          </li>
+        )}
+      </ol>
+    </nav>
   );
 }
 
@@ -353,7 +472,7 @@ function SidebarBrand({ collapsed }) {
 }
 
 export function AppLayout() {
-  const { me, can, logout } = useAuth();
+  const { can } = useAuth();
   const { insurer } = useWorkspace();
   const { pathname } = useLocation();
   // Windows notifications for insurances ending, on every page while the app is open.
@@ -403,20 +522,6 @@ export function AppLayout() {
     </button>
   );
 
-  const signOut = (
-    <button
-      type="button"
-      onClick={logout}
-      title={collapsed ? fr.nav.logout : undefined}
-      className={`focus-ring inline-flex items-center justify-center gap-2 rounded-control text-sm font-medium text-ink-soft hover:bg-sunken hover:text-ink ${
-        wide && !collapsed ? 'w-full px-3 py-2' : 'size-10'
-      }`}
-    >
-      <ArrowRightStartOnRectangleIcon aria-hidden="true" className="size-5 shrink-0" />
-      <span className={wide && !collapsed ? 'flex-1 text-left' : 'sr-only'}>{fr.nav.logout}</span>
-    </button>
-  );
-
   return (
     <div className="min-h-screen bg-canvas text-ink">
       <a
@@ -440,16 +545,13 @@ export function AppLayout() {
             collapsed ? 'w-16 items-center' : 'w-64'
           }`}
         >
-          <div className={`flex h-16 shrink-0 items-center ${collapsed ? '' : 'gap-3 px-5'}`}>
+          {/* The same height and line as the header: one bar across the top. */}
+          <div
+            className={`flex h-14 shrink-0 items-center border-b border-line ${collapsed ? 'justify-center' : 'gap-3 px-5'}`}
+          >
             <SidebarBrand collapsed={collapsed} />
           </div>
-          <div className={collapsed ? 'pb-2' : 'px-3 pb-3'}>
-            <WorkspaceSwitch variant={collapsed ? 'collapsed' : 'sidebar'} />
-          </div>
-          <nav
-            aria-label={fr.nav.mainLabel}
-            className={`min-h-0 flex-1 overflow-y-auto pb-4 ${collapsed ? 'px-3' : 'px-3'}`}
-          >
+          <nav aria-label={fr.nav.mainLabel} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <ul className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5'}>
               {daily.map((item) => (
                 <SideLink key={item.to} {...item} collapsed={collapsed} />
@@ -469,14 +571,6 @@ export function AppLayout() {
           <div
             className={`shrink-0 border-t border-line py-3 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 px-3'}`}
           >
-            {!collapsed && (
-              <p className="px-3 pb-1 text-sm leading-tight">
-                <span className="sr-only">{fr.nav.signedInAs} </span>
-                <span className="block truncate font-medium text-ink">{me.user.displayName}</span>
-                <span className="block truncate text-xs text-ink-muted">{me.user.role.name}</span>
-              </p>
-            )}
-            {signOut}
             <button
               type="button"
               onClick={toggleCollapsed}
@@ -497,31 +591,42 @@ export function AppLayout() {
         </aside>
       )}
 
-      <div className={wide ? (collapsed ? 'pl-16 print:pl-0' : 'pl-64 print:pl-0') : ''}>
-        <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur print:hidden">
-          <div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
-            {wide ? (
-              <QuickSearch />
-            ) : (
-              <>
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <AgencyMark fallbackIcon={ShieldCheckIcon} />
-                </div>
-                <QuickSearch compact />
-                <WorkspaceSwitch />
-                {signOut}
-              </>
-            )}
-          </div>
-        </header>
+      <PageTitleProvider>
+        <div className={wide ? (collapsed ? 'pl-16 print:pl-0' : 'pl-64 print:pl-0') : ''}>
+          <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur print:hidden">
+            <div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
+              {wide ? (
+                <>
+                  <Breadcrumb items={items} />
+                  <div className="flex shrink-0 justify-center xl:w-full xl:max-w-md xl:shrink">
+                    <QuickSearch />
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-2 xl:flex-1">
+                    <WorkspaceMenu />
+                    <UserMenu />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                    <AgencyMark fallbackIcon={ShieldCheckIcon} size="sm" />
+                  </div>
+                  <QuickSearch compact />
+                  <WorkspaceMenu compact />
+                  <UserMenu />
+                </>
+              )}
+            </div>
+          </header>
 
-        <main
-          id="contenu"
-          className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 print:max-w-none print:p-0"
-        >
-          <Outlet />
-        </main>
-      </div>
+          <main
+            id="contenu"
+            className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 print:max-w-none print:p-0"
+          >
+            <Outlet />
+          </main>
+        </div>
+      </PageTitleProvider>
 
       {!wide && (
         <nav aria-label={fr.nav.mainLabel} className="print:hidden">

@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { renderApp } from './renderApp.jsx';
 import { anonymous, me, mockApi, unauthenticated } from './mockApi.js';
 
+/** « Se déconnecter » is in the person's menu, at the top right. */
+async function signOut(user) {
+  await user.click(await screen.findByRole('button', { name: /^Menu de / }));
+  await user.click(await screen.findByRole('menuitem', { name: 'Se déconnecter' }));
+}
+
 describe('sign-in', () => {
   it('shows the login page when nobody is signed in', async () => {
     mockApi({ 'GET /api/auth/me': () => anonymous });
@@ -54,7 +60,8 @@ describe('sign-in', () => {
     await user.click(screen.getByRole('button', { name: 'Se connecter' }));
 
     expect(await screen.findByRole('heading', { name: 'Clients' })).toBeInTheDocument();
-    expect(screen.getByText('Karim Test')).toBeInTheDocument();
+    // The person signed in: their menu in the header (initials), named after them.
+    expect(screen.getByRole('button', { name: 'Menu de Karim Test' })).toBeInTheDocument();
     const loginCall = fetchMock.mock.calls.find(([url]) => url === '/api/auth/login');
     expect(JSON.parse(loginCall[1].body)).toEqual({
       username: 'karim.admin',
@@ -133,7 +140,7 @@ describe('sign-in', () => {
     });
     renderApp();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
+    await signOut(user);
     expect(await screen.findByText('Vous êtes déconnecté.')).toBeInTheDocument();
   });
 
@@ -152,7 +159,7 @@ describe('sign-in', () => {
     });
     renderApp('/accueil');
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: 'Se déconnecter' }));
+    await signOut(user);
     expect(await screen.findByText('Vous êtes déconnecté.')).toBeInTheDocument();
     answerLate();
     await waitFor(() => expect(screen.getByText('Vous êtes déconnecté.')).toBeInTheDocument());

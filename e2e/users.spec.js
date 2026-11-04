@@ -9,6 +9,7 @@ import {
   seedUser,
   openMenu,
   expectNoMenuLink,
+  signOut,
 } from './support.js';
 
 test.afterAll(disconnect);
@@ -61,7 +62,7 @@ test('an administrator creates an account; the new employee signs in; the audit 
   await expect(page.getByText('Compte créé').last()).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await shot('audit');
-  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  await signOut(page);
   await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
 
   // 5. The new employee signs in on the same workstation, from the page left open (the audit

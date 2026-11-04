@@ -13,6 +13,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { formatDateTime, formatPhone } from '../../utils/format.js';
+import { usePageTitle } from '../../features/layout/PageTitle.jsx';
 
 const t = fr.customers;
 
@@ -20,6 +21,8 @@ export function CustomerDetailPage() {
   const { id } = useParams();
   const { can } = useAuth();
   const { state, reload } = useApiQuery(`/customers/${id}`);
+  // The header shows « … › {its displayName} » once loaded.
+  usePageTitle(state.status === 'done' ? state.data.displayName : null);
   const [dialog, setDialog] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);

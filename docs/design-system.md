@@ -59,6 +59,7 @@ Amounts, dates and table cells use tabular figures.
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
 | `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). |
 | `EmptyState` | Nothing to show, and the real next step if there is one. |
+| `Menu` | A small menu opened by a button (space switch, profile): arrows, Home, End, Enter; Escape, Tab or a click elsewhere closes it and gives the focus back; `menuitemradio` for a choice, `menuitem` for an action. |
 | `Skeleton`, `SkeletonList` | The shape of a list while it loads (announced as « Chargement… »). |
 | `ToastProvider`, `useToast` | Short messages after an action, over the page; success and information leave after 6 s, an error stays until closed; announced politely / at once. |
 | `Alert` | A message inside a form or page: error, warning, info, success. |
@@ -71,16 +72,21 @@ Amounts, dates and table cells use tabular figures.
 `frontend/src/layouts/AppLayout.jsx`. Routes and permissions unchanged: the menu shows a page only to
 the people who may open it, and the API checks again.
 
-- **Computer (768 px and wider):** a side menu along the full height: the agency's logo, the
-  workspace (« changer d'espace »), the five daily pages, then « Plus » with its pages in groups
-  (Suivi, Référentiel, Administration, Compte; an empty group is not shown), and at the bottom the
-  person, « Se déconnecter » and « Réduire le menu ». Reduced, the menu shows icons only, with each
-  page's name kept for screen readers and as a tooltip; the choice is remembered in the browser
-  (`localStorage`, nothing important). The current page has a blue bar on its left.
-- **Header:** « Recherche rapide » (Ctrl+K from any page; the same search as the home page, in a
-  dialog, `features/search`). The page's title stays in the page (its h1), not repeated in the header.
+- **Computer (768 px and wider):** a side menu along the full height: the agency's logo (on the
+  same line and height as the header), the five daily pages, then « Plus » (owner's choice, kept)
+  with its pages in groups (Suivi, Référentiel, Administration, Compte; an empty group is not
+  shown), and at the bottom « Réduire le menu ». Reduced, the menu shows icons only, with each page's
+  name kept for screen readers and as a tooltip; the choice is remembered in the browser
+  (`localStorage`, nothing important). The current page has a blue background.
+- **Header (owner, 04/11/2026):** on the left where the person is (« Clients › Sara Test »: the
+  menu's section, then the record a detail page names with `usePageTitle`); in the middle
+  « Recherche rapide » (Ctrl+K from any page; the home page's search in a dialog, `features/search`;
+  an icon below 1280 px); on the right the space menu (« ● RMA ⌄ »: each insurer, both, « Voir les
+  cartes des espaces »; changing keeps the page and reloads its lists; the code only below 1280 px)
+  and the person's menu (initials: name and role, « Mon compte », « Se déconnecter »).
 - **Workspace colour:** a 4 px strip along the top of the screen, in the insurer's colour.
-- **Phone:** a header with the agency's logo, the search, the workspace and « Se déconnecter »; the
+- **Phone:** a header with the agency's icon (or a small logo), the search, the space menu (code)
+  and the person's menu; the
   bottom bar of the daily pages and « Plus », which opens its grouped pages in a panel (closed by
   choosing a page, by the shade or with Escape).
 - **Print:** menu, header and strip are hidden.

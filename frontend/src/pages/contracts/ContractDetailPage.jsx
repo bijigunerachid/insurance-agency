@@ -19,6 +19,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { APP_TIME_ZONE, formatDate, formatDateTime, formatMoney } from '../../utils/format.js';
+import { usePageTitle } from '../../features/layout/PageTitle.jsx';
 
 const t = fr.contracts;
 const todayHere = () =>
@@ -28,6 +29,8 @@ export function ContractDetailPage() {
   const { id } = useParams();
   const { can } = useAuth();
   const { state, reload } = useApiQuery(`/contracts/${id}`);
+  // The header shows « … › {its ref} » once loaded.
+  usePageTitle(state.status === 'done' ? state.data.ref : null);
   const [dialog, setDialog] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);

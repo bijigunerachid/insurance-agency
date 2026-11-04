@@ -8,6 +8,7 @@ import { Button, ButtonLink } from '../src/components/Button.jsx';
 import { Card } from '../src/components/Card.jsx';
 import { DataTable } from '../src/components/DataTable.jsx';
 import { EmptyState } from '../src/components/EmptyState.jsx';
+import { Menu } from '../src/components/Menu.jsx';
 import { PageHeader } from '../src/components/PageHeader.jsx';
 import { SelectField } from '../src/components/SelectField.jsx';
 import { SkeletonList } from '../src/components/Skeleton.jsx';
@@ -198,5 +199,78 @@ describe('toast messages', () => {
     expect(message.closest('[aria-live="assertive"]')).not.toBeNull();
     act(() => screen.getByRole('button', { name: 'Fermer le message' }).click());
     expect(screen.queryByText('Le serveur ne répond pas.')).toBeNull();
+  });
+});
+
+describe('menus', () => {
+  const chosen = [];
+  const items = [
+    { key: 'rma', label: 'RMA', checked: false, onSelect: () => chosen.push('rma') },
+    { key: 'cat', label: 'CAT', checked: true, onSelect: () => chosen.push('cat') },
+    { key: 'sep', separator: true },
+    { key: 'cards', label: 'Voir les cartes', onSelect: () => chosen.push('cards') },
+  ];
+  const renderMenu = () =>
+    render(
+      <>
+        <Menu
+          label="Espaces"
+          items={items}
+          renderButton={(props) => (
+            <button type="button" {...props}>
+              Espace
+            </button>
+          )}
+        />
+        <p>Ailleurs</p>
+      </>,
+    );
+
+  it('open on the checked choice, move with the arrows, and choose with Enter', async () => {
+    chosen.length = 0;
+    renderMenu();
+    const user = userEvent.setup();
+    const button = screen.getByRole('button', { name: 'Espace' });
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    await user.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    const menu = screen.getByRole('menu', { name: 'Espaces' });
+    expect(within(menu).getByRole('menuitemradio', { name: 'CAT' })).toHaveFocus();
+    expect(within(menu).getByRole('menuitemradio', { name: 'CAT' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    // An action among the choices is a plain menu item.
+    expect(within(menu).getByRole('menuitem', { name: 'Voir les cartes' })).toBeVisible();
+    await user.keyboard('{ArrowDown}');
+    expect(within(menu).getByRole('menuitem', { name: 'Voir les cartes' })).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(within(menu).getByRole('menuitemradio', { name: 'RMA' })).toHaveFocus();
+    await user.keyboard('{End}');
+    expect(within(menu).getByRole('menuitem', { name: 'Voir les cartes' })).toHaveFocus();
+    await user.keyboard('{Home}{Enter}');
+    expect(chosen).toEqual(['rma']);
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it('close with Escape, Tab or a click elsewhere, choosing nothing', async () => {
+    chosen.length = 0;
+    renderMenu();
+    const user = userEvent.setup();
+    const button = screen.getByRole('button', { name: 'Espace' });
+    await user.click(button);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(button).toHaveFocus();
+    // The down arrow on the button opens it too.
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByRole('menu')).toBeVisible();
+    await user.tab();
+    expect(screen.queryByRole('menu')).toBeNull();
+    await user.click(button);
+    await user.click(screen.getByText('Ailleurs'));
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(chosen).toEqual([]);
   });
 });

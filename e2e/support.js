@@ -116,6 +116,12 @@ export async function login(page, username, password = PASSWORD, { workspaces = 
   await page.getByRole('button', { name: 'Se connecter' }).click();
 }
 
+/** « Se déconnecter » is in the person's menu, at the top right (their initials). */
+export async function signOut(page) {
+  await page.getByRole('button', { name: /^Menu de / }).click();
+  await page.getByRole('menuitem', { name: 'Se déconnecter' }).click();
+}
+
 export async function expectNoHorizontalScroll(page, expect) {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

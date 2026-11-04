@@ -55,7 +55,9 @@ test('the installed server answers over HTTPS, locked down, and an agent signs i
   await page.goto('/accueil');
   await expect(page.getByRole('heading', { level: 1, name: /^Bonjour / })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('production-home.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Se déconnecter' }).click();
+  // « Se déconnecter » is in the person's menu (their initials, top right).
+  await page.getByRole('button', { name: /^Menu de / }).click();
+  await page.getByRole('menuitem', { name: 'Se déconnecter' }).click();
   await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
 
   // The wrong password above is expected in the console (401); nothing else.
