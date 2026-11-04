@@ -38,6 +38,11 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
     premiumTotal: '400.00',
     insurerCode: 'CAT',
   });
+  // Sara (the RMA client) also has a CAT contract: her page shows both.
+  const second = await seedContractEndingSoon(username, `${lastName}Deux`, {
+    insurerCode: 'CAT',
+    customerId: rma.customerId,
+  });
   const { external, consoleMessages, errorResponses } = await guardOffline(page);
 
   await login(page, username, undefined, { workspaces: 'ask' });
@@ -71,6 +76,21 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   await searchContracts();
   await expect(page.getByRole('link', { name: rma.ref }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: cat.ref })).toHaveCount(0);
+
+  // The clients: Sara (RMA) is listed, the CAT-only client is not.
+  await page.getByRole('link', { name: 'Clients' }).first().click();
+  await expect(page.getByText(/^Espace RMA : les clients qui ont un contrat RMA/)).toBeVisible();
+  await page.getByRole('searchbox', { name: /Nom, référence/ }).fill(lastName);
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click();
+  await expect(page.getByRole('link', { name: `Sara ${lastName}`, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Sara ${lastName}Cat` })).toHaveCount(0);
+  // Her page: the RMA contract first, the CAT one under « Autres compagnies ».
+  await page.getByRole('link', { name: `Sara ${lastName}`, exact: true }).click();
+  const others = page.getByRole('region', { name: 'Autres compagnies' });
+  await expect(others.getByRole('link', { name: second.ref }).first()).toBeVisible();
+  await expect(others.getByRole('link', { name: rma.ref })).toHaveCount(0);
+  await expectNoHorizontalScroll(page, expect);
+  await shot('workspace-rma-client');
 
   // Another workspace from the header: back to the cards, then CAT.
   await page.getByRole('button', { name: 'Espace RMA — changer d’espace' }).click();

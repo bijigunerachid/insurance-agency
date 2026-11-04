@@ -9,6 +9,8 @@ import { TextField } from '../../components/TextField.jsx';
 import { VehicleTable } from '../../features/vehicles/VehicleTable.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.vehicles;
 
@@ -22,6 +24,7 @@ export function VehiclesPage() {
   if (filters.q) params.set('q', filters.q);
   if (filters.category) params.set('category', filters.category);
   if (fleetId) params.set('fleetId', fleetId);
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/vehicles?${params}`);
 
   return (
@@ -40,6 +43,7 @@ export function VehiclesPage() {
           </p>
         )}
       </div>
+      <WorkspaceNotice text={fr.workspace.noticeVehicles} />
 
       <form
         role="search"

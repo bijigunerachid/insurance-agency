@@ -4,6 +4,7 @@ import { pageResult, toSkipTake } from '../../utils/pagination.js';
 import { todayIn } from '../../utils/time.js';
 import { displayNameOf } from '../customers/service.js';
 import { categoryIssues } from './schemas.js';
+import { vehicleInWorkspace } from '../workspaces/filters.js';
 
 const notFound = () => new HttpError(404, 'NOT_FOUND', 'Véhicule introuvable.');
 const conflict = () =>
@@ -222,8 +223,9 @@ export function createVehiclesService({ prisma, audit, clock, config }) {
   }
 
   return {
-    async list({ q, category, customerId, fleetId, archived, page, pageSize }) {
+    async list({ q, category, customerId, fleetId, archived, insurerId, page, pageSize }) {
       const where = {
+        ...(insurerId ? { AND: [vehicleInWorkspace(insurerId)] } : {}),
         ...(archived === 'exclude' ? { archivedAt: null } : {}),
         ...(archived === 'only' ? { archivedAt: { not: null } } : {}),
         ...(category ? { category } : {}),

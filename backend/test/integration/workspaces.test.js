@@ -152,3 +152,99 @@ describe('the lists of one workspace', () => {
     }
   });
 });
+
+describe('the clients and vehicles of one workspace', () => {
+  /**
+   * Amina has an RMA draft, Badr a CAT draft, Chaimae one of each, Dahbia none. Each also has a
+   * vehicle that no contract covers.
+   */
+  async function clients() {
+    const manager = await signIn('manager.a', 'MANAGER');
+    const products = await prepareCatalogue(manager);
+    const agent = await signIn('agent.a', 'AGENT');
+    const people = {};
+    for (const name of ['Amina', 'Badr', 'Chaimae', 'Dahbia']) {
+      people[name] = await customerWithVehicles(agent, name);
+    }
+    const draft = async (name, code, overrides) => {
+      const { customer, car } = people[name];
+      const res = await agent.post(
+        '/api/contracts',
+        contractBody(customer, products[code], [car.id], overrides),
+      );
+      expect(res.status).toBe(201);
+    };
+    await draft('Amina', 'RMA');
+    await draft('Badr', 'CAT');
+    await draft('Chaimae', 'RMA');
+    await draft('Chaimae', 'CAT', { startDate: '2027-11-01', endDate: '2028-10-31' });
+    return {
+      agent,
+      people,
+      rma: (await insurer('RMA')).id,
+      cat: (await insurer('CAT')).id,
+    };
+  }
+  const names = (res) => res.body.items.map((item) => item.displayName).sort();
+
+  it('lists the clients with a contract there, those with both, and those with none', async () => {
+    const { agent, rma, cat } = await clients();
+    expect(names(await agent.get(`/api/customers?insurerId=${rma}`))).toEqual([
+      'Amina Test',
+      'Chaimae Test',
+      'Dahbia Test',
+    ]);
+    expect(names(await agent.get(`/api/customers?insurerId=${cat}`))).toEqual([
+      'Badr Test',
+      'Chaimae Test',
+      'Dahbia Test',
+    ]);
+    const all = (await agent.get('/api/customers')).body.items;
+    expect(all).toHaveLength(4);
+    // « Sans contrat »: no contract at all, whatever its status.
+    expect(Object.fromEntries(all.map((c) => [c.displayName, c.hasContract]))).toEqual({
+      'Amina Test': true,
+      'Badr Test': true,
+      'Chaimae Test': true,
+      'Dahbia Test': false,
+    });
+    // With a search: both conditions hold.
+    expect(names(await agent.get(`/api/customers?q=badr&insurerId=${rma}`))).toEqual([]);
+    expect((await agent.get('/api/customers?insurerId=RMA')).status).toBe(400);
+  });
+
+  it('lists the vehicles the same way, and the search box too', async () => {
+    const { agent, people, rma, cat } = await clients();
+    const ids = (res) => res.body.items.map((item) => item.id);
+    const rmaVehicles = ids(await agent.get(`/api/vehicles?insurerId=${rma}`));
+    expect(rmaVehicles).toEqual(
+      expect.arrayContaining([
+        people.Amina.car.id,
+        people.Chaimae.car.id,
+        people.Dahbia.car.id,
+        people.Badr.noUsage.id,
+      ]),
+    );
+    expect(rmaVehicles).not.toContain(people.Badr.car.id);
+    expect(ids(await agent.get(`/api/vehicles?insurerId=${cat}`))).not.toContain(
+      people.Amina.car.id,
+    );
+
+    const search = async (q, insurerId) =>
+      (await agent.get(`/api/search?q=${q}${insurerId ? `&insurerId=${insurerId}` : ''}`)).body;
+    expect((await search('test')).customers).toHaveLength(4);
+    expect((await search('test', cat)).customers.map((c) => c.displayName).sort()).toEqual([
+      'Badr Test',
+      'Chaimae Test',
+      'Dahbia Test',
+    ]);
+    const plate = people.Amina.car.registration.replace(/-/g, '');
+    expect((await search(plate, rma)).vehicles.map((v) => v.id)).toEqual([people.Amina.car.id]);
+    expect((await search(plate, cat)).vehicles).toEqual([]);
+    // Contracts by reference: the CAT one only, in CAT's workspace.
+    const contracts = await search('CTR', cat);
+    expect(contracts.contracts.map((c) => c.insurer)).toEqual(['CAT', 'CAT']);
+    expect((await search('CTR')).contracts).toHaveLength(4);
+    expect((await agent.get('/api/search?q=test&insurerId=RMA')).status).toBe(400);
+  });
+});

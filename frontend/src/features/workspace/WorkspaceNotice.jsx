@@ -4,8 +4,11 @@ import { BOTH, useWorkspace } from './Workspace.jsx';
 
 const t = fr.workspace;
 
-/** On a list filtered by the workspace: which insurer it shows, and a way to see both. */
-export function WorkspaceNotice() {
+/**
+ * On a list filtered by the workspace: which insurer it shows, and a way to see both. `text`
+ * says it otherwise (clients and vehicles: also those without any contract).
+ */
+export function WorkspaceNotice({ text = t.notice }) {
   const { insurer, choose } = useWorkspace();
   if (!insurer) return null;
   return (
@@ -15,7 +18,7 @@ export function WorkspaceNotice() {
       className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-slate-200 border-l-4 border-l-(--brand) bg-white px-3 py-2 text-sm text-slate-700"
     >
       <FunnelIcon aria-hidden="true" className="size-4 shrink-0 text-slate-500" />
-      <span className="min-w-0 flex-1">{t.notice(insurer.code)}</span>
+      <span className="min-w-0 flex-1">{text(insurer.code)}</span>
       <button
         type="button"
         onClick={() => choose(BOTH)}

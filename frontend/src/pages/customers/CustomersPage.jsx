@@ -13,6 +13,8 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { useWideScreen } from '../../hooks/useWideScreen.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatPhone } from '../../utils/format.js';
+import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
+import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.customers;
 
@@ -24,6 +26,7 @@ export function CustomersPage() {
   const params = new URLSearchParams({ archived: filters.archived, page: String(filters.page) });
   if (filters.q) params.set('q', filters.q);
   if (filters.type) params.set('type', filters.type);
+  useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/customers?${params}`);
   const wide = useWideScreen();
   const activeFilters = (filters.type ? 1 : 0) + (filters.archived !== 'exclude' ? 1 : 0);
@@ -47,6 +50,7 @@ export function CustomersPage() {
           </Link>
         )}
       </div>
+      <WorkspaceNotice text={fr.workspace.noticeCustomers} />
 
       <form
         role="search"
@@ -150,7 +154,9 @@ export function CustomersPage() {
                       <td className="px-4 py-3">
                         {customer.activeContracts
                           ? t.activeCount(customer.activeContracts)
-                          : fr.common.none}
+                          : customer.hasContract
+                            ? fr.common.none
+                            : t.noContract}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 font-mono">
                         {formatPhone(customer.phone) ?? fr.common.none}
@@ -203,6 +209,11 @@ function CustomerCards({ customers }) {
             {customer.activeContracts > 0 && (
               <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
                 {t.activeCount(customer.activeContracts)}
+              </span>
+            )}
+            {!customer.hasContract && (
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300">
+                {t.noContract}
               </span>
             )}
           </div>

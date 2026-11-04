@@ -19,6 +19,8 @@ export const listVehiclesQuery = z.strictObject({
   customerId: z.uuid().optional(),
   fleetId: z.uuid().optional(),
   archived: z.enum(['exclude', 'include', 'only']).default('exclude'),
+  /** The workspace chosen after sign-in: vehicles with a contract there, or with none. */
+  insurerId: z.uuid().optional(),
   ...paginationFields,
 });
 

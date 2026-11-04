@@ -4,6 +4,7 @@ import { DUE_KNOWN_SQL, DUE_SQL, LONG_UNPAID_DAYS } from '../contracts/service.j
 import { displayNameOf } from '../customers/service.js';
 import { createRemittancesService } from '../remittances/service.js';
 import { createRenewalsService } from '../renewals/service.js';
+import { customerInWorkspace, vehicleInWorkspace } from '../workspaces/filters.js';
 import {
   normalizeIdentityNumber,
   normalizePhone,
@@ -32,7 +33,7 @@ export function createTodayService({ prisma, audit, clock, config }) {
   const remittances = createRemittancesService({ prisma, audit, clock, config });
 
   return {
-    async search(auth, q) {
+    async search(auth, q, { insurerId } = {}) {
       const can = (permission) => auth.permissions.has(permission);
       const text = searchable(q);
       const number = compact(q);
@@ -47,7 +48,11 @@ export function createTodayService({ prisma, audit, clock, config }) {
         if (/^[A-Z0-9]{5,20}$/.test(identity))
           or.push({ identityNumber: identity }, { ice: identity });
         const rows = await prisma.customer.findMany({
-          where: { OR: or, archivedAt: null },
+          where: {
+            OR: or,
+            archivedAt: null,
+            ...(insurerId ? { AND: [customerInWorkspace(insurerId)] } : {}),
+          },
           orderBy: { ref: 'desc' },
           take: LIMIT,
         });
@@ -75,7 +80,11 @@ export function createTodayService({ prisma, audit, clock, config }) {
         if (vin.length >= 5) or.push({ vin: { contains: vin } });
         if (or.length) {
           const rows = await prisma.vehicle.findMany({
-            where: { OR: or, archivedAt: null },
+            where: {
+              OR: or,
+              archivedAt: null,
+              ...(insurerId ? { AND: [vehicleInWorkspace(insurerId)] } : {}),
+            },
             include: { owner: true },
             orderBy: { registrationKey: 'asc' },
             take: LIMIT,
@@ -94,9 +103,10 @@ export function createTodayService({ prisma, audit, clock, config }) {
         const ids = await prisma.$queryRaw`
           SELECT DISTINCT c."id", c."endDate" FROM "contract" c
           LEFT JOIN "attestation" a ON a."contractId" = c."id"
-          WHERE upper(regexp_replace(c."ref", '[^[:alnum:]]', '', 'g')) LIKE ${`%${number}%`}
+          WHERE (upper(regexp_replace(c."ref", '[^[:alnum:]]', '', 'g')) LIKE ${`%${number}%`}
              OR upper(regexp_replace(coalesce(c."policyNumber", ''), '[^[:alnum:]]', '', 'g')) = ${number}
-             OR a."number" = ${number}
+             OR a."number" = ${number})
+          ${insurerId ? Prisma.sql`AND c."insurerId" = ${insurerId}::uuid` : Prisma.empty}
           ORDER BY c."endDate" DESC
           LIMIT ${LIMIT}`;
         const rows = await prisma.contract.findMany({

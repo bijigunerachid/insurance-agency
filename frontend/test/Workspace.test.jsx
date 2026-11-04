@@ -191,3 +191,71 @@ describe('the workspace cards after sign-in', () => {
     expect(sessionStorage.getItem('agency.workspace')).toBeNull();
   });
 });
+
+describe('the clients of one workspace', () => {
+  const rmaChoice = () =>
+    sessionStorage.setItem(
+      'agency.workspace',
+      JSON.stringify({ userId: '00000000-0000-4000-8000-000000000001', insurerId: RMA }),
+    );
+  const client = (id, displayName, hasContract, activeContracts = 0) => ({
+    id,
+    ref: `CLI-00000${id.slice(-1)}`,
+    type: 'INDIVIDUAL',
+    displayName,
+    phone: null,
+    city: null,
+    assignedUser: null,
+    archivedAt: null,
+    activeContracts,
+    hasContract,
+  });
+
+  it('lists the clients with an RMA contract and those without any, marked « Sans contrat »', async () => {
+    rmaChoice();
+    mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/workspaces': () => [200, { items: cards }],
+      [`GET /api/customers?archived=exclude&page=1&insurerId=${RMA}`]: () => [
+        200,
+        {
+          ...page,
+          items: [
+            client('00000000-0000-4000-8000-0000000000e1', 'Amina Test', true, 1),
+            client('00000000-0000-4000-8000-0000000000e2', 'Dahbia Test', false),
+          ],
+          total: 2,
+        },
+      ],
+    });
+    renderApp('/clients');
+    expect(
+      await screen.findByText(
+        'Espace RMA : les clients qui ont un contrat RMA, et ceux qui n’ont encore aucun contrat.',
+      ),
+    ).toBeVisible();
+    const dahbia = (await screen.findByRole('link', { name: 'Dahbia Test' })).closest('tr');
+    expect(within(dahbia).getByText('Sans contrat')).toBeVisible();
+    const amina = screen.getByRole('link', { name: 'Amina Test' }).closest('tr');
+    expect(within(amina).getByText('1 contrat émis')).toBeVisible();
+  });
+
+  it('searches the RMA workspace from the home page', async () => {
+    rmaChoice();
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/workspaces': () => [200, { items: cards }],
+      ...home,
+      [`GET /api/search?q=amina&insurerId=${RMA}`]: () => [
+        200,
+        { customers: [], vehicles: [], contracts: [] },
+      ],
+    });
+    renderApp('/accueil');
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole('searchbox', { name: 'Rechercher' }), 'amina');
+    await waitFor(() =>
+      expect(requested(fetchMock)).toContain(`/api/search?q=amina&insurerId=${RMA}`),
+    );
+  });
+});
