@@ -29,7 +29,13 @@ export function TotpVerifyPage() {
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <CodeField value={code} onChange={setCode} autoFocus />
-        <Button type="submit" className="w-full" disabled={submitting || code.length !== 6}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={submitting}
+          disabled={code.length !== 6}
+        >
           {fr.totp.verify}
         </Button>
       </form>
@@ -42,7 +48,7 @@ export function SignOutLink({ onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="font-medium text-blue-700 underline hover:text-blue-900"
+      className="focus-ring rounded-control font-medium text-primary underline underline-offset-2 hover:text-primary-hover"
     >
       {fr.nav.logout}
     </button>

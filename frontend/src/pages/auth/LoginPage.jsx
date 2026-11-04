@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { PasswordField } from '../../components/PasswordField.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { useSubmit } from '../../features/auth/useSubmit.js';
@@ -29,7 +30,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout title={t.title} intro={t.intro}>
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="space-y-5" noValidate>
         {notice === 'SESSION_ENDED' && !error && <Alert tone="info">{t.sessionEnded}</Alert>}
         {notice === 'SIGNED_OUT' && !error && <Alert tone="info">{t.signedOut}</Alert>}
         {error && <Alert>{errorMessage(error)}</Alert>}
@@ -44,17 +45,22 @@ export function LoginPage() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
         />
-        <TextField
+        <PasswordField
           label={t.password}
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           maxLength={128}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Button type="submit" className="w-full" disabled={submitting || !username || !password}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          loading={submitting}
+          disabled={!username || !password}
+        >
           {submitting ? t.submitting : t.submit}
         </Button>
       </form>

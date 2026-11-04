@@ -10,6 +10,7 @@ import { DataTable } from '../src/components/DataTable.jsx';
 import { EmptyState } from '../src/components/EmptyState.jsx';
 import { Menu } from '../src/components/Menu.jsx';
 import { PageHeader } from '../src/components/PageHeader.jsx';
+import { PasswordField } from '../src/components/PasswordField.jsx';
 import { SelectField } from '../src/components/SelectField.jsx';
 import { SkeletonList } from '../src/components/Skeleton.jsx';
 import { TextField } from '../src/components/TextField.jsx';
@@ -70,6 +71,31 @@ describe('form fields', () => {
     expect(email).toHaveAttribute('aria-invalid', 'true');
     expect(email).toHaveAccessibleDescription('Pour les rappels. Adresse invalide.');
     expect(screen.getByLabelText('Ville')).not.toHaveAttribute('aria-invalid');
+  });
+});
+
+describe('password fields', () => {
+  it('show the characters on request, and warn while Caps Lock is on', async () => {
+    render(<PasswordField label="Mot de passe" defaultValue="Secret" />);
+    const user = userEvent.setup();
+    // The field alone answers to its label; the button is named otherwise.
+    const field = screen.getByLabelText('Mot de passe');
+    expect(field).toHaveAttribute('type', 'password');
+    const show = screen.getByRole('button', { name: 'Afficher les caractères' });
+    expect(show).toHaveAttribute('aria-pressed', 'false');
+    await user.click(show);
+    expect(field).toHaveAttribute('type', 'text');
+    expect(show).toHaveAttribute('aria-pressed', 'true');
+    await user.click(show);
+    expect(field).toHaveAttribute('type', 'password');
+
+    await user.click(field);
+    await user.keyboard('{CapsLock}');
+    expect(screen.getByRole('status')).toHaveTextContent('Majuscules verrouillées');
+    expect(field).toHaveAccessibleDescription('Majuscules verrouillées (Verr. Maj).');
+    // Caps Lock off: the warning goes with the next key typed.
+    await user.keyboard('{CapsLock}a');
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });
 

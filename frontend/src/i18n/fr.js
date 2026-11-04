@@ -82,6 +82,15 @@ export const fr = {
     intro: 'Cette action est sensible. Saisissez à nouveau votre mot de passe pour continuer.',
     submit: 'Confirmer',
   },
+  authLayout: {
+    headline: 'Le suivi quotidien de votre agence, au même endroit.',
+    points: {
+      contracts: 'Clients, véhicules, contrats et attestations RMA et CAT.',
+      payments: 'Paiements au guichet, reçus et reversements aux compagnies.',
+      renewals: 'Renouvellements et échéances à suivre chaque jour.',
+    },
+    offline: 'Fonctionne sur le réseau de l’agence, sans Internet.',
+  },
   login: {
     title: 'Connexion',
     intro: "Identifiez-vous avec le compte fourni par l'administrateur de l'agence.",
@@ -113,6 +122,9 @@ export const fr = {
   },
   password: {
     changeTitle: 'Choisir un nouveau mot de passe',
+    showCharacters: 'Afficher les caractères',
+    hideCharacters: 'Masquer les caractères',
+    capsLock: 'Majuscules verrouillées (Verr. Maj).',
     changeForcedIntro:
       "Pour votre sécurité, remplacez le mot de passe temporaire donné par l'administrateur.",
     current: 'Mot de passe actuel',
