@@ -21,9 +21,11 @@ import {
   UserCircleIcon,
   UsersIcon,
 } from '@heroicons/react/24/outline';
+import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/20/solid';
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { AgencyMark } from '../features/agency/AgencyBrand.jsx';
+import { AgencyMark, useAgencyBrand } from '../features/agency/AgencyBrand.jsx';
+import { QuickSearch } from '../features/search/QuickSearch.jsx';
 import { useAuth } from '../features/auth/AuthContext.jsx';
 import { useRenewalAlerts } from '../features/renewals/useRenewalAlerts.js';
 import { useWorkspace } from '../features/workspace/Workspace.jsx';
@@ -32,8 +34,8 @@ import { fr } from '../i18n/fr.js';
 
 // Each item lists the permission it needs (null = every signed-in user). The API checks again.
 // "daily" items are always shown (owner, 24/10/2026: an easy app for daily work); the others
-// are under "Plus". On a phone the daily items form a bar at the bottom of the screen, under
-// their short name (`short`).
+// are under "Plus", in groups (`group`). On a phone the daily items form a bar at the bottom of
+// the screen, under their short name (`short`).
 export const NAV_ITEMS = [
   {
     to: '/accueil',
@@ -73,70 +75,156 @@ export const NAV_ITEMS = [
   },
   {
     to: '/renouvellements',
+    group: 'follow',
     label: fr.nav.renewals,
     Icon: ArrowPathIcon,
     permission: 'renewals.read',
   },
-  { to: '/vehicules', label: fr.nav.vehicles, Icon: TruckIcon, permission: 'vehicles.read' },
+  {
+    to: '/vehicules',
+    group: 'reference',
+    label: fr.nav.vehicles,
+    Icon: TruckIcon,
+    permission: 'vehicles.read',
+  },
   {
     to: '/reversements',
+    group: 'follow',
     label: fr.nav.remittances,
     Icon: BuildingLibraryIcon,
     permission: 'remittances.read',
   },
-  { to: '/stock', label: fr.nav.stock, Icon: ArchiveBoxIcon, permission: 'stock.read' },
-  { to: '/rapports', label: fr.nav.reports, Icon: ChartBarIcon, permission: 'reports.read' },
-  { to: '/catalogue', label: fr.nav.catalogue, Icon: BookOpenIcon, permission: 'catalogue.read' },
-  { to: '/regles', label: fr.nav.rules, Icon: ScaleIcon, permission: 'catalogue.read' },
-  { to: '/utilisateurs', label: fr.nav.users, Icon: UsersIcon, permission: 'users.read' },
+  {
+    to: '/stock',
+    group: 'follow',
+    label: fr.nav.stock,
+    Icon: ArchiveBoxIcon,
+    permission: 'stock.read',
+  },
+  {
+    to: '/rapports',
+    group: 'follow',
+    label: fr.nav.reports,
+    Icon: ChartBarIcon,
+    permission: 'reports.read',
+  },
+  {
+    to: '/catalogue',
+    group: 'reference',
+    label: fr.nav.catalogue,
+    Icon: BookOpenIcon,
+    permission: 'catalogue.read',
+  },
+  {
+    to: '/regles',
+    group: 'reference',
+    label: fr.nav.rules,
+    Icon: ScaleIcon,
+    permission: 'catalogue.read',
+  },
+  {
+    to: '/utilisateurs',
+    group: 'admin',
+    label: fr.nav.users,
+    Icon: UsersIcon,
+    permission: 'users.read',
+  },
   {
     to: '/journal',
+    group: 'admin',
     label: fr.nav.audit,
     Icon: ClipboardDocumentListIcon,
     permission: 'audit.read',
   },
   {
     to: '/systeme',
+    group: 'admin',
     label: fr.nav.systemStatus,
     Icon: ServerStackIcon,
     permission: 'system.health',
   },
-  { to: '/compte', label: fr.nav.account, Icon: UserCircleIcon, permission: null },
+  {
+    to: '/compte',
+    group: 'account',
+    label: fr.nav.account,
+    Icon: UserCircleIcon,
+    permission: null,
+  },
 ];
 
-function NavItem({ to, label, Icon }) {
+const GROUPS = ['follow', 'reference', 'admin', 'account'];
+const SIDEBAR_KEY = 'agency.sidebar';
+
+/** The side menu reduced to its icons, remembered in this browser (blocked storage: not kept). */
+function useCollapsedSidebar() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === 'collapsed';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () =>
+    setCollapsed((value) => {
+      try {
+        localStorage.setItem(SIDEBAR_KEY, value ? 'open' : 'collapsed');
+      } catch {
+        // Not kept: the menu opens again at the next visit.
+      }
+      return !value;
+    });
+  return [collapsed, toggle];
+}
+
+const linkBase =
+  'focus-ring group flex items-center gap-3 rounded-control text-sm font-medium transition-colors';
+const linkState = ({ isActive }) =>
+  isActive ? 'bg-primary-soft text-primary' : 'text-ink-soft hover:bg-sunken hover:text-ink';
+
+/**
+ * A page of the side menu (computer). Reduced, the label stays for screen readers and as the
+ * tooltip; the current page has a coloured bar on its left.
+ */
+function SideLink({ to, label, Icon, collapsed }) {
   return (
     <li>
       <NavLink
         to={to}
-        className={({ isActive }) =>
-          `flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-blue-700 ${
-            isActive ? 'bg-blue-50 text-blue-800' : 'text-slate-700 hover:bg-slate-100'
-          }`
+        title={collapsed ? label : undefined}
+        className={(state) =>
+          `${linkBase} relative ${collapsed ? 'size-10 justify-center' : 'px-3 py-2'} ${linkState(state)}`
         }
       >
-        <Icon aria-hidden="true" className="size-5" />
-        {label}
+        {({ isActive }) => (
+          <>
+            {isActive && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-y-1.5 -left-3 w-1 rounded-r bg-primary"
+              />
+            )}
+            <Icon aria-hidden="true" className="size-5 shrink-0" />
+            <span className={collapsed ? 'sr-only' : 'truncate'}>{label}</span>
+          </>
+        )}
       </NavLink>
     </li>
   );
 }
 
 /**
- * A daily page: in the side menu on a computer; on a phone, an icon over its short name in the
- * bar at the bottom of the screen. Its accessible name stays the full one.
+ * A daily page in the phone's bottom bar: an icon over its short name. Its accessible name
+ * stays the full one.
  */
-function DailyItem({ to, label, short, Icon }) {
+function BarLink({ to, label, short, Icon }) {
   return (
-    <li className="min-w-0 flex-1 md:flex-none">
+    <li className="min-w-0 flex-1">
       <NavLink
         to={to}
         aria-label={label}
         className={({ isActive }) =>
-          `flex flex-col items-center gap-0.5 rounded-md px-0 py-1.5 text-[11px] tracking-tight font-medium focus-visible:outline-2 focus-visible:outline-blue-700 md:flex-row md:gap-2 md:whitespace-nowrap md:px-3 md:py-2 md:text-sm ${
-            isActive
-              ? 'text-blue-800 md:bg-blue-50'
-              : 'text-slate-600 hover:bg-slate-100 md:text-slate-700'
+          `focus-ring flex flex-col items-center gap-0.5 rounded-control py-1.5 text-[11px] font-medium tracking-tight ${
+            isActive ? 'text-primary' : 'text-ink-muted hover:text-ink'
           }`
         }
       >
@@ -144,15 +232,12 @@ function DailyItem({ to, label, short, Icon }) {
           <>
             <span
               aria-hidden="true"
-              className={`rounded-full px-3 py-0.5 md:p-0 ${isActive ? 'bg-blue-100 md:bg-transparent' : ''}`}
+              className={`rounded-full px-3 py-0.5 ${isActive ? 'bg-primary-soft' : ''}`}
             >
-              <Icon className="size-6 md:size-5" />
+              <Icon className="size-6" />
             </span>
-            <span aria-hidden="true" className="max-w-full truncate md:hidden">
+            <span aria-hidden="true" className="max-w-full truncate">
               {short ?? label}
-            </span>
-            <span aria-hidden="true" className="hidden md:inline">
-              {label}
             </span>
           </>
         )}
@@ -161,8 +246,43 @@ function DailyItem({ to, label, short, Icon }) {
   );
 }
 
+/** The "Plus" pages by group (Suivi, Référentiel, Administration, Compte). */
+function MoreGroups({ items, collapsed, onPick }) {
+  return GROUPS.map((group) => {
+    const inGroup = items.filter((item) => item.group === group);
+    if (inGroup.length === 0) return null;
+    return (
+      <li key={group} className="pt-2 first:pt-0">
+        {!collapsed && (
+          <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+            {fr.nav.groups[group]}
+          </p>
+        )}
+        <ul className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5'}>
+          {inGroup.map((item) =>
+            onPick ? (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  onClick={onPick}
+                  className={(state) => `${linkBase} px-3 py-2.5 ${linkState(state)}`}
+                >
+                  <item.Icon aria-hidden="true" className="size-5 shrink-0" />
+                  {item.label}
+                </NavLink>
+              </li>
+            ) : (
+              <SideLink key={item.to} {...item} collapsed={collapsed} />
+            ),
+          )}
+        </ul>
+      </li>
+    );
+  });
+}
+
 /** The workspace in use, and the way back to the cards (to the home page, once chosen). */
-function WorkspaceSwitch() {
+function WorkspaceSwitch({ variant = 'header' }) {
   const workspace = useWorkspace();
   const navigate = useNavigate();
   if (!workspace.enabled) return null;
@@ -170,32 +290,71 @@ function WorkspaceSwitch() {
   const current = insurer ? fr.workspace.current(insurer.code) : fr.workspace.currentBoth;
   // On a phone the code alone ("RMA"), so the agency's logo keeps its place.
   const short = insurer ? insurer.code : fr.workspace.currentBothShort;
+  const dot = (
+    <span
+      aria-hidden="true"
+      className={`size-2.5 shrink-0 rounded-full ${insurer ? 'bg-(--brand)' : 'bg-linear-to-r from-ink-muted to-ink'}`}
+    />
+  );
+  const common = {
+    type: 'button',
+    onClick: () => {
+      navigate('/');
+      workspace.change();
+    },
+    'aria-label': fr.workspace.changeLabel(current),
+    title: fr.workspace.change,
+    // A colour from the settings: a CSS variable, set through the DOM (allowed by the CSP).
+    style: { '--brand': insurer?.colour ?? '#334155' },
+  };
+  if (variant === 'collapsed') {
+    return (
+      <button
+        {...common}
+        className="focus-ring flex size-10 items-center justify-center rounded-control hover:bg-sunken"
+      >
+        {dot}
+      </button>
+    );
+  }
+  if (variant === 'sidebar') {
+    return (
+      <button
+        {...common}
+        className="focus-ring flex w-full items-center gap-2.5 rounded-control border border-line bg-canvas px-3 py-2 text-left text-sm font-medium text-ink hover:border-line-strong/50 hover:bg-surface"
+      >
+        {dot}
+        <span className="min-w-0 flex-1 truncate">{current}</span>
+        <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
+      </button>
+    );
+  }
   return (
     <button
-      type="button"
-      onClick={() => {
-        navigate('/');
-        workspace.change();
-      }}
-      aria-label={fr.workspace.changeLabel(current)}
-      title={fr.workspace.change}
-      style={{ '--brand': insurer?.colour ?? '#334155' }}
-      className="inline-flex max-w-44 lg:max-w-none items-center gap-2 rounded-full border border-slate-300 bg-white py-1.5 pl-2 pr-3 text-sm font-medium text-slate-800 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
+      {...common}
+      className="focus-ring inline-flex max-w-36 items-center gap-2 rounded-full border border-line bg-surface py-1.5 pl-2.5 pr-3 text-sm font-medium text-ink hover:bg-canvas"
     >
-      <span
-        aria-hidden="true"
-        className={`size-3 shrink-0 rounded-full ${insurer ? 'bg-(--brand)' : 'bg-linear-to-r from-slate-400 to-slate-700'}`}
-      />
-      <span className="truncate sm:hidden">{short}</span>
-      <span className="hidden truncate sm:inline">{current}</span>
-      <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-slate-500" />
+      {dot}
+      <span className="truncate">{short}</span>
+      <ArrowsRightLeftIcon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
     </button>
+  );
+}
+
+/** The agency at the top of the side menu: its logo, or its icon when the menu is reduced. */
+function SidebarBrand({ collapsed }) {
+  const brand = useAgencyBrand();
+  if (!collapsed) return <AgencyMark fallbackIcon={ShieldCheckIcon} />;
+  return brand.icon ? (
+    <img src="/api/agency/icon" alt={brand.name ?? fr.app.name} className="size-8 rounded" />
+  ) : (
+    <ShieldCheckIcon aria-label={brand.name ?? fr.app.name} className="size-8 text-primary" />
   );
 }
 
 export function AppLayout() {
   const { me, can, logout } = useAuth();
-  const { insurer, enabled: workspaceShown } = useWorkspace();
+  const { insurer } = useWorkspace();
   const { pathname } = useLocation();
   // Windows notifications for insurances ending, on every page while the app is open.
   useRenewalAlerts(can('renewals.read'));
@@ -208,6 +367,7 @@ export function AppLayout() {
   const [openedOn, setOpenedOn] = useState(null);
   const setOpenMore = (open) => setOpenedOn(open ? pathname : null);
   const wide = useWideScreen();
+  const [collapsed, toggleCollapsed] = useCollapsedSidebar();
   // On a computer it stays open, as before. On a phone it is a panel over the page, open only
   // when asked and closed once another page is chosen.
   const openMore = wide ? openedOn !== null : openedOn === pathname;
@@ -221,84 +381,182 @@ export function AppLayout() {
     return () => window.removeEventListener('keydown', close);
   }, [wide, openMore]);
 
+  const moreButton = (
+    <button
+      type="button"
+      aria-expanded={moreShown}
+      aria-controls="nav-more"
+      onClick={() => setOpenMore(!moreShown)}
+      title={collapsed ? fr.nav.more : undefined}
+      className={`${linkBase} w-full ${collapsed ? 'size-10 justify-center' : 'px-3 py-2'} ${
+        inMore ? 'text-primary' : 'text-ink-soft hover:bg-sunken hover:text-ink'
+      }`}
+    >
+      <Squares2X2Icon aria-hidden="true" className="size-5 shrink-0" />
+      <span className={collapsed ? 'sr-only' : 'flex-1 text-left'}>{fr.nav.more}</span>
+      {!collapsed && (
+        <ChevronDownIcon
+          aria-hidden="true"
+          className={`size-4 text-ink-muted transition-transform ${moreShown ? 'rotate-180' : ''}`}
+        />
+      )}
+    </button>
+  );
+
+  const signOut = (
+    <button
+      type="button"
+      onClick={logout}
+      title={collapsed ? fr.nav.logout : undefined}
+      className={`focus-ring inline-flex items-center justify-center gap-2 rounded-control text-sm font-medium text-ink-soft hover:bg-sunken hover:text-ink ${
+        wide && !collapsed ? 'w-full px-3 py-2' : 'size-10'
+      }`}
+    >
+      <ArrowRightStartOnRectangleIcon aria-hidden="true" className="size-5 shrink-0" />
+      <span className={wide && !collapsed ? 'flex-1 text-left' : 'sr-only'}>{fr.nav.logout}</span>
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-canvas text-ink">
       <a
         href="#contenu"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:shadow"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:shadow-raised"
       >
         Aller au contenu
       </a>
-
       {/* The workspace's colour along the top of every page. */}
-      <header
-        style={insurer?.colour ? { borderTopColor: insurer.colour } : undefined}
-        className={`border-b border-slate-200 bg-white print:hidden ${insurer ? 'border-t-4 border-t-slate-700' : ''}`}
-      >
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <AgencyMark fallbackIcon={ShieldCheckIcon} />
+      {insurer?.colour && (
+        <div
+          aria-hidden="true"
+          style={{ backgroundColor: insurer.colour }}
+          className="fixed inset-x-0 top-0 z-50 h-1 print:hidden"
+        />
+      )}
+
+      {wide && (
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-line bg-surface print:hidden ${
+            collapsed ? 'w-16 items-center' : 'w-64'
+          }`}
+        >
+          <div className={`flex h-16 shrink-0 items-center ${collapsed ? '' : 'gap-3 px-5'}`}>
+            <SidebarBrand collapsed={collapsed} />
           </div>
-          <div className="flex items-center gap-3">
-            <WorkspaceSwitch />
-            {/* With the workspace button, a phone has no room for the name (the home page says it). */}
-            <p
-              className={`text-right text-sm leading-tight ${workspaceShown ? 'hidden sm:block' : ''}`}
-            >
-              <span className="sr-only">{fr.nav.signedInAs} </span>
-              <span className="block font-medium">{me.user.displayName}</span>
-              <span className="block text-xs text-slate-500">{me.user.role.name}</span>
-            </p>
+          <div className={collapsed ? 'pb-2' : 'px-3 pb-3'}>
+            <WorkspaceSwitch variant={collapsed ? 'collapsed' : 'sidebar'} />
+          </div>
+          <nav
+            aria-label={fr.nav.mainLabel}
+            className={`min-h-0 flex-1 overflow-y-auto pb-4 ${collapsed ? 'px-3' : 'px-3'}`}
+          >
+            <ul className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5'}>
+              {daily.map((item) => (
+                <SideLink key={item.to} {...item} collapsed={collapsed} />
+              ))}
+              {more.length > 0 && <li className="pt-3">{moreButton}</li>}
+            </ul>
+            {more.length > 0 && moreShown && (
+              <ul
+                id="nav-more"
+                aria-label={fr.nav.moreLabel}
+                className={`mt-1 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 pl-0'}`}
+              >
+                <MoreGroups items={more} collapsed={collapsed} />
+              </ul>
+            )}
+          </nav>
+          <div
+            className={`shrink-0 border-t border-line py-3 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 px-3'}`}
+          >
+            {!collapsed && (
+              <p className="px-3 pb-1 text-sm leading-tight">
+                <span className="sr-only">{fr.nav.signedInAs} </span>
+                <span className="block truncate font-medium text-ink">{me.user.displayName}</span>
+                <span className="block truncate text-xs text-ink-muted">{me.user.role.name}</span>
+              </p>
+            )}
+            {signOut}
             <button
               type="button"
-              onClick={logout}
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
+              onClick={toggleCollapsed}
+              aria-pressed={collapsed}
+              title={collapsed ? fr.nav.expand : fr.nav.collapse}
+              className={`focus-ring inline-flex items-center gap-2 rounded-control text-sm text-ink-muted hover:bg-sunken hover:text-ink ${
+                collapsed ? 'size-10 justify-center' : 'w-full px-3 py-2'
+              }`}
             >
-              <ArrowRightStartOnRectangleIcon aria-hidden="true" className="size-5" />
-              <span className="sr-only sm:not-sr-only">{fr.nav.logout}</span>
+              {collapsed ? (
+                <ChevronDoubleRightIcon aria-hidden="true" className="size-4" />
+              ) : (
+                <ChevronDoubleLeftIcon aria-hidden="true" className="size-4" />
+              )}
+              <span className={collapsed ? 'sr-only' : ''}>{fr.nav.collapse}</span>
             </button>
           </div>
-        </div>
-      </header>
+        </aside>
+      )}
 
-      <div className="mx-auto flex max-w-7xl flex-col px-4 pb-28 pt-6 sm:px-6 md:flex-row md:gap-6 md:pb-6 print:block print:p-0">
-        <nav aria-label={fr.nav.mainLabel} className="md:w-56 md:shrink-0 print:hidden">
-          {/* A phone: the panel of "Plus" over the page, with a shade that closes it. */}
-          {moreShown && !wide && (
+      <div className={wide ? (collapsed ? 'pl-16 print:pl-0' : 'pl-64 print:pl-0') : ''}>
+        <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur print:hidden">
+          <div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
+            {wide ? (
+              <QuickSearch />
+            ) : (
+              <>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <AgencyMark fallbackIcon={ShieldCheckIcon} />
+                </div>
+                <QuickSearch compact />
+                <WorkspaceSwitch />
+                {signOut}
+              </>
+            )}
+          </div>
+        </header>
+
+        <main
+          id="contenu"
+          className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 print:max-w-none print:p-0"
+        >
+          <Outlet />
+        </main>
+      </div>
+
+      {!wide && (
+        <nav aria-label={fr.nav.mainLabel} className="print:hidden">
+          {/* The panel of "Plus" over the page, with a shade that closes it. */}
+          {moreShown && (
             <button
               type="button"
               tabIndex={-1}
               aria-hidden="true"
               onClick={() => setOpenMore(false)}
-              className="fixed inset-0 z-30 bg-slate-900/30 md:hidden"
+              className="fixed inset-0 z-30 bg-ink/30"
             />
           )}
-          <ul className="fixed inset-x-0 bottom-0 z-40 flex items-stretch gap-0.5 border-t border-slate-200 bg-white px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-2px_8px_rgba(15,23,42,0.06)] md:static md:z-auto md:flex-col md:gap-1 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+          <ul className="fixed inset-x-0 bottom-0 z-40 flex items-stretch gap-0.5 border-t border-line bg-surface px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-2px_8px_rgba(15,23,42,0.06)]">
             {daily.map((item) => (
-              <DailyItem key={item.to} {...item} />
+              <BarLink key={item.to} {...item} />
             ))}
             {more.length > 0 && (
-              <li className="min-w-0 flex-1 md:mt-2 md:flex-none">
+              <li className="min-w-0 flex-1">
                 <button
                   type="button"
                   aria-expanded={moreShown}
                   aria-controls="nav-more"
                   onClick={() => setOpenMore(!moreShown)}
-                  className={`flex w-full flex-col items-center gap-0.5 rounded-md px-0 py-1.5 text-[11px] tracking-tight font-medium hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-blue-700 md:flex-row md:gap-2 md:whitespace-nowrap md:px-3 md:py-2 md:text-sm md:text-slate-700 ${
-                    inMore || moreShown ? 'text-blue-800' : 'text-slate-600'
+                  className={`focus-ring flex w-full flex-col items-center gap-0.5 rounded-control py-1.5 text-[11px] font-medium tracking-tight ${
+                    inMore || moreShown ? 'text-primary' : 'text-ink-muted'
                   }`}
                 >
                   <span
                     aria-hidden="true"
-                    className={`rounded-full px-3 py-0.5 md:p-0 ${inMore ? 'bg-blue-100 md:bg-transparent' : ''}`}
+                    className={`rounded-full px-3 py-0.5 ${inMore ? 'bg-primary-soft' : ''}`}
                   >
-                    <Squares2X2Icon className="size-6 md:size-5" />
+                    <Squares2X2Icon className="size-6" />
                   </span>
                   {fr.nav.more}
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className={`ml-auto hidden size-4 transition-transform md:block ${moreShown ? 'rotate-180' : ''}`}
-                  />
                 </button>
               </li>
             )}
@@ -307,19 +565,13 @@ export function AppLayout() {
             <ul
               id="nav-more"
               aria-label={fr.nav.moreLabel}
-              className="fixed inset-x-0 bottom-[4.25rem] z-40 grid max-h-[70vh] grid-cols-2 gap-1 overflow-y-auto rounded-t-xl border-t border-slate-200 bg-white p-3 shadow-xl md:static md:mt-1 md:max-h-none md:grid-cols-1 md:overflow-visible md:rounded-none md:p-0 md:pt-2 md:shadow-none"
+              className="fixed inset-x-0 bottom-[4.25rem] z-40 max-h-[70vh] space-y-1 overflow-y-auto rounded-t-[14px] border-t border-line bg-surface p-3 shadow-raised"
             >
-              {more.map((item) => (
-                <NavItem key={item.to} {...item} />
-              ))}
+              <MoreGroups items={more} onPick={() => setOpenMore(false)} />
             </ul>
           )}
         </nav>
-
-        <main id="contenu" className="min-w-0 flex-1">
-          <Outlet />
-        </main>
-      </div>
+      )}
     </div>
   );
 }
