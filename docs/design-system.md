@@ -55,6 +55,7 @@ Amounts, dates and table cells use tabular figures.
 | `Button` | `variant` primary / secondary / danger / ghost, `size` sm / md / lg, `loading` (turning sign, second click refused, `aria-busy`), `icon`, `iconOnly` (the label stays for screen readers). Long labels wrap on a phone. |
 | `ButtonLink` | A link to another page that looks like a button. |
 | `TextField`, `SelectField`, `TextAreaField` | One look (`fieldStyles.js`); `optional` adds « (facultatif) »; hint and error tied with `aria-describedby`, `aria-invalid` on error. |
+| `PasswordField` | A password field like `TextField`, with « Afficher les caractères » (a toggle; its name avoids « mot de passe » so the field alone answers to its label) and a warning while Caps Lock is on. |
 | `PageHeader`, `BackLink` | Every page's top: way back, h1, one line of purpose, actions. |
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
 | `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). |
@@ -90,6 +91,16 @@ the people who may open it, and the API checks again.
   bottom bar of the daily pages and « Plus », which opens its grouped pages in a panel (closed by
   choosing a page, by the shade or with Escape).
 - **Print:** menu, header and strip are hidden.
+
+## Sign-in and workspace cards (stage 3)
+
+`frontend/src/layouts/AuthLayout.jsx`, used by the four sign-in steps (sign-in, code, new password,
+second factor). From 1024 px: a dark panel on the left with the agency's logo, name and tagline,
+one sentence and three lines on what the application does (only what exists), and « works on the
+agency's network, without Internet »; the step on the right. Below 1024 px: the step alone under
+the logo (one logo in the page, chosen by the screen's width). Passwords use `PasswordField`;
+buttons show their work (`loading`). The workspace cards (`WorkspacePage.jsx`) use the same top
+bar, colours and radius as the application.
 
 ## Stages
 

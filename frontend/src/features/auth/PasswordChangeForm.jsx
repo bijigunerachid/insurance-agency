@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
-import { TextField } from '../../components/TextField.jsx';
+import { PasswordField } from '../../components/PasswordField.jsx';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { useAuth } from './AuthContext.jsx';
@@ -39,9 +39,8 @@ export function PasswordChangeForm({ onDone }) {
   return (
     <form onSubmit={onSubmit} className="space-y-4" noValidate>
       {error && !problems.length && <Alert>{errorMessage(error)}</Alert>}
-      <TextField
+      <PasswordField
         label={t.current}
-        type="password"
         name="current-password"
         autoComplete="current-password"
         required
@@ -49,10 +48,9 @@ export function PasswordChangeForm({ onDone }) {
         value={form.currentPassword}
         onChange={update('currentPassword')}
       />
-      <TextField
+      <PasswordField
         label={t.new}
         hint={t.rules}
-        type="password"
         name="new-password"
         autoComplete="new-password"
         required
@@ -61,9 +59,8 @@ export function PasswordChangeForm({ onDone }) {
         onChange={update('newPassword')}
         error={problems.map((code) => t.problems[code]).join(' ') || undefined}
       />
-      <TextField
+      <PasswordField
         label={t.confirm}
-        type="password"
         name="confirm-password"
         autoComplete="new-password"
         required
@@ -74,7 +71,8 @@ export function PasswordChangeForm({ onDone }) {
       />
       <Button
         type="submit"
-        disabled={submitting || !form.currentPassword || !form.newPassword || !form.confirmation}
+        loading={submitting}
+        disabled={!form.currentPassword || !form.newPassword || !form.confirmation}
       >
         {fr.common.save}
       </Button>

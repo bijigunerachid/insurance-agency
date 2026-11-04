@@ -65,11 +65,11 @@ export function TotpEnrollment({ onCancel }) {
         alt={fr.totp.qrAlt}
         width={200}
         height={200}
-        className="mx-auto rounded border border-slate-200"
+        className="mx-auto rounded-card border border-line bg-white p-2"
       />
       <div className="text-sm">
-        <p className="text-slate-600">{fr.totp.manualKey}</p>
-        <p className="mt-1 break-all rounded bg-slate-100 px-2 py-1 font-mono tracking-wider">
+        <p className="text-ink-muted">{fr.totp.manualKey}</p>
+        <p className="mt-1 break-all rounded-control bg-sunken px-2.5 py-1.5 font-mono tracking-wider text-ink">
           {setup.secret.match(/.{1,4}/g).join(' ')}
         </p>
       </div>
@@ -81,10 +81,10 @@ export function TotpEnrollment({ onCancel }) {
         className="space-y-4"
         noValidate
       >
-        <p className="text-sm font-medium">{fr.totp.enrollConfirm}</p>
+        <p className="text-sm font-medium text-ink-soft">{fr.totp.enrollConfirm}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <CodeField value={code} onChange={setCode} />
-        <Button type="submit" disabled={submitting || code.length !== 6}>
+        <Button type="submit" loading={submitting} disabled={code.length !== 6}>
           {fr.totp.activate}
         </Button>
       </form>
