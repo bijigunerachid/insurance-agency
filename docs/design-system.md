@@ -66,6 +66,25 @@ Amounts, dates and table cells use tabular figures.
 | `Dialog`, `ConfirmDialog`, `ReasonDialog` | The browser's modal dialog (focus kept inside, Escape, focus returned). |
 | `Pagination`, `ErrorState`, `Spinner`, `FormActions`, `MoreFilters` | As before, on the tokens. |
 
+## Application layout (stage 2)
+
+`frontend/src/layouts/AppLayout.jsx`. Routes and permissions unchanged: the menu shows a page only to
+the people who may open it, and the API checks again.
+
+- **Computer (768 px and wider):** a side menu along the full height: the agency's logo, the
+  workspace (« changer d'espace »), the five daily pages, then « Plus » with its pages in groups
+  (Suivi, Référentiel, Administration, Compte; an empty group is not shown), and at the bottom the
+  person, « Se déconnecter » and « Réduire le menu ». Reduced, the menu shows icons only, with each
+  page's name kept for screen readers and as a tooltip; the choice is remembered in the browser
+  (`localStorage`, nothing important). The current page has a blue bar on its left.
+- **Header:** « Recherche rapide » (Ctrl+K from any page; the same search as the home page, in a
+  dialog, `features/search`). The page's title stays in the page (its h1), not repeated in the header.
+- **Workspace colour:** a 4 px strip along the top of the screen, in the insurer's colour.
+- **Phone:** a header with the agency's logo, the search, the workspace and « Se déconnecter »; the
+  bottom bar of the daily pages and « Plus », which opens its grouped pages in a panel (closed by
+  choosing a page, by the shade or with Escape).
+- **Print:** menu, header and strip are hidden.
+
 ## Stages
 
 The redesign goes stage by stage, each on its own branch, merged by the owner before the next

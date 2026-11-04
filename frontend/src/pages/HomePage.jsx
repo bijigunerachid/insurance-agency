@@ -7,7 +7,7 @@ import {
   DocumentTextIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert } from '../components/Alert.jsx';
 import { Spinner } from '../components/Spinner.jsx';
@@ -16,12 +16,12 @@ import { AlertsSwitch } from '../features/renewals/AlertsSwitch.jsx';
 import { RenewalList } from '../features/renewals/RenewalList.jsx';
 import { useApiQuery } from '../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../i18n/fr.js';
-import { formatDate, formatMoney } from '../utils/format.js';
+import { formatMoney } from '../utils/format.js';
+import { SearchResults, useGlobalSearch } from '../features/search/GlobalSearch.jsx';
 import { useInsurerFilter } from '../features/workspace/Workspace.jsx';
 import { WorkspaceNotice } from '../features/workspace/WorkspaceNotice.jsx';
 
 const t = fr.home;
-const SEARCH_DELAY_MS = 300;
 
 /** Items whose amount is shown in MAD. */
 const withMoney = (item) => (item.amount ? { ...item, amount: formatMoney(item.amount) } : item);
@@ -152,31 +152,21 @@ export function HomePage() {
 function SearchBox() {
   const id = useId();
   const [text, setText] = useState('');
-  const [query, setQuery] = useState('');
-  // Searches once the person stops typing, not at every letter.
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(text.trim()), SEARCH_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [text]);
-  // In one insurer's workspace: its clients, vehicles and contracts (and those without any).
-  const params = useInsurerFilter().apply(new URLSearchParams({ q: query }));
-  const results = useApiQuery(query.length >= 2 ? `/search?${params}` : null);
-  const data = results.state.status === 'done' && query.length >= 2 ? results.state.data : null;
-  const count = data ? data.customers.length + data.vehicles.length + data.contracts.length : 0;
+  const { query, results } = useGlobalSearch(text);
 
   return (
     <section
       role="search"
       aria-labelledby={`${id}-label`}
-      className="space-y-2 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-hairline"
     >
-      <label id={`${id}-label`} htmlFor={id} className="block text-sm font-medium text-slate-800">
+      <label id={`${id}-label`} htmlFor={id} className="block text-label text-ink-soft">
         {t.search}
       </label>
       <div className="relative">
         <MagnifyingGlassIcon
           aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400"
+          className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-ink-muted"
         />
         <input
           id={id}
@@ -187,68 +177,13 @@ function SearchBox() {
           aria-describedby={`${id}-hint`}
           autoComplete="off"
           maxLength={80}
-          className="block w-full rounded-lg border border-slate-300 py-3 pl-10 pr-3 text-base text-slate-900 shadow-sm focus:outline-2 focus:outline-offset-0 focus:outline-blue-700"
+          className="block h-11 w-full rounded-control border border-line-strong/70 bg-surface pl-10 pr-3 text-base text-ink shadow-hairline placeholder:text-ink-muted focus:border-primary focus:outline-2 focus:outline-offset-0 focus:outline-primary/30"
         />
       </div>
-      <p id={`${id}-hint`} className="text-xs text-slate-500">
+      <p id={`${id}-hint`} className="text-xs text-ink-muted">
         {t.searchHint}
       </p>
-      <div aria-live="polite">
-        {query.length >= 2 && results.state.status === 'loading' && <Spinner label={t.searching} />}
-        {results.state.status === 'error' && <Alert>{errorMessage(results.state.error)}</Alert>}
-        {data && count === 0 && <p className="text-sm text-slate-600">{t.noResult}</p>}
-        {data && count > 0 && (
-          <div className="space-y-3">
-            <ResultGroup title={t.results.customers} items={data.customers}>
-              {(c) => (
-                <Link to={`/clients/${c.id}`} className="block p-2 hover:bg-slate-50">
-                  <span className="font-medium text-blue-700">{c.displayName}</span>{' '}
-                  <span className="text-xs text-slate-600">
-                    {c.ref}
-                    {c.city && ` · ${c.city}`}
-                  </span>
-                </Link>
-              )}
-            </ResultGroup>
-            <ResultGroup title={t.results.vehicles} items={data.vehicles}>
-              {(v) => (
-                <Link to={`/vehicules/${v.id}`} className="block p-2 hover:bg-slate-50">
-                  <span className="font-mono font-medium text-blue-700">{v.registration}</span>{' '}
-                  <span className="text-xs text-slate-600">
-                    {v.makeAndModel} · {v.owner}
-                  </span>
-                </Link>
-              )}
-            </ResultGroup>
-            <ResultGroup title={t.results.contracts} items={data.contracts}>
-              {(c) => (
-                <Link to={`/contrats/${c.id}`} className="block p-2 hover:bg-slate-50">
-                  <span className="font-mono font-medium text-blue-700">{c.ref}</span>{' '}
-                  <span className="text-xs text-slate-600">
-                    {c.customer} · {c.insurer}
-                    {c.policyNumber && ` · ${c.policyNumber}`} · {fr.contracts.statuses[c.status]} ·{' '}
-                    {formatDate(c.endDate)}
-                  </span>
-                </Link>
-              )}
-            </ResultGroup>
-          </div>
-        )}
-      </div>
+      <SearchResults query={query} results={results} />
     </section>
-  );
-}
-
-function ResultGroup({ title, items, children }) {
-  if (items.length === 0) return null;
-  return (
-    <div>
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
-      <ul className="divide-y divide-slate-100 text-sm">
-        {items.map((item) => (
-          <li key={item.id}>{children(item)}</li>
-        ))}
-      </ul>
-    </div>
   );
 }

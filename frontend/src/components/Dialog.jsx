@@ -14,6 +14,8 @@ export function Dialog({ title, onClose, children, footer }) {
     const dialog = ref.current;
     if (dialog.showModal && !dialog.open) dialog.showModal();
     else dialog.setAttribute('open', '');
+    // A field marked data-autofocus takes the focus (the browser would give it to « Fermer »).
+    dialog.querySelector('[data-autofocus]')?.focus();
   }, []);
 
   return (

@@ -28,6 +28,17 @@ export const fr = {
     audit: "Journal d'audit",
     logout: 'Se déconnecter',
     signedInAs: 'Connecté :',
+    quickSearch: 'Recherche rapide',
+    quickSearchShortcut: 'Ctrl K',
+    quickSearchHint: 'Nom, CIN, plaque, n° de police ou d’attestation. Ouvrez-la avec Ctrl+K.',
+    collapse: 'Réduire le menu',
+    expand: 'Agrandir le menu',
+    groups: {
+      follow: 'Suivi',
+      reference: 'Référentiel',
+      admin: 'Administration',
+      account: 'Compte',
+    },
   },
   common: {
     save: 'Enregistrer',
