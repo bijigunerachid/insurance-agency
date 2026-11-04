@@ -1,16 +1,22 @@
-import { PhoneIcon, PlusIcon } from '@heroicons/react/20/solid';
+import { PlusIcon } from '@heroicons/react/20/solid';
+import { UsersIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button } from '../../components/Button.jsx';
+import { Button, ButtonLink } from '../../components/Button.jsx';
+import { DataTable } from '../../components/DataTable.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { MoreFilters } from '../../components/MoreFilters.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
+import { PhoneLink } from '../../components/PhoneLink.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { textLinkClasses } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
-import { useWideScreen } from '../../hooks/useWideScreen.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatPhone } from '../../utils/format.js';
 import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
@@ -28,28 +34,22 @@ export function CustomersPage() {
   if (filters.type) params.set('type', filters.type);
   useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/customers?${params}`);
-  const wide = useWideScreen();
   const activeFilters = (filters.type ? 1 : 0) + (filters.archived !== 'exclude' ? 1 : 0);
 
   return (
-    <section aria-labelledby="customers-title" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 id="customers-title" className="text-2xl font-semibold">
-            {t.title}
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-        </div>
-        {can('customers.write') && (
-          <Link
-            to="/clients/nouveau"
-            className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-          >
-            <PlusIcon aria-hidden="true" className="size-4" />
-            {t.create}
-          </Link>
-        )}
-      </div>
+    <section aria-labelledby="customers-title" className="space-y-5">
+      <PageHeader
+        title={t.title}
+        titleId="customers-title"
+        description={t.intro}
+        actions={
+          can('customers.write') && (
+            <ButtonLink to="/clients/nouveau" variant="primary" icon={PlusIcon}>
+              {t.create}
+            </ButtonLink>
+          )
+        }
+      />
       <WorkspaceNotice text={fr.workspace.noticeCustomers} />
 
       <form
@@ -58,7 +58,7 @@ export function CustomersPage() {
           event.preventDefault();
           setFilters({ ...filters, q: search.trim(), page: 1 });
         }}
-        className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end"
+        className="grid gap-3 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4 md:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end"
       >
         {/* On a phone the button sits beside the box; on a computer it ends the row. */}
         <div className="flex items-end gap-2 md:contents">
@@ -98,7 +98,7 @@ export function CustomersPage() {
         </MoreFilters>
       </form>
 
-      {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {state.status === 'loading' && <SkeletonList />}
       {state.status === 'error' && (
         <ErrorState
           title={errorMessage(state.error)}
@@ -107,70 +107,20 @@ export function CustomersPage() {
         />
       )}
       {state.status === 'done' && state.data.items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-          {fr.common.empty}
-        </p>
+        <EmptyState
+          icon={UsersIcon}
+          title={fr.common.empty}
+          description={filters.q || activeFilters > 0 ? fr.common.emptyFiltered : undefined}
+        />
       )}
       {state.status === 'done' && state.data.items.length > 0 && (
         <>
-          {!wide && <CustomerCards customers={state.data.items} />}
-          {wide && (
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="min-w-full divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <tr>
-                    <th scope="col" className="px-4 py-3">
-                      {t.name}
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      {t.activeContracts}
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      {t.phone}
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      {t.city}
-                    </th>
-                    <th scope="col" className="px-4 py-3">
-                      {t.assignedUser}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {state.data.items.map((customer) => (
-                    <tr key={customer.id}>
-                      <td className="px-4 py-3">
-                        <Link
-                          to={`/clients/${customer.id}`}
-                          className="font-medium text-blue-700 underline-offset-2 hover:underline"
-                        >
-                          {customer.displayName}
-                        </Link>
-                        <div className="font-mono text-xs text-slate-500">
-                          {customer.ref}
-                          {customer.archivedAt ? ` · ${t.archived}` : ''}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {customer.activeContracts
-                          ? t.activeCount(customer.activeContracts)
-                          : customer.hasContract
-                            ? fr.common.none
-                            : t.noContract}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 font-mono">
-                        {formatPhone(customer.phone) ?? fr.common.none}
-                      </td>
-                      <td className="px-4 py-3">{customer.city ?? fr.common.none}</td>
-                      <td className="px-4 py-3">
-                        {customer.assignedUser?.displayName ?? t.unassigned}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            caption={t.title}
+            columns={COLUMNS}
+            rows={state.data.items}
+            renderCard={(customer) => <CustomerCard customer={customer} />}
+          />
           <Pagination
             page={state.data.page}
             pageCount={state.data.pageCount}
@@ -183,56 +133,84 @@ export function CustomersPage() {
   );
 }
 
+/** Issued contracts: how many, none any more (« — »), or never any. */
+function ContractCount({ customer }) {
+  if (customer.activeContracts) {
+    return <StatusBadge tone="ok">{t.activeCount(customer.activeContracts)}</StatusBadge>;
+  }
+  if (customer.hasContract) return <span className="text-ink-muted">{fr.common.none}</span>;
+  return <StatusBadge tone="neutral">{t.noContract}</StatusBadge>;
+}
+
+const COLUMNS = [
+  {
+    key: 'name',
+    header: t.name,
+    primary: true,
+    cell: (customer) => (
+      <>
+        <Link to={`/clients/${customer.id}`} className={textLinkClasses}>
+          {customer.displayName}
+        </Link>
+        <div className="font-mono text-xs text-ink-muted">
+          {customer.ref}
+          {customer.archivedAt ? ` · ${t.archived}` : ''}
+        </div>
+      </>
+    ),
+  },
+  {
+    key: 'contracts',
+    header: t.activeContracts,
+    cell: (customer) => <ContractCount customer={customer} />,
+  },
+  {
+    key: 'phone',
+    header: t.phone,
+    className: 'whitespace-nowrap',
+    cell: (customer) =>
+      customer.phone ? (
+        <span className="font-mono">{formatPhone(customer.phone)}</span>
+      ) : (
+        <span className="text-ink-muted">{fr.common.none}</span>
+      ),
+  },
+  { key: 'city', header: t.city, cell: (customer) => customer.city ?? fr.common.none },
+  {
+    key: 'assigned',
+    header: t.assignedUser,
+    cell: (customer) => customer.assignedUser?.displayName ?? t.unassigned,
+  },
+];
+
 /** On a phone: one card per customer, the name opens it, the phone calls. */
-function CustomerCards({ customers }) {
+function CustomerCard({ customer }) {
   return (
-    <ul className="space-y-2">
-      {customers.map((customer) => (
-        <li
-          key={customer.id}
-          className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <Link
-                to={`/clients/${customer.id}`}
-                className="font-semibold text-blue-700 after:absolute after:inset-0 after:rounded-xl focus-visible:outline-2 focus-visible:outline-blue-700"
-              >
-                {customer.displayName}
-              </Link>
-              <p className="text-xs text-slate-500">
-                {[customer.ref, customer.city, customer.archivedAt && t.archived]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            </div>
-            {customer.activeContracts > 0 && (
-              <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-600/20">
-                {t.activeCount(customer.activeContracts)}
-              </span>
-            )}
-            {!customer.hasContract && (
-              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300">
-                {t.noContract}
-              </span>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
-            {customer.phone ? (
-              <a
-                href={`tel:${customer.phone}`}
-                className="relative inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-sm font-medium text-blue-800 ring-1 ring-inset ring-blue-200 focus-visible:outline-2 focus-visible:outline-blue-700"
-              >
-                <PhoneIcon aria-hidden="true" className="size-4" />
-                {formatPhone(customer.phone)}
-              </a>
-            ) : (
-              <span />
-            )}
-            <span>{customer.assignedUser?.displayName ?? t.unassigned}</span>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div className="relative rounded-card border border-line bg-surface p-4 shadow-hairline">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            to={`/clients/${customer.id}`}
+            className="focus-ring rounded-control font-semibold text-ink after:absolute after:inset-0 after:rounded-card hover:text-primary"
+          >
+            {customer.displayName}
+          </Link>
+          <p className="text-xs text-ink-muted">
+            {[customer.ref, customer.city, customer.archivedAt && t.archived]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+        </div>
+        {(customer.activeContracts > 0 || !customer.hasContract) && (
+          <span className="shrink-0">
+            <ContractCount customer={customer} />
+          </span>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted">
+        {customer.phone ? <PhoneLink phone={customer.phone} /> : <span />}
+        <span>{customer.assignedUser?.displayName ?? t.unassigned}</span>
+      </div>
+    </div>
   );
 }

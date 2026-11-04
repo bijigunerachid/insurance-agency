@@ -90,6 +90,52 @@ describe('customers', () => {
     }
   });
 
+  it('shows the shape of the list while loading, and says why a search found nothing', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      'GET /api/customers?archived=exclude&page=1': () => first,
+      'GET /api/customers?archived=exclude&page=1&q=Zineb': () => page([]),
+    });
+    renderApp('/clients');
+    const user = userEvent.setup();
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+    answer(page([{ ...listItem, activeContracts: 2 }]));
+    const row = (await screen.findByRole('link', { name: 'Karim Alaoui' })).closest('tr');
+    expect(within(row).getByText('2 contrats émis')).toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Nom, référence, téléphone, CIN ou ICE' }),
+      'Zineb',
+    );
+    await user.click(screen.getByRole('button', { name: 'Rechercher' }));
+    expect(await screen.findByText('Aucun résultat.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Essayez une autre recherche ou retirez des filtres.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the shape of a client’s page while it loads', async () => {
+    let answer;
+    const pending = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      [`GET /api/customers/${CUSTOMER_ID}`]: () => pending,
+    });
+    renderApp(`/clients/${CUSTOMER_ID}`);
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+    answer([200, customer]);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Karim Alaoui' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
   it('shows no creation button to an auditor', async () => {
     mockApi({
       'GET /api/auth/me': () => [200, me({ role: 'AGENT', permissions: ['customers.read'] })],

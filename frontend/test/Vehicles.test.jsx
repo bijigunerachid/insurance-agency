@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { me, mockApi } from './mockApi.js';
+import { phoneScreen } from './phoneScreen.js';
 import { renderApp } from './renderApp.jsx';
 
 const CUSTOMER_ID = '00000000-0000-4000-8000-0000000000c1';
@@ -350,5 +351,39 @@ describe('vehicles', () => {
     expect(
       screen.getByText(/Remplacé par avenant n° 2600012345 sur CTR-2026-00001/),
     ).toBeInTheDocument();
+  });
+});
+
+describe('the vehicles list', () => {
+  it('on a phone, shows one card per vehicle and the filters behind one button', async () => {
+    const restore = phoneScreen();
+    try {
+      mockApi({
+        'GET /api/auth/me': () => [200, agentMe()],
+        'GET /api/vehicles?archived=exclude&page=1': () => [
+          200,
+          { items: [vehicle], total: 1, page: 1, pageSize: 25, pageCount: 1 },
+        ],
+        'GET /api/vehicles?archived=exclude&page=1&category=MOTORCYCLE': () => [
+          200,
+          { items: [], total: 0, page: 1, pageSize: 25, pageCount: 1 },
+        ],
+      });
+      renderApp('/vehicules');
+      const user = userEvent.setup();
+      const card = (await screen.findByRole('link', { name: '12345-B-6' })).closest('li');
+      expect(screen.queryByRole('table')).toBeNull();
+      expect(card).toHaveTextContent('Transports Atlas');
+      expect(card).toHaveTextContent('Taxis Casablanca');
+
+      const filters = screen.getByRole('button', { name: 'Filtres' });
+      expect(screen.getByLabelText('Catégorie')).not.toBeVisible();
+      await user.click(filters);
+      await user.selectOptions(screen.getByLabelText('Catégorie'), 'MOTORCYCLE');
+      expect(await screen.findByText('Aucun résultat.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Filtres (1)' })).toBeInTheDocument();
+    } finally {
+      restore();
+    }
   });
 });

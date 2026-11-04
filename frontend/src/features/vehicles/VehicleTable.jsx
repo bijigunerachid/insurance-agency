@@ -1,58 +1,37 @@
 import { Link } from 'react-router';
+import { DataTable } from '../../components/DataTable.jsx';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
+import { textLinkClasses } from '../../components/TextLink.jsx';
 import { fr } from '../../i18n/fr.js';
 
 const t = fr.vehicles;
 
-/** Vehicle rows; `showOwner` is false on a customer's own page. */
+const COLUMNS = [
+  {
+    key: 'registration',
+    header: t.fields.registration,
+    primary: true,
+    className: 'whitespace-nowrap',
+    cell: (vehicle) => (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <Link to={`/vehicules/${vehicle.id}`} className={`${textLinkClasses} font-mono`}>
+          {vehicle.registration}
+        </Link>
+        {vehicle.archivedAt && <StatusBadge tone="neutral">{t.archived}</StatusBadge>}
+      </span>
+    ),
+  },
+  { key: 'category', header: t.categoryLabel, cell: (vehicle) => t.categories[vehicle.category] },
+  { key: 'make', header: t.fields.make, cell: (vehicle) => `${vehicle.make} ${vehicle.model}` },
+  { key: 'owner', header: t.owner, cell: (vehicle) => vehicle.owner.displayName },
+  { key: 'fleet', header: t.fleet, cell: (vehicle) => vehicle.fleet?.name ?? t.noFleet },
+];
+
+/**
+ * Vehicle rows: a table on a computer, cards on a phone. `showOwner` is false on a customer's
+ * own page.
+ */
 export function VehicleTable({ vehicles, showOwner = true }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-          <tr>
-            <th scope="col" className="px-4 py-3">
-              {t.fields.registration}
-            </th>
-            <th scope="col" className="px-4 py-3">
-              {t.categoryLabel}
-            </th>
-            <th scope="col" className="px-4 py-3">
-              {t.fields.make}
-            </th>
-            {showOwner && (
-              <th scope="col" className="px-4 py-3">
-                {t.owner}
-              </th>
-            )}
-            <th scope="col" className="px-4 py-3">
-              {t.fleet}
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {vehicles.map((vehicle) => (
-            <tr key={vehicle.id}>
-              <td className="whitespace-nowrap px-4 py-3">
-                <Link
-                  to={`/vehicules/${vehicle.id}`}
-                  className="font-mono font-medium text-blue-700 underline-offset-2 hover:underline"
-                >
-                  {vehicle.registration}
-                </Link>
-                {vehicle.archivedAt && (
-                  <span className="ml-2 text-xs text-slate-500">{t.archived}</span>
-                )}
-              </td>
-              <td className="px-4 py-3">{t.categories[vehicle.category]}</td>
-              <td className="px-4 py-3">
-                {vehicle.make} {vehicle.model}
-              </td>
-              {showOwner && <td className="px-4 py-3">{vehicle.owner.displayName}</td>}
-              <td className="px-4 py-3">{vehicle.fleet?.name ?? t.noFleet}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const columns = showOwner ? COLUMNS : COLUMNS.filter((column) => column.key !== 'owner');
+  return <DataTable caption={t.title} columns={columns} rows={vehicles} />;
 }

@@ -1,14 +1,16 @@
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { Dialog } from '../../components/Dialog.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { FormActions } from '../../components/FormActions.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import {
   CATEGORY_FIELDS,
   REQUIRED_FIELDS,
@@ -68,12 +70,12 @@ export function VehicleFormPage() {
         requestId={existing.state.error.requestId}
       />
     ) : (
-      <Spinner label={fr.app.loading} />
+      <SkeletonDetail />
     );
   }
   if (!id) {
     if (!ownerId) return <Alert>{t.intro}</Alert>;
-    if (owner.state.status === 'loading') return <Spinner label={fr.app.loading} />;
+    if (owner.state.status === 'loading') return <SkeletonDetail />;
     if (owner.state.status === 'error') {
       return (
         <ErrorState
@@ -239,19 +241,16 @@ function VehicleForm({ vehicle, owner }) {
 
   return (
     <div className="space-y-6">
-      <Link
-        to={back}
-        className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-      >
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {vehicle ? vehicle.registration : owner.displayName}
-      </Link>
-      <h1 className="text-2xl font-semibold">
-        {vehicle ? `${t.edit} · ${vehicle.registration}` : t.create}
-      </h1>
-      <p className="text-sm text-slate-600">
-        {t.owner} : <span className="font-medium">{owner.displayName}</span> ({owner.ref})
-      </p>
+      <PageHeader
+        back={{ to: back, label: vehicle ? vehicle.registration : owner.displayName }}
+        title={vehicle ? `${t.edit} · ${vehicle.registration}` : t.create}
+        description={
+          <>
+            {t.owner} : <span className="font-medium text-ink-soft">{owner.displayName}</span> (
+            {owner.ref})
+          </>
+        }
+      />
 
       <form
         onSubmit={(event) => {
@@ -262,92 +261,95 @@ function VehicleForm({ vehicle, owner }) {
         noValidate
       >
         {error && <Alert>{errorMessage(error)}</Alert>}
-        <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">{t.sections.vehicle}</h2>
-          {text('registration', {
-            hint: t.hints.registration,
-            maxLength: 30,
-            autoComplete: 'off',
-            spellCheck: 'false',
-          })}
-          <SelectField
-            label={t.fields.category}
-            value={form.category}
-            onChange={set('category')}
-            options={Object.entries(t.categories).map(([value, label]) => ({ value, label }))}
-          />
-          {text('make', { maxLength: 40, autoComplete: 'off' })}
-          {text('model', { maxLength: 60, autoComplete: 'off' })}
-          <SelectField
-            label={t.fields.insurerUsageId}
-            hint={t.hints.insurerUsageId}
-            value={form.insurerUsageId}
-            onChange={(event) => {
-              const chosen = insurerUsageItems.find((u) => u.id === event.target.value);
-              // The insurer's usage decides the legal one.
-              setForm({
-                ...form,
-                insurerUsageId: event.target.value,
-                ...(chosen
-                  ? { usageId: legalUsageFor(chosen, usageOf(form.usageId), form.fuel) }
-                  : {}),
-              });
-              setFieldErrors(({ insurerUsageId: _a, usageId: _b, ...rest }) => rest);
-            }}
-            error={fieldErrors.insurerUsageId}
-            options={[
-              { value: '', label: t.notSpecified },
-              ...insurerUsageOptions(insurerUsageItems, usageOptions, vehicle?.insurerUsage?.id),
-            ]}
-          />
-          <SelectField
-            label={t.fields.usageId}
-            hint={t.hints.usageId}
-            value={form.usageId}
-            onChange={(event) => {
-              const kept = insurerUsageItems.find((u) => u.id === form.insurerUsageId);
-              // Another legal usage: the insurer's usage chosen before may no longer fit it.
-              setForm({
-                ...form,
-                usageId: event.target.value,
-                ...(kept && !insurerUsageFits(kept, usageOf(event.target.value), form.fuel)
-                  ? { insurerUsageId: '' }
-                  : {}),
-              });
-              setFieldErrors(({ usageId: _cleared, ...rest }) => rest);
-            }}
-            error={fieldErrors.usageId}
-            options={[{ value: '', label: t.notSpecified }, ...usageOptions]}
-          />
-        </section>
-
-        <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">{t.sections.technical}</h2>
-          {visible.map((name) => (
-            <div key={name}>{technical[name]()}</div>
-          ))}
-        </section>
-
-        {fleets.state.status === 'done' && fleets.state.data.items.length > 0 && (
-          <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-            <h2 className="font-semibold sm:col-span-2">{t.sections.management}</h2>
+        <Card title={t.sections.vehicle}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {text('registration', {
+              hint: t.hints.registration,
+              maxLength: 30,
+              autoComplete: 'off',
+              spellCheck: 'false',
+            })}
             <SelectField
-              label={t.fields.fleetId}
-              value={form.fleetId}
-              onChange={set('fleetId')}
+              label={t.fields.category}
+              value={form.category}
+              onChange={set('category')}
+              options={Object.entries(t.categories).map(([value, label]) => ({ value, label }))}
+            />
+            {text('make', { maxLength: 40, autoComplete: 'off' })}
+            {text('model', { maxLength: 60, autoComplete: 'off' })}
+            <SelectField
+              label={t.fields.insurerUsageId}
+              hint={t.hints.insurerUsageId}
+              value={form.insurerUsageId}
+              onChange={(event) => {
+                const chosen = insurerUsageItems.find((u) => u.id === event.target.value);
+                // The insurer's usage decides the legal one.
+                setForm({
+                  ...form,
+                  insurerUsageId: event.target.value,
+                  ...(chosen
+                    ? { usageId: legalUsageFor(chosen, usageOf(form.usageId), form.fuel) }
+                    : {}),
+                });
+                setFieldErrors(({ insurerUsageId: _a, usageId: _b, ...rest }) => rest);
+              }}
+              error={fieldErrors.insurerUsageId}
               options={[
-                { value: '', label: t.noFleet },
-                ...fleets.state.data.items.map((f) => ({ value: f.id, label: f.name })),
+                { value: '', label: t.notSpecified },
+                ...insurerUsageOptions(insurerUsageItems, usageOptions, vehicle?.insurerUsage?.id),
               ]}
             />
-          </section>
+            <SelectField
+              label={t.fields.usageId}
+              hint={t.hints.usageId}
+              value={form.usageId}
+              onChange={(event) => {
+                const kept = insurerUsageItems.find((u) => u.id === form.insurerUsageId);
+                // Another legal usage: the insurer's usage chosen before may no longer fit it.
+                setForm({
+                  ...form,
+                  usageId: event.target.value,
+                  ...(kept && !insurerUsageFits(kept, usageOf(event.target.value), form.fuel)
+                    ? { insurerUsageId: '' }
+                    : {}),
+                });
+                setFieldErrors(({ usageId: _cleared, ...rest }) => rest);
+              }}
+              error={fieldErrors.usageId}
+              options={[{ value: '', label: t.notSpecified }, ...usageOptions]}
+            />
+          </div>
+        </Card>
+
+        <Card title={t.sections.technical}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {visible.map((name) => (
+              <div key={name}>{technical[name]()}</div>
+            ))}
+          </div>
+        </Card>
+
+        {fleets.state.status === 'done' && fleets.state.data.items.length > 0 && (
+          <Card title={t.sections.management}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label={t.fields.fleetId}
+                value={form.fleetId}
+                onChange={set('fleetId')}
+                options={[
+                  { value: '', label: t.noFleet },
+                  ...fleets.state.data.items.map((f) => ({ value: f.id, label: f.name })),
+                ]}
+              />
+            </div>
+          </Card>
         )}
 
         <FormActions hint={vehicle && fr.common.unsaved(changed.length)}>
           <Button variant="secondary" onClick={() => navigate(back)}>
             {fr.common.cancel}
           </Button>
-          <Button type="submit" disabled={busy || (vehicle && changed.length === 0)}>
+          <Button type="submit" loading={busy} disabled={vehicle && changed.length === 0}>
             {fr.common.save}
           </Button>
         </FormActions>
@@ -363,16 +365,16 @@ function VehicleForm({ vehicle, owner }) {
             </Button>
           }
         >
-          <p className="text-sm text-slate-700">{t.duplicateIntro}</p>
-          <p className="text-sm">
-            <Link
+          <p className="text-sm text-ink-soft">{t.duplicateIntro}</p>
+          <p className="text-sm text-ink">
+            <TextLink
               to={`/vehicules/${duplicate.id}`}
               target="_blank"
               rel="noopener"
-              className="font-medium text-blue-700 underline"
+              className="font-mono"
             >
               {duplicate.registration}
-            </Link>{' '}
+            </TextLink>{' '}
             · {duplicate.owner.displayName} ({duplicate.owner.ref})
             {duplicate.archived ? ` · ${t.archived}` : ''}
           </p>

@@ -1,11 +1,16 @@
-import { ArrowLeftIcon, PencilSquareIcon } from '@heroicons/react/20/solid';
+import { PencilSquareIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
-import { Button } from '../../components/Button.jsx';
+import { Button, ButtonLink } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
+import { DetailItem, DetailList } from '../../components/DetailList.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { BackLink, PageHeader } from '../../components/PageHeader.jsx';
 import { ReasonDialog } from '../../components/ReasonDialog.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
+import { StatusBadge } from '../../components/StatusBadge.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { CATEGORY_FIELDS } from '../../features/vehicles/vehicleFields.js';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
@@ -33,14 +38,14 @@ export function VehicleDetailPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
       <ErrorState
         title={errorMessage(state.error)}
         body={fr.common.genericError}
         requestId={state.error.requestId}
-        action={<BackLink />}
+        action={<BackLink to="/vehicules">{t.back}</BackLink>}
       />
     );
   }
@@ -63,43 +68,43 @@ export function VehicleDetailPage() {
 
   return (
     <div className="space-y-6">
-      <BackLink />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-mono text-2xl font-semibold">{vehicle.registration}</h1>
-          <p className="text-sm text-slate-600">
-            {vehicle.make} {vehicle.model} · {t.categories[vehicle.category]}
-            {archived && ` · ${t.archived}`}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {can('vehicles.write') && !archived && (
-            <Link
-              to={`/vehicules/${vehicle.id}/modifier`}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-            >
-              <PencilSquareIcon aria-hidden="true" className="size-4" />
-              {t.edit}
-            </Link>
-          )}
-          {can('vehicles.archive') && !archived && (
-            <Button variant="secondary" onClick={() => setArchiving(true)}>
-              {t.archive}
-            </Button>
-          )}
-          {can('vehicles.archive') && archived && (
-            <Button
-              variant="secondary"
-              disabled={busy}
-              onClick={() =>
-                act(() => apiPost(`/vehicles/${vehicle.id}/restore`, { version: vehicle.version }))
-              }
-            >
-              {t.restore}
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        back={{ to: '/vehicules', label: t.back }}
+        title={<span className="font-mono">{vehicle.registration}</span>}
+        description={`${vehicle.make} ${vehicle.model} · ${t.categories[vehicle.category]}`}
+        meta={archived && <StatusBadge tone="neutral">{t.archived}</StatusBadge>}
+        actions={
+          <>
+            {can('vehicles.write') && !archived && (
+              <ButtonLink
+                to={`/vehicules/${vehicle.id}/modifier`}
+                variant="primary"
+                icon={PencilSquareIcon}
+              >
+                {t.edit}
+              </ButtonLink>
+            )}
+            {can('vehicles.archive') && !archived && (
+              <Button variant="secondary" onClick={() => setArchiving(true)}>
+                {t.archive}
+              </Button>
+            )}
+            {can('vehicles.archive') && archived && (
+              <Button
+                variant="secondary"
+                loading={busy}
+                onClick={() =>
+                  act(() =>
+                    apiPost(`/vehicles/${vehicle.id}/restore`, { version: vehicle.version }),
+                  )
+                }
+              >
+                {t.restore}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {error && !archiving && <Alert>{errorMessage(error)}</Alert>}
       {archived && (
@@ -108,35 +113,40 @@ export function VehicleDetailPage() {
         </Alert>
       )}
 
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <h2 className="border-b border-slate-200 px-4 py-3 font-semibold">{t.sections.vehicle}</h2>
-        <dl className="grid gap-px bg-slate-200 text-sm sm:grid-cols-2">
-          <Item
+      <Card title={t.sections.vehicle}>
+        <DetailList>
+          <DetailItem
             label={t.owner}
             value={
-              <Link to={`/clients/${vehicle.owner.id}`} className="text-blue-700 underline">
+              <TextLink to={`/clients/${vehicle.owner.id}`}>
                 {vehicle.owner.displayName} ({vehicle.owner.ref})
-              </Link>
+              </TextLink>
             }
           />
-          <Item label={t.fleet} value={vehicle.fleet?.name ?? t.noFleet} />
-          <Item label={t.fields.make} value={vehicle.make} />
-          <Item label={t.fields.model} value={vehicle.model} />
-          <Item label={t.fields.usageId} value={vehicle.usage?.label} />
-          <Item label={t.fields.insurerUsageId} value={vehicle.insurerUsage?.label} />
-        </dl>
-      </section>
+          <DetailItem label={t.fleet} value={vehicle.fleet?.name ?? t.noFleet} />
+          <DetailItem label={t.fields.make} value={vehicle.make} empty={t.notSpecified} />
+          <DetailItem label={t.fields.model} value={vehicle.model} empty={t.notSpecified} />
+          <DetailItem
+            label={t.fields.usageId}
+            value={vehicle.usage?.label}
+            empty={t.notSpecified}
+          />
+          <DetailItem
+            label={t.fields.insurerUsageId}
+            value={vehicle.insurerUsage?.label}
+            empty={t.notSpecified}
+          />
+        </DetailList>
+      </Card>
 
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <h2 className="border-b border-slate-200 px-4 py-3 font-semibold">
-          {t.sections.technical}
-        </h2>
-        <dl className="grid gap-px bg-slate-200 text-sm sm:grid-cols-2">
+      <Card title={t.sections.technical}>
+        <DetailList>
           {CATEGORY_FIELDS[vehicle.category].map((name) => (
-            <Item
+            <DetailItem
               key={name}
               label={t.fields[name]}
               mono={name === 'vin'}
+              empty={t.notSpecified}
               value={
                 vehicle[name] === null
                   ? null
@@ -146,9 +156,9 @@ export function VehicleDetailPage() {
               }
             />
           ))}
-          <Item label={t.createdAt} value={formatDateTime(vehicle.createdAt)} />
-        </dl>
-      </section>
+          <DetailItem label={t.createdAt} value={formatDateTime(vehicle.createdAt)} />
+        </DetailList>
+      </Card>
 
       {vehicle.amendments?.length > 0 && <AmendmentHistory amendments={vehicle.amendments} />}
 
@@ -175,22 +185,16 @@ export function VehicleDetailPage() {
 function AmendmentHistory({ amendments }) {
   const h = t.history;
   const vehicleLink = (vehicle) => (
-    <Link to={`/vehicules/${vehicle.id}`} className="font-mono text-blue-700 underline">
+    <TextLink to={`/vehicules/${vehicle.id}`} className="font-mono">
       {vehicle.registration}
-    </Link>
+    </TextLink>
   );
   return (
-    <section
-      aria-labelledby="vehicle-history"
-      className="rounded-lg border border-slate-200 bg-white"
-    >
-      <h2 id="vehicle-history" className="border-b border-slate-200 px-4 py-3 font-semibold">
-        {h.title}
-      </h2>
-      <ul className="divide-y divide-slate-200 text-sm">
+    <Card title={h.title} flush>
+      <ul className="divide-y divide-line text-sm">
         {amendments.map((a) => (
-          <li key={a.id} className="space-y-0.5 px-4 py-3">
-            <p className="font-medium">
+          <li key={a.id} className="space-y-0.5 px-4 py-3 sm:px-5">
+            <p className="font-medium text-ink">
               {formatDate(a.effectiveDate)} ·{' '}
               {a.previousRegistration ? (
                 h.renumbered(a.previousRegistration, a.registration)
@@ -206,38 +210,15 @@ function AmendmentHistory({ amendments }) {
                 h.joined
               )}
             </p>
-            <p className="text-slate-600">
+            <p className="text-ink-muted">
               {a.number ? h.amendment(a.number) : h.unnumbered} ·{' '}
-              <Link to={`/contrats/${a.contract.id}`} className="font-mono text-blue-700 underline">
+              <TextLink to={`/contrats/${a.contract.id}`} className="font-mono">
                 {a.contract.ref}
-              </Link>
+              </TextLink>
             </p>
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-function Item({ label, value, mono }) {
-  return (
-    <div className="bg-white px-4 py-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className={`mt-0.5 font-medium ${mono ? 'font-mono' : ''}`}>
-        {value === null || value === undefined || value === '' ? t.notSpecified : value}
-      </dd>
-    </div>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/vehicules"
-      className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-    >
-      <ArrowLeftIcon aria-hidden="true" className="size-4" />
-      {t.back}
-    </Link>
+    </Card>
   );
 }

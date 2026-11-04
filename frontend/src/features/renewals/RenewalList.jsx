@@ -1,8 +1,8 @@
-import { PhoneIcon } from '@heroicons/react/20/solid';
 import { Link } from 'react-router';
+import { PhoneLink } from '../../components/PhoneLink.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { fr } from '../../i18n/fr.js';
-import { formatDate, formatPhone } from '../../utils/format.js';
+import { formatDate } from '../../utils/format.js';
 
 const t = fr.renewals;
 
@@ -57,13 +57,9 @@ export function RenewalList({ renewals, flush = false }) {
                 ` · ${t.noticeDeadline} ${formatDate(renewal.noticeDeadline)}`}
             </p>
             {renewal.open && renewal.contract.customer.phone && (
-              <a
-                href={`tel:${renewal.contract.customer.phone}`}
-                className="focus-ring relative mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 font-medium text-primary-hover ring-1 ring-inset ring-primary/25 hover:bg-primary/10"
-              >
-                <PhoneIcon aria-hidden="true" className="size-4" />
-                {formatPhone(renewal.contract.customer.phone)}
-              </a>
+              <div className="pt-1.5">
+                <PhoneLink phone={renewal.contract.customer.phone} />
+              </div>
             )}
           </div>
           <span className="shrink-0">

@@ -76,6 +76,7 @@ export const fr = {
     pageOf: (page, count) => `Page ${page} sur ${count}`,
     results: (n) => (n === 1 ? '1 résultat' : `${n} résultats`),
     empty: 'Aucun résultat.',
+    emptyFiltered: 'Essayez une autre recherche ou retirez des filtres.',
   },
   reauth: {
     title: 'Confirmer votre identité',

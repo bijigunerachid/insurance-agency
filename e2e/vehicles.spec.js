@@ -66,8 +66,14 @@ test('an agent registers a taxi in a customer’s fleet and finds it by plate', 
   await page.getByRole('button', { name: 'Rechercher' }).click();
   // Wait for the filtered result (the unfiltered list may still be on screen).
   await expect(page.getByText('1 résultat')).toBeVisible();
-  const row = page.getByRole('row', { name: new RegExp(`${number}-B-6`) });
-  await expect(row.getByRole('cell', { name: 'Grands taxis' })).toBeVisible();
+  // A table row on a computer, a card on a phone: either way it shows the vehicle's fleet.
+  const found =
+    testInfo.project.name === 'phone-390'
+      ? page.getByRole('list', { name: 'Véhicules' }).getByRole('listitem')
+      : page.getByRole('row', { name: new RegExp(`${number}-B-6`) });
+  await expect(found).toHaveCount(1);
+  await expect(found).toContainText(`${number}-B-6`);
+  await expect(found.getByText('Grands taxis')).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await shot('vehicles-list');
 

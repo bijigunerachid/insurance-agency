@@ -32,3 +32,34 @@ export function SkeletonList({ rows = 5, label = fr.app.loading, flush = false }
     </div>
   );
 }
+
+/**
+ * A record's page being loaded: the shape of its title and of two blocks, so the page does not
+ * jump when the data arrives. Read as « Chargement… » by screen readers.
+ */
+export function SkeletonDetail({ label = fr.app.loading }) {
+  return (
+    <div role="status" aria-busy="true" className="space-y-6">
+      <span className="sr-only">{label}</span>
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-64 max-w-full" />
+        <Skeleton className="h-4 w-48 max-w-full" />
+      </div>
+      {[0, 1].map((block) => (
+        <div
+          key={block}
+          className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-hairline"
+        >
+          <Skeleton className="h-5 w-40" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
