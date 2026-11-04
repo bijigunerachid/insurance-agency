@@ -9,6 +9,7 @@ import {
   seedUser,
   openMenu,
   expectNoMenuLink,
+  signOut,
 } from './support.js';
 
 test.afterAll(disconnect);
@@ -47,7 +48,7 @@ test.describe('Sign-in journeys', () => {
     // The session cookie is not readable by scripts.
     expect(await page.evaluate(() => document.cookie)).toBe('');
 
-    await page.getByRole('button', { name: 'Se déconnecter' }).click();
+    await signOut(page);
     await expect(page.getByText('Vous êtes déconnecté.')).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Connexion' })).toBeVisible();

@@ -34,8 +34,21 @@ describe('the side menu on a computer', () => {
     const { unmount } = renderApp('/accueil');
     const user = userEvent.setup();
     const nav = await screen.findByRole('navigation', { name: 'Navigation principale' });
-    expect(screen.getByText('Karim Test')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeVisible();
+    // The person, their account and « Se déconnecter »: in their menu in the header.
+    const person = screen.getByRole('button', { name: 'Menu de Karim Test' });
+    expect(person).toHaveTextContent('KT');
+    await user.click(person);
+    const menu = screen.getByRole('menu', { name: 'Menu de Karim Test' });
+    expect(within(menu).getByText('Karim Test')).toBeVisible();
+    expect(within(menu).getByRole('menuitem', { name: 'Mon compte' })).toHaveFocus();
+    expect(within(menu).getByRole('menuitem', { name: 'Se déconnecter' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(person).toHaveFocus();
+    // Where the person is, in the header.
+    expect(
+      within(screen.getByRole('navigation', { name: 'Vous êtes ici' })).getByText('Aujourd’hui'),
+    ).toHaveAttribute('aria-current', 'page');
 
     await user.click(within(nav).getByRole('button', { name: 'Plus' }));
     const more = within(nav).getByRole('list', { name: 'Autres pages' });
@@ -52,7 +65,6 @@ describe('the side menu on a computer', () => {
     // Reduced: the pages keep their names (read by screen readers, shown as tooltips).
     const clients = within(nav).getByRole('link', { name: 'Clients' });
     expect(clients).toHaveAttribute('title', 'Clients');
-    expect(screen.queryByText('Karim Test')).toBeNull();
     expect(localStorage.getItem('agency.sidebar')).toBe('collapsed');
 
     unmount();
@@ -110,7 +122,7 @@ describe('the header on a phone', () => {
       renderApp('/accueil');
       const user = userEvent.setup();
       await screen.findByRole('navigation', { name: 'Navigation principale' });
-      expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Menu de Karim Test' })).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Réduire le menu' })).toBeNull();
       await user.click(screen.getByRole('button', { name: 'Recherche rapide' }));
       const dialog = await screen.findByRole('dialog', { name: 'Recherche rapide' });

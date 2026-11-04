@@ -56,7 +56,8 @@ test('an agent records a contract from draft to issue, with its attestation', as
   await page.getByRole('checkbox', { name: new RegExp(plate) }).check();
   await page.getByRole('button', { name: 'Enregistrer' }).click();
   // The contract page opens on the insured person, the reference just under the name.
-  await expect(page.getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
+  // In the page (the header shows it too, as « Contrats › CTR-… »).
+  await expect(page.locator('#contenu').getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
   // Status badges sit under the title (the history lists the same words).
   const header = page.getByRole('heading', { level: 1 }).locator('..');
   await expect(header.getByText('En préparation', { exact: true })).toBeVisible();

@@ -70,15 +70,18 @@ export function QuickSearch({ compact = false }) {
         className={
           compact
             ? 'focus-ring inline-flex size-10 items-center justify-center rounded-control text-ink-soft hover:bg-sunken'
-            : 'focus-ring flex h-9 w-full max-w-md items-center gap-2 rounded-control border border-line bg-canvas px-3 text-sm text-ink-muted hover:border-line-strong/60 hover:bg-surface'
+            : // An icon on a narrow computer screen, the wide box from 1280 px.
+              'focus-ring inline-flex size-10 items-center justify-center rounded-control text-ink-soft hover:bg-sunken xl:h-9 xl:w-full xl:max-w-md xl:justify-start xl:gap-2 xl:border xl:border-line xl:bg-canvas xl:px-3 xl:text-sm xl:text-ink-muted xl:hover:border-line-strong/60 xl:hover:bg-surface'
         }
       >
         <MagnifyingGlassIcon aria-hidden="true" className="size-4 shrink-0" />
-        <span className={compact ? 'sr-only' : 'flex-1 text-left'}>{fr.nav.quickSearch}</span>
+        <span className={compact ? 'sr-only' : 'sr-only xl:not-sr-only xl:flex-1 xl:text-left'}>
+          {fr.nav.quickSearch}
+        </span>
         {!compact && (
           <kbd
             aria-hidden="true"
-            className="rounded border border-line bg-surface px-1.5 font-sans text-[11px] text-ink-muted"
+            className="hidden rounded border border-line bg-surface px-1.5 font-sans text-[11px] text-ink-muted xl:inline"
           >
             {fr.nav.quickSearchShortcut}
           </kbd>

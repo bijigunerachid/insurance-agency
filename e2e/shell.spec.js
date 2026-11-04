@@ -53,7 +53,12 @@ test('an agent finds a client from any page with the quick search, and reduces t
       'aria-pressed',
       'true',
     );
-    await expect(page.getByRole('link', { name: 'Clients', exact: true })).toBeVisible();
+    const menu = page.getByRole('navigation', { name: 'Navigation principale' });
+    await expect(menu.getByRole('link', { name: 'Clients', exact: true })).toBeVisible();
+    // The header says where the person is: the client's page, under « Clients ».
+    const here = page.getByRole('navigation', { name: 'Vous êtes ici' });
+    await expect(here.getByRole('link', { name: 'Clients' })).toBeVisible();
+    await expect(here.getByText(`Sara ${lastName}`)).toHaveAttribute('aria-current', 'page');
     await expectNoHorizontalScroll(page, expect);
     await shot('shell-collapsed');
     await page.getByRole('button', { name: 'Réduire le menu' }).click();

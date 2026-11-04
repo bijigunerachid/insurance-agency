@@ -65,7 +65,7 @@ test('an agent records a payment at the counter and prints its receipt', async (
   await page.emulateMedia({ media: 'print' });
   await expect(page.getByRole('navigation')).toBeHidden();
   await expect(page.getByRole('button', { name: 'Imprimer' })).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Se déconnecter' })).toBeHidden();
+  await expect(page.getByRole('button', { name: /^Menu de / })).toBeHidden();
   await expect(agencyCopy.getByText('500,00 MAD')).toBeVisible();
   await expect(clientCopy.getByText('500,00 MAD')).toBeVisible();
   // Both copies fit on one A4 sheet.

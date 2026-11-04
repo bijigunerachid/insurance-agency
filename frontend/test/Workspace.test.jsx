@@ -54,6 +54,7 @@ describe('the workspace cards after sign-in', () => {
       'GET /api/workspaces': () => [200, { items: cards }],
       ...home,
       [`GET /api/contracts?page=1&insurerId=${RMA}`]: () => [200, page],
+      'GET /api/contracts?page=1': () => [200, page],
     });
     const { router } = renderApp('/');
     const user = userEvent.setup();
@@ -82,15 +83,27 @@ describe('the workspace cards after sign-in', () => {
     await screen.findByRole('heading', { name: 'Contrats' });
     expect(requested(fetchMock)).toContain(`/api/contracts?page=1&insurerId=${RMA}`);
 
-    // Back to the cards from any page, then both insurers together.
+    // The space menu in the header: both insurers, staying on the same page, the list reloaded.
     await user.click(screen.getByRole('button', { name: 'Espace RMA — changer d’espace' }));
-    await user.click(
-      await screen.findByRole('button', { name: 'Travailler sur les deux compagnies' }),
+    const spaces = screen.getByRole('menu', { name: 'Espaces de travail' });
+    expect(within(spaces).getByRole('menuitemradio', { name: 'RMA Assurance' })).toHaveAttribute(
+      'aria-checked',
+      'true',
     );
+    await user.click(within(spaces).getByRole('menuitemradio', { name: 'Les deux compagnies' }));
     expect(await screen.findByRole('button', { name: 'Les deux compagnies — changer d’espace' }));
-    expect(router.state.location.pathname).toBe('/accueil');
+    expect(router.state.location.pathname).toBe('/contrats');
     expect(screen.queryByText(/seuls les dossiers/)).toBeNull();
-    await waitFor(() => expect(requested(fetchMock)).toContain('/api/today'));
+    await waitFor(() => expect(requested(fetchMock)).toContain('/api/contracts?page=1'));
+
+    // Or back to the big cards, from any page.
+    await user.click(
+      screen.getByRole('button', { name: 'Les deux compagnies — changer d’espace' }),
+    );
+    await user.click(screen.getByRole('menuitem', { name: 'Voir les cartes des espaces' }));
+    expect(
+      await screen.findByRole('button', { name: 'Travailler sur les deux compagnies' }),
+    ).toBeVisible();
   });
 
   it('are used with the keyboard', async () => {

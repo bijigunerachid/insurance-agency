@@ -29,6 +29,8 @@ export const fr = {
     logout: 'Se déconnecter',
     signedInAs: 'Connecté :',
     quickSearch: 'Recherche rapide',
+    breadcrumb: 'Vous êtes ici',
+    userMenu: (name) => `Menu de ${name}`,
     quickSearchShortcut: 'Ctrl K',
     quickSearchHint: 'Nom, CIN, plaque, n° de police ou d’attestation. Ouvrez-la avec Ctrl+K.',
     collapse: 'Réduire le menu',
@@ -1612,6 +1614,8 @@ export const fr = {
     currentBoth: 'Les deux compagnies',
     currentBothShort: 'Les deux',
     change: 'Changer d’espace',
+    menuLabel: 'Espaces de travail',
+    showCards: 'Voir les cartes des espaces',
     changeLabel: (current) => `${current} — changer d’espace`,
     notice: (code) => `Espace ${code} : seuls les dossiers ${code} sont affichés ici.`,
     noticeCustomers: (code) =>

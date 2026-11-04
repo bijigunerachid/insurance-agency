@@ -12,6 +12,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
+import { usePageTitle } from '../../features/layout/PageTitle.jsx';
 
 const t = fr.vehicles;
 
@@ -26,6 +27,8 @@ export function VehicleDetailPage() {
   const { id } = useParams();
   const { can } = useAuth();
   const { state, reload } = useApiQuery(`/vehicles/${id}`);
+  // The header shows « … › {its registration} » once loaded.
+  usePageTitle(state.status === 'done' ? state.data.registration : null);
   const [archiving, setArchiving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
