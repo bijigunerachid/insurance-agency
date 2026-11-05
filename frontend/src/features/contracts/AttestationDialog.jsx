@@ -167,7 +167,7 @@ export function AttestationDialog({ contract, onDone, onClose }) {
               error={fieldErrors.validTo}
             />
           </div>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-ink-muted">
             {fr.contracts.fields.period} : {formatDate(contract.startDate)} –{' '}
             {formatDate(contract.endDate)}
           </p>

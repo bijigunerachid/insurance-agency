@@ -522,3 +522,71 @@ describe('contract form', () => {
     });
   });
 });
+
+describe('the contract page on the new design', () => {
+  it('shows the shape of what is left to pay while it loads, then the amount', async () => {
+    let answer;
+    const payments = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      [`GET /api/contracts/${CONTRACT_ID}`]: () => [200, contract({ attestations: [] })],
+      [`GET /api/contracts/${CONTRACT_ID}/payments`]: () => payments,
+    });
+    renderApp(`/contrats/${CONTRACT_ID}`);
+    const summary = (await screen.findByRole('heading', { level: 1, name: 'Sara Test' })).closest(
+      'section',
+    );
+    const left = within(summary).getByText('Reste à payer').nextElementSibling;
+    expect(left).toHaveTextContent('Chargement…');
+    // No attestation yet: one quiet line under the heading.
+    const attestations = screen.getByRole('heading', { name: 'Attestations' }).closest('section');
+    expect(within(attestations).getByText('Aucune attestation enregistrée.')).toBeInTheDocument();
+
+    answer([
+      200,
+      {
+        premiumTotal: '1234.50',
+        paid: '0.00',
+        balance: '1234.50',
+        amountDue: '1234.50',
+        items: [],
+      },
+    ]);
+    await waitFor(() => expect(left).toHaveTextContent('1 234,50 MAD'));
+    expect(left).toHaveClass('text-danger-ink');
+  });
+
+  it('says the amount is unavailable rather than waiting for ever', async () => {
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      [`GET /api/contracts/${CONTRACT_ID}`]: () => [200, contract()],
+      [`GET /api/contracts/${CONTRACT_ID}/payments`]: () => [500, { error: { code: 'INTERNAL' } }],
+    });
+    renderApp(`/contrats/${CONTRACT_ID}`);
+    const summary = (await screen.findByRole('heading', { level: 1, name: 'Sara Test' })).closest(
+      'section',
+    );
+    expect(await within(summary).findByText('Montant indisponible')).toBeInTheDocument();
+    expect(within(summary).queryByText('Chargement…')).toBeNull();
+  });
+
+  it('lists contracts after the shape of the list, and says why a filtered list is empty', async () => {
+    let answer;
+    const pending = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      'GET /api/contracts?page=1&unpaid=1': () => pending,
+    });
+    renderApp('/contrats?unpaid=1');
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+    answer([200, { items: [], total: 0, page: 1, pageSize: 25, pageCount: 1 }]);
+    expect(await screen.findByText('Aucun résultat.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Essayez une autre recherche ou retirez des filtres.'),
+    ).toBeInTheDocument();
+  });
+});

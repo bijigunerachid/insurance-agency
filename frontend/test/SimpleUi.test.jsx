@@ -246,11 +246,11 @@ describe('the contract page opens on a summary', () => {
     renderApp(`/contrats/${CONTRACT_ID}`);
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Sara Test' })).toBeInTheDocument();
-    expect(screen.getByText('Assuré jusqu’au 31/12/2099')).toHaveClass('text-green-800');
+    expect(screen.getByText('Assuré jusqu’au 31/12/2099')).toHaveClass('text-success-ink');
     const summary = screen.getByRole('heading', { level: 1, name: 'Sara Test' }).closest('section');
     expect(within(summary).getByText('12345-A-6')).toBeInTheDocument();
     const left = await within(summary).findByText('734,50 MAD');
-    expect(left).toHaveClass('text-red-700');
+    expect(left).toHaveClass('text-danger-ink');
     // The details are folded until asked for.
     expect(screen.getByText('Détails du contrat').closest('details')).not.toHaveAttribute('open');
   });
@@ -321,7 +321,7 @@ describe('the client page opens on what matters', () => {
       'tel:+212612345678',
     );
     const owed = await screen.findByText('234,50 MAD');
-    expect(owed).toHaveClass('text-red-700');
+    expect(owed).toHaveClass('text-danger-ink');
     expect(screen.getByText('Coordonnées et suivi').closest('details')).not.toHaveAttribute('open');
   });
 });
@@ -369,7 +369,7 @@ describe('the contracts on a phone', () => {
       expect(screen.queryByRole('table')).toBeNull();
       expect(card).toHaveTextContent('Sara Test');
       expect(card).toHaveTextContent('12345-A-6 · 01/11/2026 – 31/10/2027');
-      expect(within(card).getByText('234,50 MAD')).toHaveClass('text-red-700');
+      expect(within(card).getByText('234,50 MAD')).toHaveClass('text-danger-ink');
       await user.click(
         within(card).getByRole('button', { name: 'Encaisser un paiement pour CTR-2026-00001' }),
       );

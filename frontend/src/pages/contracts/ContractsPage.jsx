@@ -1,13 +1,17 @@
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { MoreFilters } from '../../components/MoreFilters.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { textLinkClasses } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { ContractTable } from '../../features/contracts/ContractTable.jsx';
 import { RecordDialog } from '../../features/payments/ContractPayments.jsx';
@@ -37,13 +41,8 @@ export function ContractsPage() {
   const { state } = useApiQuery(`/contracts?${params}`);
 
   return (
-    <section aria-labelledby="contracts-title" className="space-y-4">
-      <div>
-        <h1 id="contracts-title" className="text-2xl font-semibold">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
+    <section aria-labelledby="contracts-title" className="space-y-5">
+      <PageHeader title={t.title} titleId="contracts-title" description={t.intro} />
       <WorkspaceNotice />
       {unpaid && (
         <Alert tone="info">
@@ -51,7 +50,7 @@ export function ContractsPage() {
           <button
             type="button"
             onClick={() => setSearchParams({})}
-            className="font-medium underline"
+            className={`${textLinkClasses} underline`}
           >
             {t.showAll}
           </button>
@@ -64,7 +63,7 @@ export function ContractsPage() {
           event.preventDefault();
           setFilters({ ...filters, q: search.trim(), page: 1 });
         }}
-        className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-[1fr_auto_auto] lg:items-end"
+        className="grid gap-3 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4 md:grid-cols-2 lg:grid-cols-[1fr_auto_auto] lg:items-end"
       >
         {/* On a phone the button sits beside the box; on a computer it ends the row. */}
         <div className="flex items-end gap-2 md:contents">
@@ -93,7 +92,7 @@ export function ContractsPage() {
         </MoreFilters>
       </form>
 
-      {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {state.status === 'loading' && <SkeletonList />}
       {state.status === 'error' && (
         <ErrorState
           title={errorMessage(state.error)}
@@ -102,9 +101,11 @@ export function ContractsPage() {
         />
       )}
       {state.status === 'done' && state.data.items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-          {fr.common.empty}
-        </p>
+        <EmptyState
+          icon={DocumentTextIcon}
+          title={fr.common.empty}
+          description={filters.q || filters.status || unpaid ? fr.common.emptyFiltered : undefined}
+        />
       )}
       {state.status === 'done' && state.data.items.length > 0 && (
         <>

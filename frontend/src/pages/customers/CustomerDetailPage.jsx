@@ -1,9 +1,10 @@
-import { ChevronRightIcon, PencilSquareIcon } from '@heroicons/react/20/solid';
+import { PencilSquareIcon } from '@heroicons/react/20/solid';
 import { useId, useState } from 'react';
 import { useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button, ButtonLink } from '../../components/Button.jsx';
 import { DetailItem, DetailList } from '../../components/DetailList.jsx';
+import { Disclosure } from '../../components/Disclosure.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { BackLink, PageHeader } from '../../components/PageHeader.jsx';
 import { PhoneLink } from '../../components/PhoneLink.jsx';
@@ -122,15 +123,8 @@ export function CustomerDetailPage() {
       {can('contracts.read') && <CustomerContractsPanel customer={customer} />}
       {can('vehicles.read') && <CustomerVehiclesPanel customer={customer} />}
 
-      <details className="group overflow-hidden rounded-card border border-line bg-surface shadow-hairline">
-        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-section text-ink hover:bg-sunken/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:px-5 [&::-webkit-details-marker]:hidden">
-          <ChevronRightIcon
-            aria-hidden="true"
-            className="size-5 text-ink-muted transition-transform group-open:rotate-90 motion-reduce:transition-none"
-          />
-          {t.details}
-        </summary>
-        <div className="divide-y divide-line border-t border-line">
+      <Disclosure title={t.details}>
+        <div className="divide-y divide-line">
           <DetailSection title={t.sections.identity}>
             {customer.type === 'INDIVIDUAL' ? (
               <>
@@ -178,7 +172,7 @@ export function CustomerDetailPage() {
             <DetailItem label={t.createdAt} value={formatDateTime(customer.createdAt)} />
           </DetailSection>
         </div>
-      </details>
+      </Disclosure>
 
       {dialog === 'archive' && (
         <ReasonDialog

@@ -77,7 +77,7 @@ export function TransitionDialog({ contract, transition, onDone, onClose }) {
         noValidate
       >
         {t.transitionIntro[key] && (
-          <p className="text-sm text-slate-700">{t.transitionIntro[key]}</p>
+          <p className="text-sm text-ink-soft">{t.transitionIntro[key]}</p>
         )}
         {error && <Alert>{errorMessage(error)}</Alert>}
         {transition.needs.map((field) => (
