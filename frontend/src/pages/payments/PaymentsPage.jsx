@@ -1,10 +1,15 @@
+import { BanknotesIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { DataTable } from '../../components/DataTable.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
-import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SegmentedControl } from '../../components/SegmentedControl.jsx';
+import { Skeleton, SkeletonList } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { textLinkClasses } from '../../components/TextLink.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { APP_TIME_ZONE, formatDateTime, formatMoney, signedMoney } from '../../utils/format.js';
@@ -14,6 +19,58 @@ import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
 const t = fr.payments;
 const todayHere = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIME_ZONE }).format(new Date());
+
+const COLUMNS = [
+  {
+    key: 'receipt',
+    header: t.receipt,
+    primary: true,
+    className: 'whitespace-nowrap',
+    cell: (payment) => (
+      <Link to={`/recus/${payment.id}`} className={`${textLinkClasses} font-mono`}>
+        {payment.receiptNumber}
+      </Link>
+    ),
+  },
+  {
+    key: 'customer',
+    header: t.customer,
+    cell: (payment) => (
+      <>
+        <span className="font-medium">{payment.contract.customer}</span>
+        <span className="block text-xs text-ink-muted">
+          <span className="font-mono">{payment.contract.ref}</span> · {payment.contract.insurer}
+        </span>
+        {/* The agency rounded what the client gave: the exact amount stays the payment. */}
+        {payment.clientPaid && (
+          <span className="block text-xs text-ink-muted">
+            {t.rounded(formatMoney(payment.clientPaid), signedMoney(payment.roundingGap))}
+          </span>
+        )}
+      </>
+    ),
+  },
+  {
+    key: 'when',
+    header: t.when,
+    className: 'whitespace-nowrap',
+    cell: (payment) => formatDateTime(payment.receivedAt),
+  },
+  { key: 'method', header: t.method, cell: (payment) => t.methods[payment.method] },
+  {
+    key: 'by',
+    header: t.by,
+    hideOnPhone: true,
+    cell: (payment) => payment.receivedBy.displayName,
+  },
+  {
+    key: 'amount',
+    header: t.amountShort,
+    align: 'right',
+    className: 'whitespace-nowrap font-semibold tabular-nums',
+    cell: (payment) => formatMoney(payment.amount),
+  },
+];
 
 /** The payments of a period (today by default) with their totals per method. */
 export function PaymentsPage() {
@@ -30,29 +87,30 @@ export function PaymentsPage() {
   const set = (name) => (event) => setFilters({ ...filters, [name]: event.target.value, page: 1 });
 
   return (
-    <section aria-labelledby="payments-title" className="space-y-4">
-      <div>
-        <h1 id="payments-title" className="text-2xl font-semibold">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
+    <section aria-labelledby="payments-title" className="space-y-5">
+      <PageHeader title={t.title} titleId="payments-title" description={t.intro} />
       <WorkspaceNotice />
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-3 sm:p-4">
-        <TextField label={t.from} type="date" value={filters.from} onChange={set('from')} />
-        <TextField label={t.to} type="date" value={filters.to} onChange={set('to')} />
-        <SelectField
-          className="col-span-2 sm:col-span-1"
+      <div className="grid gap-4 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4 lg:grid-cols-[auto_1fr] lg:items-end">
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label={t.from} type="date" value={filters.from} onChange={set('from')} />
+          <TextField label={t.to} type="date" value={filters.to} onChange={set('to')} />
+        </div>
+        <SegmentedControl
           label={t.method}
           value={filters.method}
-          onChange={set('method')}
+          onChange={(method) => setFilters({ ...filters, method, page: 1 })}
           options={[
             { value: '', label: t.allMethods },
             ...Object.entries(t.methods).map(([value, label]) => ({ value, label })),
           ]}
         />
       </div>
-      {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {state.status === 'loading' && (
+        <>
+          <Totals loading />
+          <SkeletonList />
+        </>
+      )}
       {state.status === 'error' && (
         <ErrorState
           title={errorMessage(state.error)}
@@ -62,82 +120,12 @@ export function PaymentsPage() {
       )}
       {state.status === 'done' && (
         <>
-          {/* One block of tiles that fills its row: on a phone the total, then the rest two by two. */}
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 shadow-sm sm:flex">
-            <div className="col-span-2 bg-white p-3 sm:flex-1 sm:p-4">
-              <dt className="text-xs text-slate-600 sm:text-sm">
-                {t.total} · {t.count(state.data.total)}
-              </dt>
-              <dd className="mt-1 text-xl font-semibold tabular-nums">
-                {formatMoney(state.data.totals.amount)}
-              </dd>
-            </div>
-            {state.data.totals.byMethod.map((row) => (
-              <div
-                key={row.method}
-                className="min-w-0 bg-white p-3 last:even:col-span-2 sm:flex-1 sm:p-4"
-              >
-                <dt className="text-xs text-slate-600 sm:text-sm">{t.methods[row.method]}</dt>
-                <dd className="mt-1 font-medium tabular-nums">{formatMoney(row.amount)}</dd>
-              </div>
-            ))}
-            {/* The cash drawer holds the amounts plus (or minus) the agency's roundings. */}
-            {state.data.totals.roundings > 0 && (
-              <div className="min-w-0 bg-white p-3 last:even:col-span-2 sm:flex-1 sm:p-4">
-                <dt className="text-xs text-slate-600 sm:text-sm">
-                  {t.roundings(state.data.totals.roundings)}
-                </dt>
-                <dd className="mt-1 font-medium tabular-nums">
-                  {signedMoney(state.data.totals.roundingGap)}
-                </dd>
-              </div>
-            )}
-          </dl>
+          <Totals data={state.data} />
           {state.data.items.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-              {t.none}
-            </p>
+            <EmptyState icon={BanknotesIcon} title={t.none} />
           ) : (
             <>
-              <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-                {state.data.items.map((payment) => (
-                  <li
-                    key={payment.id}
-                    className="flex items-start justify-between gap-3 p-3 text-sm"
-                  >
-                    <div className="min-w-0 space-y-0.5">
-                      <p>
-                        <Link
-                          to={`/recus/${payment.id}`}
-                          className="font-mono font-medium text-blue-700 underline-offset-2 hover:underline"
-                        >
-                          {payment.receiptNumber}
-                        </Link>
-                      </p>
-                      <p className="font-medium">
-                        {payment.contract.customer} ·{' '}
-                        <span className="font-mono font-normal">{payment.contract.ref}</span> ·{' '}
-                        {payment.contract.insurer}
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {formatDateTime(payment.receivedAt)} · {t.methods[payment.method]} · {t.by}{' '}
-                        {payment.receivedBy.displayName}
-                      </p>
-                      {payment.clientPaid && (
-                        <p className="text-xs text-slate-600">
-                          {t.rounded(
-                            formatMoney(payment.clientPaid),
-                            signedMoney(payment.roundingGap),
-                          )}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-semibold tabular-nums">
-                      {formatMoney(payment.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <DataTable caption={t.title} columns={COLUMNS} rows={state.data.items} />
               <Pagination
                 page={state.data.page}
                 pageCount={state.data.pageCount}
@@ -149,5 +137,52 @@ export function PaymentsPage() {
         </>
       )}
     </section>
+  );
+}
+
+/**
+ * The period's total, then one tile per method; the cash drawer also holds the agency's
+ * roundings. On a phone the total spans the row, the rest two by two.
+ */
+function Totals({ data, loading = false }) {
+  const tile = 'min-w-0 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4';
+  const label = 'text-xs text-ink-muted sm:text-sm';
+  if (loading) {
+    return (
+      <div aria-hidden="true" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Skeleton className="col-span-2 h-20 sm:col-span-1" />
+        <Skeleton className="h-20" />
+        <Skeleton className="h-20" />
+        <Skeleton className="hidden h-20 sm:block" />
+      </div>
+    );
+  }
+  return (
+    <dl className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+      <div
+        className={`${tile} col-span-2 border-primary/30 bg-primary-soft sm:min-w-56 sm:flex-[1.4]`}
+      >
+        <dt className={label}>
+          {t.total} · {t.count(data.total)}
+        </dt>
+        <dd className="mt-1 text-2xl font-semibold tabular-nums text-ink">
+          {formatMoney(data.totals.amount)}
+        </dd>
+      </div>
+      {data.totals.byMethod.map((row) => (
+        <div key={row.method} className={`${tile} last:even:col-span-2 sm:min-w-36 sm:flex-1`}>
+          <dt className={label}>{t.methods[row.method]}</dt>
+          <dd className="mt-1 font-semibold tabular-nums text-ink">{formatMoney(row.amount)}</dd>
+        </div>
+      ))}
+      {data.totals.roundings > 0 && (
+        <div className={`${tile} last:even:col-span-2 sm:min-w-36 sm:flex-1`}>
+          <dt className={label}>{t.roundings(data.totals.roundings)}</dt>
+          <dd className="mt-1 font-semibold tabular-nums text-ink">
+            {signedMoney(data.totals.roundingGap)}
+          </dd>
+        </div>
+      )}
+    </dl>
   );
 }
