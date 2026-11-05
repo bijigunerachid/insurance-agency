@@ -1,12 +1,19 @@
+import { BanknotesIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { DataTable } from '../../components/DataTable.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
+import { SegmentedControl } from '../../components/SegmentedControl.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { Skeleton, SkeletonList } from '../../components/Skeleton.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { RecordRemittanceDialog } from '../../features/remittances/RecordRemittanceDialog.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
@@ -27,6 +34,73 @@ const monthLabel = (month) => {
   const [year, number] = month.split('-').map(Number);
   return monthFormatter.format(new Date(Date.UTC(year, number - 1, 1)));
 };
+const cancelled = (remittance) => remittance.status === 'CANCELLED';
+
+const COLUMNS = [
+  {
+    key: 'number',
+    header: t.number,
+    primary: true,
+    cell: (remittance) => (
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <TextLink to={`/reversements/${remittance.id}`} className="font-mono">
+          {remittance.number}
+        </TextLink>
+        {cancelled(remittance) && <StatusBadge tone="warning">{t.statuses.CANCELLED}</StatusBadge>}
+      </span>
+    ),
+  },
+  { key: 'insurer', header: t.insurer, cell: (remittance) => remittance.insurer.code },
+  {
+    key: 'remittedOn',
+    header: t.remittedOnShort,
+    className: 'whitespace-nowrap',
+    cell: (remittance) => formatDate(remittance.remittedOn),
+  },
+  {
+    key: 'method',
+    header: t.methodShort,
+    cell: (remittance) => (
+      <>
+        {t.methods[remittance.method]}
+        {remittance.reference && (
+          <span className="block break-all text-xs text-ink-muted">{remittance.reference}</span>
+        )}
+      </>
+    ),
+  },
+  {
+    key: 'items',
+    header: t.itemsShort,
+    hideOnPhone: true,
+    cell: (remittance) => t.items(remittance.itemCount),
+  },
+  {
+    key: 'by',
+    header: t.by,
+    hideOnPhone: true,
+    cell: (remittance) => (
+      <>
+        {remittance.recordedBy.displayName}
+        <span className="block text-xs text-ink-muted">
+          {formatDateTime(remittance.recordedAt)}
+        </span>
+      </>
+    ),
+  },
+  {
+    key: 'amount',
+    header: t.amount,
+    align: 'right',
+    className: 'whitespace-nowrap font-semibold tabular-nums',
+    // A cancelled remittance keeps its amount, struck through: nothing was handed over.
+    cell: (remittance) => (
+      <span className={cancelled(remittance) ? 'text-ink-muted line-through' : ''}>
+        {formatMoney(remittance.amount)}
+      </span>
+    ),
+  },
+];
 
 /** What is owed to each insurer per month of collection, and the remittances recorded. */
 export function RemittancesPage() {
@@ -45,19 +119,27 @@ export function RemittancesPage() {
   if (workspace) params.set('insurerId', workspace.id);
   const history = useApiQuery(`/remittances?${params}`);
   const [dialog, setDialog] = useState(null);
-  const set = (name) => (event) => setFilters({ ...filters, [name]: event.target.value, page: 1 });
 
   return (
     <section aria-labelledby="remittances-title" className="space-y-6">
-      <div>
-        <h1 id="remittances-title" className="text-2xl font-semibold">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
+      <PageHeader titleId="remittances-title" title={t.title} description={t.intro} />
       <WorkspaceNotice />
 
-      {summary.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {summary.state.status === 'loading' && (
+        <div role="status" aria-busy="true" className="grid gap-4 lg:grid-cols-2">
+          <span className="sr-only">{fr.app.loading}</span>
+          {[0, 1].map((card) => (
+            <div
+              key={card}
+              className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-hairline"
+            >
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-8 w-36" />
+              <Skeleton className="h-12" />
+            </div>
+          ))}
+        </div>
+      )}
       {summary.state.status === 'error' && (
         <ErrorState
           title={errorMessage(summary.state.error)}
@@ -79,74 +161,39 @@ export function RemittancesPage() {
       )}
 
       <section aria-labelledby="remittances-history" className="space-y-3">
-        <h2 id="remittances-history" className="text-lg font-semibold">
-          {t.history}
-        </h2>
-        <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+        <SectionHeading id="remittances-history" title={t.history} />
+        <div className="grid gap-4 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4 md:grid-cols-[minmax(0,18rem)_1fr] md:items-end">
           {!workspace && (
             <SelectField
               label={t.insurer}
               value={filters.insurerId}
-              onChange={set('insurerId')}
+              onChange={(event) =>
+                setFilters({ ...filters, insurerId: event.target.value, page: 1 })
+              }
               options={[
                 { value: '', label: t.allInsurers },
                 ...insurers.map((i) => ({ value: i.id, label: i.name })),
               ]}
             />
           )}
-          <SelectField
+          <SegmentedControl
             label={t.status}
             value={filters.status}
-            onChange={set('status')}
+            onChange={(status) => setFilters({ ...filters, status, page: 1 })}
             options={[
               { value: '', label: t.allStatuses },
               ...Object.entries(t.statuses).map(([value, label]) => ({ value, label })),
             ]}
           />
         </div>
-        {history.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+        {history.state.status === 'loading' && <SkeletonList rows={3} />}
         {history.state.status === 'error' && <Alert>{errorMessage(history.state.error)}</Alert>}
         {history.state.status === 'done' &&
           (history.state.data.items.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-              {t.none}
-            </p>
+            <EmptyState icon={BanknotesIcon} title={t.none} />
           ) : (
             <>
-              <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-                {history.state.data.items.map((remittance) => (
-                  <li
-                    key={remittance.id}
-                    className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm"
-                  >
-                    <div className="space-y-0.5">
-                      <p className="font-medium">
-                        <Link
-                          to={`/reversements/${remittance.id}`}
-                          className="font-mono text-blue-700 underline-offset-2 hover:underline"
-                        >
-                          {remittance.number}
-                        </Link>{' '}
-                        · {remittance.insurer.code} · {t.methods[remittance.method]}
-                        {remittance.reference && ` · ${remittance.reference}`}
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        {formatDate(remittance.remittedOn)} · {t.items(remittance.itemCount)} ·{' '}
-                        {t.by} {remittance.recordedBy.displayName} ·{' '}
-                        {formatDateTime(remittance.recordedAt)}
-                      </p>
-                      {remittance.status === 'CANCELLED' && (
-                        <StatusBadge tone="warning">{t.statuses.CANCELLED}</StatusBadge>
-                      )}
-                    </div>
-                    <span
-                      className={`font-medium tabular-nums ${remittance.status === 'CANCELLED' ? 'text-slate-500 line-through' : ''}`}
-                    >
-                      {formatMoney(remittance.amount)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <DataTable caption={t.history} columns={COLUMNS} rows={history.state.data.items} />
               <Pagination
                 page={history.state.data.page}
                 pageCount={history.state.data.pageCount}
@@ -170,51 +217,67 @@ export function RemittancesPage() {
   );
 }
 
+/** One insurer: what is owed now, month by month with the last day to remit it. */
 function InsurerCard({ insurer, canRecord, onRecord }) {
   const titleId = `remit-${insurer.code}`;
+  const late = insurer.months.some((month) => month.overdue && Number(month.amount) > 0);
   return (
     <section
       aria-labelledby={titleId}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+      className={`overflow-hidden rounded-card border bg-surface shadow-hairline ${
+        late ? 'border-danger/40' : 'border-line'
+      }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 id={titleId} className="font-semibold">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 pb-4 pt-4 sm:px-5">
+        <div className="min-w-0 space-y-1">
+          <h2 id={titleId} className="text-section text-ink">
             {insurer.name}
           </h2>
-          <p className="text-sm text-slate-600">
-            {t.toRemit} :{' '}
-            <span className="text-lg font-semibold tabular-nums text-slate-900">
-              {formatMoney(insurer.total)}
-            </span>
+          <p className="text-sm text-ink-muted">{t.toRemit}</p>
+          <p
+            className={`text-[28px] font-semibold leading-9 tabular-nums ${
+              late ? 'text-danger-ink' : 'text-ink'
+            }`}
+          >
+            {formatMoney(insurer.total)}
           </p>
         </div>
         {canRecord && <Button onClick={onRecord}>{t.record}</Button>}
       </div>
       {insurer.months.length === 0 ? (
-        <p className="text-sm text-slate-600">{t.nothing}</p>
+        <p className="border-t border-line px-4 py-3 text-sm text-ink-muted sm:px-5">{t.nothing}</p>
       ) : (
-        <ul className="divide-y divide-slate-100 text-sm">
-          {insurer.months.map((month) => (
-            <li key={month.month} className="flex flex-wrap items-start justify-between gap-2 py-2">
-              <div className="space-y-1">
-                <p className="font-medium">
-                  {t.collectedIn(monthLabel(month.month))} · {t.count(month.count)}
-                </p>
-                <p className="text-xs text-slate-600">{t.dueOn(formatDate(month.dueOn))}</p>
-                {Number(month.amount) < 0 ? (
-                  <StatusBadge tone="neutral">{t.negative}</StatusBadge>
-                ) : month.overdue ? (
-                  <StatusBadge tone="error">{t.late(-month.daysLeft)}</StatusBadge>
-                ) : (
-                  <StatusBadge tone={month.daysLeft <= 5 ? 'warning' : 'neutral'}>
-                    {t.daysLeft(month.daysLeft)}
-                  </StatusBadge>
-                )}
-              </div>
-              <span className="font-medium tabular-nums">{formatMoney(month.amount)}</span>
-            </li>
-          ))}
+        <ul className="divide-y divide-line border-t border-line text-sm">
+          {insurer.months.map((month) => {
+            const negative = Number(month.amount) < 0;
+            return (
+              <li
+                key={month.month}
+                className={`flex flex-wrap items-start justify-between gap-2 px-4 py-3 sm:px-5 ${
+                  month.overdue && !negative ? 'border-l-4 border-l-danger' : ''
+                }`}
+              >
+                <div className="min-w-0 space-y-1">
+                  <p className="font-medium text-ink">
+                    {t.collectedIn(monthLabel(month.month))} · {t.count(month.count)}
+                  </p>
+                  <p className="text-xs text-ink-muted">{t.dueOn(formatDate(month.dueOn))}</p>
+                  {negative ? (
+                    <p className="text-xs text-ink-soft">{t.negative}</p>
+                  ) : month.overdue ? (
+                    <StatusBadge tone="error">{t.late(-month.daysLeft)}</StatusBadge>
+                  ) : (
+                    <StatusBadge tone={month.daysLeft <= 5 ? 'warning' : 'neutral'}>
+                      {t.daysLeft(month.daysLeft)}
+                    </StatusBadge>
+                  )}
+                </div>
+                <span className="font-semibold tabular-nums text-ink">
+                  {formatMoney(month.amount)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

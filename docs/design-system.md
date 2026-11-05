@@ -68,6 +68,7 @@ Amounts, dates and table cells use tabular figures.
 | `SectionHeading` | The top of a part of a page that holds its own list (h2 and its action). |
 | `PhoneLink` | A client's number that calls them, written 06 12 34 56 78. |
 | `TextLink`, `textLinkClasses` | A link inside text or a table, in the action colour. |
+| `ChoicePills` | A few choices of a form as pills, one chosen (how a payment or a remittance was made): real radio buttons under the look. |
 | `FileField`, `fileProblem` | A scan to send: a wide zone to click, or to drop a file on. The real file input covers the zone, invisible, so the keyboard, screen readers and the drop all use it; the chosen file's name and size are read with the field. PDF, JPEG or PNG of 10 MB at most, checked in the browser first (the server checks the content again). |
 | `ToastProvider`, `useToast` | Short messages after an action, over the page; success and information leave after 6 s, an error stays until closed; announced politely / at once. |
 | `Alert` | A message inside a form or page: error, warning, info, success. |
@@ -197,6 +198,18 @@ radio buttons), the readings of a number to check are pressed buttons, the short
 is sent are unchanged. On a contract, « Documents de l’assureur » follows the payments part:
 `SectionHeading` with « Joindre un document », loading shapes, a compact empty line, its own
 error, small actions on each document; the upload window uses `FileField`.
+
+## Remittances (stage 11)
+
+`RemittancesPage`: `PageHeader`, one card per insurer with what is owed now in large figures (in
+red with a red border when a month is late), its months below with the last day to remit and a
+badge (a red edge on a late month; the cancellations to deduct as a note that wraps), the shape of the cards while loading. The history under a
+`SectionHeading`: the insurer (outside an insurer's space) and the state (`SegmentedControl`) in
+one card, the remittances as a `DataTable` (bordereau, insurer, date, mode and reference, payments,
+who, amount; a cancelled one with its badge and its amount struck through). The window
+(`RecordRemittanceDialog`) keeps its logic: the amount from the server in a highlighted line, the
+modes as `ChoicePills` (shared with the payment window), « Enregistrer » showing its work. The
+bordereau (`RemittanceDetailPage`) moved to the tokens on screen; its printed layout is unchanged.
 
 ## Stages
 

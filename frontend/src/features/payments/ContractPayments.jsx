@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { ChoicePills } from '../../components/ChoicePills.jsx';
 import { Dialog } from '../../components/Dialog.jsx';
 import { EmptyState } from '../../components/EmptyState.jsx';
 import { ReasonDialog } from '../../components/ReasonDialog.jsx';
@@ -307,31 +308,12 @@ export function RecordDialog({ contract, balance, requestId, onClose, onDone }) 
             )}
           </div>
         </div>
-        <fieldset>
-          <legend className="text-label text-ink-soft">{t.method}</legend>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {Object.entries(t.methods).map(([value, label]) => (
-              <label
-                key={value}
-                className={`cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-medium ring-1 ring-inset transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary ${
-                  values.method === value
-                    ? 'bg-primary text-white ring-primary'
-                    : 'bg-surface text-ink ring-line-strong/60 hover:bg-sunken'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="method"
-                  value={value}
-                  checked={values.method === value}
-                  onChange={set('method')}
-                  className="sr-only"
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <ChoicePills
+          label={t.method}
+          value={values.method}
+          onChange={(method) => set('method')({ target: { value: method } })}
+          options={Object.entries(t.methods).map(([value, label]) => ({ value, label }))}
+        />
         {values.method === 'CASH' && (
           <div>
             <TextField
