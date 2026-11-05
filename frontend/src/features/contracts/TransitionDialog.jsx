@@ -33,7 +33,12 @@ export const TRANSITIONS = {
 };
 
 const INPUTS = {
-  policyNumber: { maxLength: 40, hint: t.hints.policyNumber, autoComplete: 'off' },
+  policyNumber: {
+    maxLength: 60,
+    hint: t.hints.policyAtIssue,
+    autoComplete: 'off',
+    inputClassName: 'font-mono',
+  },
   insurerReference: { maxLength: 120, hint: t.hints.insurerReference },
   effectiveDate: { type: 'date' },
   reason: { maxLength: 300 },
@@ -42,8 +47,14 @@ const INPUTS = {
 /** Asks for what a status change needs, then sends it. */
 export function TransitionDialog({ contract, transition, onDone, onClose }) {
   const key = `${contract.status}>${transition.to}`;
+  // The policy number was recorded with the contract: shown to confirm, or correct.
   const [values, setValues] = useState(
-    Object.fromEntries(transition.needs.map((field) => [field, ''])),
+    Object.fromEntries(
+      transition.needs.map((field) => [
+        field,
+        field === 'policyNumber' ? (contract.policyNumber ?? '') : '',
+      ]),
+    ),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -57,6 +68,7 @@ export function TransitionDialog({ contract, transition, onDone, onClose }) {
       await onDone({ to: transition.to, ...values, version: contract.version });
     } catch (err) {
       setError(err);
+      if (err.code === 'DUPLICATE_POLICY') setFieldErrors({ policyNumber: errorMessage(err) });
       if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
         setFieldErrors(
           Object.fromEntries(err.details.map((d) => [d.path, t.rules[d.rule] ?? t.rules.REQUIRED])),

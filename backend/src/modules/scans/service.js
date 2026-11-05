@@ -141,7 +141,7 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
    * to the contract it renews (same customer and vehicles, the scanned period), which may keep
    * its policy number. An open renewal of the old contract is closed as renewed.
    */
-  async function renewFromScan(auth, request, renew, customerId, vehicleId) {
+  async function renewFromScan(auth, request, renew, customerId, vehicleId, policyNumber) {
     return prisma.$transaction(async (tx) => {
       const old = await tx.contract.findUnique({
         where: { id: renew.id },
@@ -163,6 +163,8 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
       }
       const draft = createContractBody.parse({
         customerId,
+        // The sheet's policy number: the same as last year's, or the new one of a replacement.
+        policyNumber: policyNumber ?? old.policyNumber,
         productId: renew.productId ?? old.productId,
         startDate: renew.startDate,
         endDate: renew.endDate,
@@ -488,7 +490,7 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
       if (series && number) {
         const attestation = await prisma.attestation.findFirst({
           where: { seriesId: series.id, number: number.replace(/\s/g, ''), duplicateOfId: null },
-          include: { contract: { select: { id: true, ref: true } } },
+          include: { contract: { select: { id: true, ref: true, policyNumber: true } } },
         });
         if (attestation) result.attestation = attestation.contract;
       }
@@ -582,7 +584,14 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
         }
       };
       if (!contractId && body.contract.renew) {
-        contractId = await renewFromScan(auth, request, body.contract.renew, customerId, vehicleId);
+        contractId = await renewFromScan(
+          auth,
+          request,
+          body.contract.renew,
+          customerId,
+          vehicleId,
+          body.policyNumber,
+        );
         await keepGuarantees(contractId);
         await saveProgress(id, { contractId });
         contract = await contracts.get(contractId);
@@ -593,6 +602,8 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
           request,
           createContractBody.parse({
             customerId,
+            // Printed on every platform sheet, provisional ones included.
+            policyNumber: body.policyNumber,
             productId,
             startDate,
             endDate,

@@ -26,6 +26,7 @@ import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { APP_TIME_ZONE, formatDate, formatDateTime, formatMoney } from '../../utils/format.js';
 import { usePageTitle } from '../../features/layout/PageTitle.jsx';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.contracts;
 const todayHere = () =>
@@ -39,7 +40,7 @@ export function ContractDetailPage() {
   const { can } = useAuth();
   const { state, reload } = useApiQuery(`/contracts/${id}`);
   // The header shows « … › {its ref} » once loaded.
-  usePageTitle(state.status === 'done' ? state.data.ref : null);
+  usePageTitle(state.status === 'done' ? contractNumber(state.data) : null);
   const [dialog, setDialog] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -98,8 +99,11 @@ export function ContractDetailPage() {
           }
           description={
             <>
-              <span className="font-mono">{contract.ref}</span> · {contract.insurer.name} ·{' '}
-              {contract.product.name}
+              {t.fields.policyNumber}{' '}
+              <span className="font-mono font-medium text-ink-soft">
+                {contractNumber(contract)}
+              </span>{' '}
+              · {contract.insurer.name} · {contract.product.name}
             </>
           }
           meta={
@@ -208,6 +212,8 @@ export function ContractDetailPage() {
             <Fact label={t.fields.insurer} value={contract.insurer.name} />
             <Fact label={t.fields.policyNumber} value={contract.policyNumber} mono />
             <Fact label={t.fields.insurerReference} value={contract.insurerReference} />
+            {/* The app's own reference, for the audit log; the agency uses the policy number. */}
+            <Fact label={t.fields.internalRef} value={contract.ref} mono />
             <Fact
               label={t.fields.period}
               value={`${formatDate(contract.startDate)} – ${formatDate(contract.endDate)}`}
@@ -606,11 +612,6 @@ function Summary({ contract }) {
               <span className="font-mono font-semibold">{v.registration}</span> {v.make} {v.model}
             </span>
           ))}
-          {contract.policyNumber && (
-            <span className="block text-ink-muted">
-              {s.policy} <span className="font-mono">{contract.policyNumber}</span>
-            </span>
-          )}
         </dd>
       </div>
       <div className={tile}>
@@ -652,7 +653,7 @@ function Fact(props) {
 function ContractLink({ contract }) {
   return (
     <TextLink to={`/contrats/${contract.id}`} className="font-mono">
-      {contract.ref}
+      {contractNumber(contract)}
     </TextLink>
   );
 }

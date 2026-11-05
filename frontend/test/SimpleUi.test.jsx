@@ -194,13 +194,9 @@ describe('one search box on the home page', () => {
       'href',
       '/vehicules/ve1',
     );
-    expect(screen.getByRole('link', { name: /CTR-2026-00001/ })).toHaveAttribute(
-      'href',
-      '/contrats/c1',
-    );
-    expect(
-      screen.getByText(/Sara Test · RMA · POL-12345 · Émis · 31\/10\/2027/),
-    ).toBeInTheDocument();
+    // A contract is known by its policy number (05/11/2026).
+    expect(screen.getByRole('link', { name: /POL-12345/ })).toHaveAttribute('href', '/contrats/c1');
+    expect(screen.getByText(/Sara Test · RMA · Émis · 31\/10\/2027/)).toBeInTheDocument();
 
     await user.clear(box);
     await user.type(box, 'zz');
@@ -365,19 +361,19 @@ describe('the contracts on a phone', () => {
       });
       renderApp('/contrats');
       const user = userEvent.setup();
-      const card = (await screen.findByRole('link', { name: 'CTR-2026-00001' })).closest('li');
+      const card = (await screen.findByRole('link', { name: 'POL-1' })).closest('li');
       expect(screen.queryByRole('table')).toBeNull();
       expect(card).toHaveTextContent('Sara Test');
       expect(card).toHaveTextContent('12345-A-6 · 01/11/2026 – 31/10/2027');
       expect(within(card).getByText('234,50 MAD')).toHaveClass('text-danger-ink');
       await user.click(
-        within(card).getByRole('button', { name: 'Encaisser un paiement pour CTR-2026-00001' }),
+        within(card).getByRole('button', { name: 'Encaisser un paiement pour POL-1' }),
       );
       const dialog = screen.getByRole('dialog', { name: 'Encaisser un paiement' });
       await user.click(within(dialog).getByRole('button', { name: 'Annuler' }));
 
       // The search box stays in reach; the status waits behind « Filtres ».
-      expect(screen.getByLabelText('Rechercher (référence, police, client)')).toBeVisible();
+      expect(screen.getByLabelText('Rechercher (n° de police, client)')).toBeVisible();
       const filters = screen.getByRole('button', { name: 'Filtres' });
       expect(filters).toHaveAttribute('aria-expanded', 'false');
       expect(screen.getByLabelText('Statut')).not.toBeVisible();
@@ -429,7 +425,7 @@ describe('paying from the list of what is owed', () => {
     const user = userEvent.setup();
 
     await user.click(
-      await screen.findByRole('button', { name: 'Encaisser un paiement pour CTR-2026-00001' }),
+      await screen.findByRole('button', { name: 'Encaisser un paiement pour POL-1' }),
     );
     const dialog = screen.getByRole('dialog', { name: 'Encaisser un paiement' });
     expect(within(dialog).getByText(/Reste à payer : 234,50/)).toBeInTheDocument();

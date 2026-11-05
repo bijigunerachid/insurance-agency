@@ -50,6 +50,10 @@ for each model (agency rule, 23/10/2026; six of them seen on the blank forms), e
 (owner, 23/10/2026); and the 57 rules of
 [docs/insurer-rules.md](docs/insurer-rules.md)) are seeded by the database migration.
 
+**A contract is known by the insurer's policy number** (owner, 05/11/2026): it is typed (or read from the platform sheet)
+when the contract is recorded, shown first in every list, page, receipt, bordereau and report, and searched; the app's
+own `CTR-…` reference stays internal (audit log, folded details).
+
 The application is a helper: the agency works on the RMA and CAT official platforms, and this application keeps the
 agency's own records and follow-up. It does not issue official insurer documents, calculate official
 premiums, or connect to RMA, CAT or ACAPS systems.

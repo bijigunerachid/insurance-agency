@@ -105,8 +105,11 @@ export function contractFixtures(ctx) {
     };
   }
 
+  // Each contract recorded with its own policy number, as on the insurer's platform.
+  let policies = 0;
   const contractBody = (customer, productId, vehicleIds, overrides = {}) => ({
     customerId: customer.id,
+    policyNumber: `PN-${process.pid}-${++policies}`,
     productId,
     startDate: '2026-11-01',
     endDate: '2027-10-31',

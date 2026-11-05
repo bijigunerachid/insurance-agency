@@ -36,10 +36,25 @@ describe('contracts', () => {
       contractBody(customer, products.RMA, [car.id], { endDate: '2026-10-31' }),
     );
     expect(backwards.body.error.details).toEqual([{ path: 'endDate', rule: 'END_BEFORE_START' }]);
+    // The insurer's policy number is the contract's number: recorded with it, as printed.
+    const withoutNumber = contractBody(customer, products.RMA, [car.id]);
+    delete withoutNumber.policyNumber;
+    const unnumbered = await agent.post('/api/contracts', withoutNumber);
+    expect(unnumbered.status).toBe(400);
+    expect(unnumbered.body.error.details).toEqual([
+      expect.objectContaining({ path: 'policyNumber' }),
+    ]);
+    const garbled = await agent.post(
+      '/api/contracts',
+      contractBody(customer, products.RMA, [car.id], { policyNumber: 'n° ?' }),
+    );
+    expect(garbled.body.error.details).toEqual([
+      { path: 'policyNumber', rule: 'INVALID_POLICY_NUMBER' },
+    ]);
 
     const created = await agent.post(
       '/api/contracts',
-      contractBody(customer, products.RMA, [car.id]),
+      contractBody(customer, products.RMA, [car.id], { policyNumber: ' 6630 7052 6001 509 ' }),
     );
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({
@@ -50,7 +65,8 @@ describe('contracts', () => {
       premiumTotal: '1234.50',
       tacitRenewal: true,
       noticeDays: 30,
-      policyNumber: null,
+      // Spaces dropped, as the platform prints it.
+      policyNumber: '663070526001509',
       vehicles: [{ id: car.id, registration: car.registration }],
       history: [{ from: null, to: 'DRAFT' }],
     });
@@ -59,6 +75,18 @@ describe('contracts', () => {
       contractBody(customer, products.CAT, [car.id]),
     );
     expect(second.body.ref).toBe('CTR-2026-00002');
+    // The same number at the same insurer is another contract's; at the other insurer it is free.
+    const twin = await agent.post(
+      '/api/contracts',
+      contractBody(customer, products.RMA, [car.id], { policyNumber: '663070526001509' }),
+    );
+    expect(twin.status).toBe(409);
+    expect(twin.body.error.code).toBe('DUPLICATE_POLICY');
+    const elsewhere = await agent.post(
+      '/api/contracts',
+      contractBody(customer, products.CAT, [car.id], { policyNumber: '663070526001509' }),
+    );
+    expect(elsewhere.status).toBe(201);
     expect(await ctx.auditActions()).toContain('contract.created');
 
     // Another customer's vehicle cannot be covered.
@@ -72,7 +100,7 @@ describe('contracts', () => {
     ]);
   });
 
-  it('follows the status machine: issue needs the insurer’s policy number and proof', async () => {
+  it('follows the status machine: issue needs the insurer’s proof and may correct the policy number', async () => {
     const manager = await signIn('manager.a', 'MANAGER');
     const products = await prepareCatalogue(manager);
     const agent = await signIn('agent.a', 'AGENT');
@@ -107,10 +135,8 @@ describe('contracts', () => {
       to: 'ISSUED',
       version: 2,
     });
-    expect(bare.body.error.details).toEqual([
-      { path: 'policyNumber', rule: 'REQUIRED' },
-      { path: 'insurerReference', rule: 'REQUIRED' },
-    ]);
+    // The policy number was recorded with the contract: only the insurer's proof is missing.
+    expect(bare.body.error.details).toEqual([{ path: 'insurerReference', rule: 'REQUIRED' }]);
     const issued = await agent.post(`/api/contracts/${contract.id}/transition`, {
       to: 'ISSUED',
       policyNumber: 'POL-0001',
@@ -145,6 +171,55 @@ describe('contracts', () => {
       version: 2,
     });
     expect(dup.body.error.code).toBe('DUPLICATE_POLICY');
+  });
+
+  it('frees a policy number typed wrong: corrected on the draft, or the draft cancelled before the issue', async () => {
+    const manager = await signIn('manager.a', 'MANAGER');
+    const products = await prepareCatalogue(manager);
+    const agent = await signIn('agent.a', 'AGENT');
+    const { customer, car } = await customerWithVehicles(agent);
+    const create = (policyNumber) =>
+      agent.post(
+        '/api/contracts',
+        contractBody(customer, products.RMA, [car.id], { policyNumber }),
+      );
+
+    const first = (await create('POL-0100')).body;
+    const corrected = await patch(agent, `/api/contracts/${first.id}`, {
+      policyNumber: 'pol-0101',
+      version: first.version,
+    });
+    expect(corrected.body.policyNumber).toBe('POL-0101');
+    // The draft no longer holds POL-0100, but still holds its new number.
+    expect((await create('POL-0101')).body.error.code).toBe('DUPLICATE_POLICY');
+    const second = (await create('POL-0100')).body;
+    expect(second.policyNumber).toBe('POL-0100');
+    const taken = await patch(agent, `/api/contracts/${second.id}`, {
+      policyNumber: 'POL-0101',
+      version: second.version,
+    });
+    expect(taken.body.error.code).toBe('DUPLICATE_POLICY');
+
+    // Cancelled before the insurer issued it: the number is free again.
+    await agent.post(`/api/contracts/${second.id}/transition`, {
+      to: 'CANCELLED',
+      reason: 'Mauvais client',
+      version: second.version,
+    });
+    const third = (await create('POL-0100')).body;
+    expect(third.policyNumber).toBe('POL-0100');
+
+    // Issued then cancelled by the insurer: the number stays that contract's.
+    const issued = await issue(agent, third, 'POL-0100');
+    const ended = await manager.post(`/api/contracts/${third.id}/transition`, {
+      to: 'CANCELLED',
+      reason: 'Résiliation',
+      insurerReference: 'Lettre de l’assureur',
+      effectiveDate: '2026-12-01',
+      version: issued.version,
+    });
+    expect(ended.body.status).toBe('CANCELLED');
+    expect((await create('POL-0100')).body.error.code).toBe('DUPLICATE_POLICY');
   });
 
   it('lets only a manager suspend, reinstate or terminate an issued contract, with the insurer’s reference', async () => {

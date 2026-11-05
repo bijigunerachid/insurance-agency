@@ -47,13 +47,15 @@ test('an agent finds a client and a contract in the lists, takes a payment from 
 
   // 2. Contracts: what is left to pay, and « Encaisser » right on the row or card.
   await page.goto('/contrats');
-  await page.getByLabel('Rechercher (référence, police, client)').fill(contract.ref);
+  await page.getByLabel('Rechercher (n° de police, client)').fill(contract.policyNumber);
   await page.getByRole('button', { name: 'Rechercher' }).click();
-  await expect(page.getByRole('link', { name: contract.ref })).toBeVisible();
+  await expect(page.getByRole('link', { name: contract.policyNumber })).toBeVisible();
   await expect(page.getByText('800,00 MAD')).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await shot('contracts-list');
-  await page.getByRole('button', { name: `Encaisser un paiement pour ${contract.ref}` }).click();
+  await page
+    .getByRole('button', { name: `Encaisser un paiement pour ${contract.policyNumber}` })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Encaisser un paiement' });
   // The whole balance is proposed; a smaller amount says what stays owed.
   await expect(dialog.getByText('Ce paiement solde le contrat.')).toBeVisible();
@@ -69,8 +71,8 @@ test('an agent finds a client and a contract in the lists, takes a payment from 
   // A table row on a computer, a card on a phone.
   const line =
     testInfo.project.name === 'phone-390'
-      ? page.getByRole('listitem').filter({ hasText: contract.ref })
-      : page.getByRole('row').filter({ hasText: contract.ref });
+      ? page.getByRole('listitem').filter({ hasText: contract.policyNumber })
+      : page.getByRole('row').filter({ hasText: contract.policyNumber });
   await expect(line).toContainText(`Sara ${lastName}`);
   await expect(line).toContainText('300,00 MAD');
   await expectNoHorizontalScroll(page, expect);

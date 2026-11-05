@@ -578,12 +578,14 @@ describe('scanned attestations', () => {
       version: 1,
     });
     expect(refused.body.error.details).toEqual([{ path: 'policyNumber', rule: 'REQUIRED' }]);
+    // Refused before the contract: no contract is recorded without its policy number.
     const progress = (await agent.get(`/api/scans/${scan.id}`)).body;
     expect(progress.progress).toEqual({
       customerId: expect.any(String),
       vehicleId: expect.any(String),
-      contractId: expect.any(String),
+      contractId: null,
     });
+    expect(await ctx.prisma.contract.count()).toBe(0);
     // The old version is refused; the current one goes on from the contract.
     expect(
       (await agent.post(`/api/scans/${scan.id}/file`, { ...body, version: 1 })).body.error.code,
@@ -609,10 +611,10 @@ describe('scanned attestations', () => {
     const scan = (await upload(agent, read)).body;
     expect(scan.proposed).toMatchObject({ seriesCode: '14 P', usage: 'Provisoire' });
     const res = await agent.post(`/api/scans/${scan.id}/file`, {
+      // The provisional sheet prints the policy number too: the contract is recorded with it.
       ...newRecords(data, {
         number: '213661657',
         validTo: '2026-11-30',
-        policyNumber: undefined,
         printed: { seriesCode: '14 P', number: '213661657' },
       }),
       seriesId: scan.proposed.seriesId,
@@ -621,6 +623,7 @@ describe('scanned attestations', () => {
     expect(res.status).toBe(200);
     const contract = (await agent.get(`/api/contracts/${res.body.contractId}`)).body;
     expect(contract.status).toBe('AWAITING_INSURER');
+    expect(contract.policyNumber).toBe(newRecords(data).policyNumber);
     expect(contract.attestations[0]).toMatchObject({ provisional: true, validTo: '2026-11-30' });
   });
 
@@ -869,6 +872,7 @@ describe('an avenant scanned from the platform PDF', () => {
     const draft = (
       await agent.post('/api/contracts', {
         customerId: customer.id,
+        policyNumber: '400000000000222',
         productId: products.RMA,
         startDate: '2026-03-25',
         endDate: '2027-03-21',

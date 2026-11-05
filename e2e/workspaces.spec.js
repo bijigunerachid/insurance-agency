@@ -75,8 +75,8 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
     await page.getByRole('button', { name: 'Rechercher', exact: true }).click();
   };
   await searchContracts();
-  await expect(page.getByRole('link', { name: rma.ref }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: cat.ref })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: rma.policyNumber }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: cat.policyNumber })).toHaveCount(0);
 
   // The clients: Sara (RMA) is listed, the CAT-only client is not.
   await page.getByRole('link', { name: 'Clients' }).first().click();
@@ -88,8 +88,8 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   // Her page: the RMA contract first, the CAT one under « Autres compagnies ».
   await page.getByRole('link', { name: `Sara ${lastName}`, exact: true }).click();
   const others = page.getByRole('region', { name: 'Autres compagnies' });
-  await expect(others.getByRole('link', { name: second.ref }).first()).toBeVisible();
-  await expect(others.getByRole('link', { name: rma.ref })).toHaveCount(0);
+  await expect(others.getByRole('link', { name: second.policyNumber }).first()).toBeVisible();
+  await expect(others.getByRole('link', { name: rma.policyNumber })).toHaveCount(0);
   await expectNoHorizontalScroll(page, expect);
   await shot('workspace-rma-client');
 
@@ -103,14 +103,14 @@ test('after sign-in, an agent chooses a workspace, switches it, and finds the ca
   await expect(
     page.getByText('Espace CAT : seuls les dossiers CAT sont affichés ici.'),
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: cat.ref }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: rma.ref })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: cat.policyNumber }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: rma.policyNumber })).toHaveCount(0);
   await shot('workspace-cat-contracts');
 
   // "See both" on the list itself.
   await page.getByRole('button', { name: 'Voir les deux' }).click();
-  await expect(page.getByRole('link', { name: rma.ref }).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: cat.ref }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: rma.policyNumber }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: cat.policyNumber }).first()).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Les deux compagnies — changer d’espace' }),
   ).toBeVisible();

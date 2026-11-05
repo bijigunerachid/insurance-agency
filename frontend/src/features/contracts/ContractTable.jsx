@@ -5,6 +5,7 @@ import { textLinkClasses } from '../../components/TextLink.jsx';
 import { fr } from '../../i18n/fr.js';
 import { formatDate, formatMoney } from '../../utils/format.js';
 import { ContractStatus } from './ContractStatus.jsx';
+import { contractNumber } from './contractNumber.js';
 
 const t = fr.contracts;
 
@@ -20,7 +21,7 @@ function PayButton({ contract, onPay, size = 'sm', className = '' }) {
     <Button
       size={size}
       onClick={() => onPay(contract)}
-      aria-label={t.payFor(contract.ref)}
+      aria-label={t.payFor(contractNumber(contract))}
       className={className}
     >
       {fr.payments.record}
@@ -42,21 +43,14 @@ function Balance({ contract, className = '' }) {
 function columns({ showCustomer, onPay }) {
   return [
     {
-      key: 'ref',
-      header: t.fields.ref,
+      key: 'number',
+      header: t.fields.policyNumber,
       primary: true,
       className: 'whitespace-nowrap',
       cell: (contract) => (
-        <>
-          <Link to={`/contrats/${contract.id}`} className={`${textLinkClasses} font-mono`}>
-            {contract.ref}
-          </Link>
-          {contract.policyNumber && (
-            <span className="block text-xs text-ink-muted">
-              {t.fields.policyNumber} {contract.policyNumber}
-            </span>
-          )}
-        </>
+        <Link to={`/contrats/${contract.id}`} className={`${textLinkClasses} font-mono`}>
+          {contractNumber(contract)}
+        </Link>
       ),
     },
     ...(showCustomer
@@ -128,7 +122,7 @@ function ContractCard({ contract, showCustomer, onPay }) {
           to={`/contrats/${contract.id}`}
           className="focus-ring rounded-control font-mono font-semibold text-primary after:absolute after:inset-0 after:rounded-card"
         >
-          {contract.ref}
+          {contractNumber(contract)}
         </Link>
         <ContractStatus contract={contract} />
       </div>

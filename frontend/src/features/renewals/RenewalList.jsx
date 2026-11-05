@@ -3,6 +3,7 @@ import { PhoneLink } from '../../components/PhoneLink.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { fr } from '../../i18n/fr.js';
 import { formatDate } from '../../utils/format.js';
+import { contractNumber } from '../contracts/contractNumber.js';
 
 const t = fr.renewals;
 
@@ -45,7 +46,7 @@ export function RenewalList({ renewals, flush = false }) {
               {renewal.contract.customer.displayName}
             </Link>
             <p className="text-ink-soft">
-              <span className="font-mono">{renewal.contract.ref}</span> ·{' '}
+              <span className="font-mono">{contractNumber(renewal.contract)}</span> ·{' '}
               {renewal.contract.insurer.code} · {renewal.contract.product.name}
               {renewal.contract.vehicles.length > 0 && (
                 <span className="whitespace-nowrap">

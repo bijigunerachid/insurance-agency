@@ -28,7 +28,7 @@ const userName = { select: { id: true, displayName: true } };
 
 const include = {
   assignedUser: userName,
-  renewedContract: { select: { id: true, ref: true, status: true } },
+  renewedContract: { select: { id: true, ref: true, policyNumber: true, status: true } },
   contract: {
     select: {
       id: true,
@@ -304,7 +304,7 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
      * follow on) and closes the renewal as renewed. The agency then completes it from the
      * insurer's platform like any contract.
      */
-    async renew(auth, request, id, { productId, startDate, endDate, version }) {
+    async renew(auth, request, id, { productId, policyNumber, startDate, endDate, version }) {
       const contractId = await prisma.$transaction(async (tx) => {
         const current = await load(tx, id);
         if (!OPEN_STATUSES.includes(current.status)) throw closed();
@@ -324,6 +324,8 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
         const newId = await contracts.insertDraft(tx, auth, request, {
           customerId: old.customerId,
           productId: productId ?? old.productId,
+          // The renewal keeps its policy number, unless the platform gave another one.
+          policyNumber: policyNumber ?? old.policyNumber,
           startDate: start,
           endDate: end,
           tacitRenewal: old.tacitRenewal,

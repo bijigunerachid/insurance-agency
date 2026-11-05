@@ -235,7 +235,7 @@ describe('the RMA usage of a vehicle', () => {
     );
     expect(report.body.rows).toEqual([
       expect.objectContaining({
-        ref: contract.ref,
+        policyNumber: contract.policyNumber,
         insurerUsage: 'C1 (COMMERCE <= 3,5T)',
         formula: 'DC',
       }),

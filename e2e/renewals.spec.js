@@ -27,7 +27,7 @@ test('an agent sees a renewal on the home page, follows it and prepares the new 
   // 1. The home page lists the renewal: the contract ends in 10 days.
   await login(page, username);
   await expect(page.getByRole('heading', { level: 1, name: /^Bonjour / })).toBeVisible();
-  const row = page.getByRole('listitem').filter({ hasText: contract.ref });
+  const row = page.getByRole('listitem').filter({ hasText: contract.policyNumber });
   await expect(row).toContainText('Dans 10 jours');
   await expectNoHorizontalScroll(page, expect);
   await shot('home');
@@ -51,7 +51,7 @@ test('an agent sees a renewal on the home page, follows it and prepares the new 
     .click();
   const header = page.getByRole('heading', { level: 1 }).locator('..');
   await expect(header.getByText('En préparation', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: contract.ref })).toBeVisible();
+  await expect(page.getByRole('link', { name: contract.policyNumber })).toBeVisible();
 
   expect(external).toEqual([]);
   expect(consoleMessages).toEqual([]);

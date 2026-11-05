@@ -73,7 +73,7 @@ const itemView = (row) => ({
   kind: row.kind,
   amount: money(row.amount),
   receivedAt: row.receivedAt,
-  contract: { id: row.contractId, ref: row.contractRef },
+  contract: { id: row.contractId, ref: row.contractRef, policyNumber: row.policyNumber },
   customer: displayNameOf(row),
 });
 
@@ -90,7 +90,7 @@ export function createRemittancesService({ prisma, audit, clock, config }) {
     const before = startOfNextZonedDay(collectedUntil, config.APP_TIMEZONE);
     return client.$queryRaw`
       SELECT p."id", p."receiptNumber", p."kind", p."amount", p."receivedAt",
-             c."id" AS "contractId", c."ref" AS "contractRef",
+             c."id" AS "contractId", c."ref" AS "contractRef", c."policyNumber",
              cu."type", cu."firstName", cu."lastName", cu."legalName"
       ${OUTSTANDING}
         AND c."insurerId" = ${insurerId}::uuid
@@ -292,7 +292,7 @@ export function createRemittancesService({ prisma, audit, clock, config }) {
       const row = await loadDetail(id);
       const items = await prisma.$queryRaw`
         SELECT p."id", p."receiptNumber", p."kind", ri."amount", p."receivedAt",
-               c."id" AS "contractId", c."ref" AS "contractRef",
+               c."id" AS "contractId", c."ref" AS "contractRef", c."policyNumber",
                cu."type", cu."firstName", cu."lastName", cu."legalName"
         FROM "remittance_item" ri
         JOIN "payment" p ON p."id" = ri."paymentId"

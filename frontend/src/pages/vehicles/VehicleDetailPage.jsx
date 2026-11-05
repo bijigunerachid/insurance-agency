@@ -18,6 +18,7 @@ import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
 import { usePageTitle } from '../../features/layout/PageTitle.jsx';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.vehicles;
 
@@ -213,7 +214,7 @@ function AmendmentHistory({ amendments }) {
             <p className="text-ink-muted">
               {a.number ? h.amendment(a.number) : h.unnumbered} ·{' '}
               <TextLink to={`/contrats/${a.contract.id}`} className="font-mono">
-                {a.contract.ref}
+                {contractNumber(a.contract)}
               </TextLink>
             </p>
           </li>

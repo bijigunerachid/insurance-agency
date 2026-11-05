@@ -390,7 +390,7 @@ describe('a new policy that replaces another', () => {
 
     expect(
       await screen.findByLabelText(
-        'Remplacement de CTR-2025-00007 (police 400000000000998) : nouveau contrat avec la nouvelle police',
+        'Remplacement de la police 400000000000998 : nouveau contrat avec la nouvelle police',
       ),
     ).toBeChecked();
     expect(urls.every((url) => url.includes('replacesPolicy=400000000000998'))).toBe(true);

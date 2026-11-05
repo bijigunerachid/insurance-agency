@@ -161,6 +161,29 @@ describe('renewals', () => {
     expect(await eventsOffClock()).toBe(0);
   });
 
+  it('renews under the new policy number the platform gave, never one another contract holds', async () => {
+    const { agent, products, customer, car } = await setup();
+    const [renewal] = (await agent.get('/api/renewals')).body.items;
+    await agent.post(
+      '/api/contracts',
+      contractBody(customer, products.RMA, [car.id], {
+        policyNumber: 'POL-TAKEN',
+      }),
+    );
+    const taken = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: 'POL-TAKEN',
+      version: 1,
+    });
+    expect(taken.body.error.code).toBe('DUPLICATE_POLICY');
+    const res = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: 'pol 2027',
+      version: 1,
+    });
+    expect(res.status).toBe(201);
+    const next = (await agent.get(`/api/contracts/${res.body.contractId}`)).body;
+    expect(next.policyNumber).toBe('POL2027');
+  });
+
   it('prepares the next contract as a draft linked to the old one', async () => {
     const { agent, ending, car } = await setup();
     const [renewal] = (await agent.get('/api/renewals')).body.items;
@@ -179,13 +202,18 @@ describe('renewals', () => {
       endDate: addDays('2026-11-16', 360),
       tacitRenewal: true,
       noticeDays: 30,
-      policyNumber: null,
+      // A renewal keeps its policy number (the platform may give another one: see below).
+      policyNumber: ending.policyNumber,
       premiumTotal: null,
       vehicles: [expect.objectContaining({ id: car.id })],
-      previousContract: { id: ending.id, ref: ending.ref },
+      previousContract: { id: ending.id, ref: ending.ref, policyNumber: ending.policyNumber },
     });
     const old = (await agent.get(`/api/contracts/${ending.id}`)).body;
-    expect(old.nextContract).toEqual({ id: next.id, ref: next.ref });
+    expect(old.nextContract).toEqual({
+      id: next.id,
+      ref: next.ref,
+      policyNumber: ending.policyNumber,
+    });
     expect(await ctx.auditActions()).toContain('renewal.renewed');
 
     const twice = await agent.post(`/api/renewals/${renewal.id}/renew`, { version: 2 });

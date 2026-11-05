@@ -60,7 +60,7 @@ test('an agent files a vehicle-change avenant from the platform PDF, then collec
   await expect(avenant.getByLabel('Montant de l’avenant (MAD)')).toHaveValue('512.64');
   await expect(avenant.getByLabel('Véhicule remplacé')).toHaveValue(vehicle.id);
   const contractCard = page.getByRole('region', { name: 'Contrat' });
-  await expect(contractCard.getByText(contract.ref)).toBeVisible();
+  await expect(contractCard.getByText(contract.policyNumber)).toBeVisible();
   // The new car is not recorded yet: it is created from the sheet.
   const car = page.getByRole('region', { name: 'Véhicule' });
   await expect(car.getByLabel('Immatriculation')).toHaveValue(newPlate);

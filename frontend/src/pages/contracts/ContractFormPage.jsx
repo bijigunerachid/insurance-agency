@@ -11,16 +11,26 @@ import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { Spinner } from '../../components/Spinner.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { BORDER_DURATIONS, borderEnd } from '../../features/contracts/borderDurations.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { useUnsavedChanges } from '../../hooks/useUnsavedChanges.jsx';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost, apiSend } from '../../services/api.js';
 
 const t = fr.contracts;
-const FIELDS = ['productId', 'startDate', 'endDate', 'premiumTotal', 'noticeDays', 'tacitRenewal'];
+const FIELDS = [
+  'policyNumber',
+  'productId',
+  'startDate',
+  'endDate',
+  'premiumTotal',
+  'noticeDays',
+  'tacitRenewal',
+];
 
 function toForm(contract) {
   return {
+    policyNumber: contract?.policyNumber ?? '',
     productId: contract?.product.id ?? '',
     startDate: contract?.startDate ?? '',
     endDate: contract?.endDate ?? '',
@@ -90,7 +100,14 @@ function ContractForm({ contract, customer }) {
     const value = (f) => (form[f] === '' ? null : form[f]);
     if (!contract) {
       const body = { customerId: customer.id, vehicleIds, tacitRenewal: form.tacitRenewal };
-      for (const f of ['productId', 'startDate', 'endDate', 'premiumTotal', 'noticeDays']) {
+      for (const f of [
+        'policyNumber',
+        'productId',
+        'startDate',
+        'endDate',
+        'premiumTotal',
+        'noticeDays',
+      ]) {
         if (value(f) !== null) body[f] = value(f);
       }
       return body;
@@ -110,6 +127,7 @@ function ContractForm({ contract, customer }) {
         : await apiPost('/contracts', payload());
       setSavedId(result.id);
     } catch (err) {
+      if (err.code === 'DUPLICATE_POLICY') setFieldErrors({ policyNumber: errorMessage(err) });
       if (err.code === 'VALIDATION_ERROR' && Array.isArray(err.details)) {
         setFieldErrors(
           Object.fromEntries(
@@ -155,8 +173,8 @@ function ContractForm({ contract, customer }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        back={{ to: back, label: contract ? contract.ref : customer.displayName }}
-        title={contract ? `${t.edit} · ${contract.ref}` : t.create}
+        back={{ to: back, label: contract ? contractNumber(contract) : customer.displayName }}
+        title={contract ? `${t.edit} · ${contractNumber(contract)}` : t.create}
         description={
           <>
             {t.fields.customer} :{' '}
@@ -178,6 +196,20 @@ function ContractForm({ contract, customer }) {
         {noProducts && <Alert tone="info">{t.noProducts}</Alert>}
         <Card title={t.sections.contract}>
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* The contract's number in the agency: the insurer's, never one the app makes up. */}
+            <TextField
+              className="sm:col-span-2"
+              label={t.fields.policyNumber}
+              hint={t.hints.policyNumber}
+              required
+              autoComplete="off"
+              spellCheck="false"
+              maxLength={60}
+              inputClassName="font-mono"
+              value={form.policyNumber}
+              onChange={set('policyNumber')}
+              error={fieldErrors.policyNumber}
+            />
             {/* The list is shown once loaded: an empty list would read as "no product". */}
             {products.state.status === 'loading' && <Spinner label={fr.app.loading} />}
             {products.state.status === 'error' && (
@@ -328,7 +360,11 @@ function ContractForm({ contract, customer }) {
           <Button
             type="submit"
             loading={busy}
-            disabled={contract ? changed.length === 0 : !form.productId || vehicleIds.length === 0}
+            disabled={
+              contract
+                ? changed.length === 0
+                : !form.policyNumber.trim() || !form.productId || vehicleIds.length === 0
+            }
           >
             {fr.common.save}
           </Button>

@@ -261,7 +261,7 @@ export function createVehiclesService({ prisma, audit, clock, config }) {
         where: { OR: [{ vehicleId: id }, { previousVehicleId: id }] },
         orderBy: [{ effectiveDate: 'desc' }, { createdAt: 'desc' }],
         include: {
-          contract: { select: { id: true, ref: true } },
+          contract: { select: { id: true, ref: true, policyNumber: true } },
           previousVehicle: { select: { id: true, registration: true } },
           vehicle: { select: { id: true, registration: true } },
         },

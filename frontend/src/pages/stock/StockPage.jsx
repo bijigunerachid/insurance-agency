@@ -21,6 +21,7 @@ import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDate, formatDay } from '../../utils/format.js';
 import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
 import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.stock;
 const STATUSES = Object.keys(t.statuses);
@@ -359,7 +360,7 @@ function FormSearch({ tracked, onHistory }) {
                     <>
                       {' · '}
                       <TextLink to={`/contrats/${form.contract.id}`} className="font-mono">
-                        {form.contract.ref}
+                        {contractNumber(form.contract)}
                       </TextLink>
                     </>
                   )}

@@ -9,6 +9,7 @@ import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDateTime, formatMoney } from '../../utils/format.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.receipt;
 
@@ -107,8 +108,7 @@ function ReceiptCopy({ receipt, agency, reversal, copy, main = false }) {
           label={t.customer}
           value={`${receipt.contract.customer.displayName} (${receipt.contract.customer.ref})`}
         />
-        <Line label={t.contract} value={receipt.contract.ref} />
-        <Line label={t.policy} value={receipt.contract.policyNumber} />
+        <Line label={t.policy} value={contractNumber(receipt.contract)} />
         <Line
           label={t.insurer}
           value={`${receipt.contract.insurer.name} · ${receipt.contract.product.name}`}
