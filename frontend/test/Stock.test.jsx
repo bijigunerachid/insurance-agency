@@ -157,3 +157,39 @@ describe('attestation stock', () => {
     });
   });
 });
+
+describe('the stock page on the new design', () => {
+  it('says when no batch was received', async () => {
+    mockApi(stockRoutes(agent));
+    renderApp('/stock');
+    const batches = await screen.findByRole('region', { name: 'Lots reçus' });
+    expect(await within(batches).findByText('Aucun lot reçu pour l’instant.')).toBeInTheDocument();
+  });
+
+  it('shows the batches error in its own part, the rest of the page still there', async () => {
+    mockApi(
+      stockRoutes(agent, {
+        'GET /api/attestation-batches': () => [500, { error: { code: 'INTERNAL' } }],
+      }),
+    );
+    renderApp('/stock');
+    const batches = await screen.findByRole('region', { name: 'Lots reçus' });
+    expect(await within(batches).findByRole('alert')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('region', { name: 'Rechercher un formulaire' }),
+    ).toBeInTheDocument();
+  });
+
+  it('puts the forms in stock first on a series card', async () => {
+    mockApi(stockRoutes(agent));
+    renderApp('/stock');
+    const summary = await screen.findByRole('region', { name: 'État du stock' });
+    await within(summary).findByRole('row', { name: /RMA 14 A/ });
+    // The phone card (hidden by the page styles on a computer): « 4 En stock » at its top.
+    const card = within(summary)
+      .getAllByRole('listitem')
+      .find((li) => li.textContent.startsWith('RMA 14 A'));
+    expect(card.querySelector('.text-2xl')).toHaveTextContent('4');
+    expect(card.querySelector('.text-2xl').nextElementSibling).toHaveTextContent('En stock');
+  });
+});

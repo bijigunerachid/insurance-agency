@@ -221,7 +221,8 @@ describe('the workspace cards after sign-in', () => {
     mockApi({ 'GET /api/auth/me': () => anonymous });
     renderApp('/');
     await screen.findByRole('button', { name: 'Se connecter' });
-    expect(sessionStorage.getItem('agency.workspace')).toBeNull();
+    // Cleared just after the sign-in page is drawn (an effect): wait for it, never skip it.
+    await waitFor(() => expect(sessionStorage.getItem('agency.workspace')).toBeNull());
   });
 });
 
