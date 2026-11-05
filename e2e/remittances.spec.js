@@ -88,7 +88,12 @@ test('a manager sees a late remittance, records it with its bordereau and cancel
   await page.getByRole('link', { name: 'Retour aux reversements' }).click();
   await expect(card.getByText(/^En retard de \d+ jours?$/).first()).toBeVisible();
   const history = page.getByRole('region', { name: 'Reversements enregistrés' });
-  await expect(history.getByRole('listitem').first()).toContainText('Annulé');
+  // A table row on a computer, a card on a phone: the newest remittance first, cancelled.
+  const newest =
+    testInfo.project.name === 'phone-390'
+      ? history.getByRole('listitem').first()
+      : history.getByRole('row').nth(1);
+  await expect(newest).toContainText('Annulé');
 
   expect(external).toEqual([]);
   expect(consoleMessages).toEqual([]);

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { ChoicePills } from '../../components/ChoicePills.jsx';
 import { Dialog } from '../../components/Dialog.jsx';
-import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { Skeleton } from '../../components/Skeleton.jsx';
 import { TextAreaField } from '../../components/TextAreaField.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
@@ -52,10 +52,11 @@ export function RecordRemittanceDialog({ insurer, today, requestId, onClose, onD
     values.remittedOn &&
     (!needsReference || values.reference.trim());
 
-  const set = (name) => (event) => {
-    setValues({ ...values, [name]: event.target.value });
+  const change = (name, value) => {
+    setValues({ ...values, [name]: value });
     setFieldErrors(({ [name]: _cleared, ...rest }) => rest);
   };
+  const set = (name) => (event) => change(name, event.target.value);
 
   async function submit(event) {
     event.preventDefault();
@@ -91,7 +92,7 @@ export function RecordRemittanceDialog({ insurer, today, requestId, onClose, onD
   return (
     <Dialog title={t.recordTitle(insurer.name)} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <p className="text-sm text-slate-700">{t.recordIntro}</p>
+        <p className="text-sm text-ink-soft">{t.recordIntro}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <TextField
           label={t.collectedUntil}
@@ -102,21 +103,26 @@ export function RecordRemittanceDialog({ insurer, today, requestId, onClose, onD
           error={fieldErrors.collectedUntil}
         />
         <div aria-live="polite">
-          {preview.state.status === 'loading' && validDate && <Spinner label={fr.app.loading} />}
+          {preview.state.status === 'loading' && validDate && (
+            <div role="status" aria-busy="true" className="rounded-card bg-sunken px-3.5 py-3">
+              <span className="sr-only">{fr.app.loading}</span>
+              <Skeleton className="h-5 w-56 max-w-full bg-line" />
+            </div>
+          )}
           {preview.state.status === 'error' && <Alert>{errorMessage(preview.state.error)}</Alert>}
           {preview.state.status === 'done' &&
             (Number(amount) > 0 ? (
-              <p className="rounded-md bg-slate-50 p-3 text-sm font-medium">
+              <p className="rounded-card border border-primary/20 bg-primary-soft px-3.5 py-3 text-sm font-semibold tabular-nums text-ink">
                 {t.preview(formatMoney(amount), t.count(preview.state.data.items.length))}
               </p>
             ) : (
               <Alert tone="info">{t.previewNothing}</Alert>
             ))}
         </div>
-        <SelectField
+        <ChoicePills
           label={t.method}
           value={values.method}
-          onChange={set('method')}
+          onChange={(method) => change('method', method)}
           options={Object.entries(t.methods).map(([value, label]) => ({ value, label }))}
         />
         <TextField
@@ -145,7 +151,7 @@ export function RecordRemittanceDialog({ insurer, today, requestId, onClose, onD
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             {fr.common.cancel}
           </Button>
-          <Button type="submit" disabled={busy || !complete}>
+          <Button type="submit" loading={busy} disabled={!complete}>
             {t.record}
           </Button>
         </div>

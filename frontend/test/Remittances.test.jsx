@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { me, mockApi } from './mockApi.js';
+import { phoneScreen } from './phoneScreen.js';
 import { renderApp } from './renderApp.jsx';
 
 const RMA = '00000000-0000-4000-8000-0000000000a1';
@@ -213,5 +214,84 @@ describe('remittances to the insurers', () => {
     expect(
       await screen.findByRole('link', { name: /^Reversement RMA en retard : 1\s000,00\sMAD$/ }),
     ).toHaveAttribute('href', '/reversements');
+  });
+});
+
+describe('remittances on the new design', () => {
+  const page = (items) => [
+    200,
+    { items, total: items.length, page: 1, pageSize: 25, pageCount: 1 },
+  ];
+  const done = remittance();
+  const undone = remittance({
+    id: '00000000-0000-4000-8000-0000000000e2',
+    number: 'VER-2026-00002',
+    status: 'CANCELLED',
+  });
+
+  it('shows the shape of the cards while loading, then the history as a table', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    const fetchMock = mockApi(
+      routes(manager, {
+        'GET /api/remittances/summary': () => first,
+        'GET /api/remittances?page=1': () => page([done, undone]),
+        'GET /api/remittances?page=1&status=CANCELLED': () => page([undone]),
+      }),
+    );
+    renderApp('/reversements');
+    const user = userEvent.setup();
+    expect((await screen.findAllByRole('status'))[0]).toHaveTextContent('Chargement…');
+
+    answer([200, summary]);
+    await screen.findByRole('region', { name: 'RMA (Royale Marocaine d’Assurance)' });
+    const table = await screen.findByRole('table', { name: 'Reversements enregistrés' });
+    const [, active, cancelled] = within(table).getAllByRole('row');
+    expect(within(active).getByRole('link', { name: 'VER-2026-00001' })).toHaveAttribute(
+      'href',
+      `/reversements/${REMITTANCE_ID}`,
+    );
+    expect(active).toHaveTextContent('VIR-77');
+    expect(within(cancelled).getByText('Annulé')).toBeInTheDocument();
+    // Nothing was handed over: its amount is struck through.
+    expect(within(cancelled).getByText('1 000,00 MAD')).toHaveClass('line-through');
+    expect(within(active).getByText('1 000,00 MAD')).not.toHaveClass('line-through');
+
+    await user.click(screen.getByRole('radio', { name: 'Annulé' }));
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+      '/api/remittances?page=1&status=CANCELLED',
+    );
+  });
+
+  it('shows one card per remittance on a phone', async () => {
+    phoneScreen();
+    mockApi(routes(manager, { 'GET /api/remittances?page=1': () => page([done]) }));
+    renderApp('/reversements');
+    const list = await screen.findByRole('list', { name: 'Reversements enregistrés' });
+    const [card] = within(list).getAllByRole('listitem');
+    expect(within(card).getByRole('link', { name: 'VER-2026-00001' })).toBeInTheDocument();
+    expect(card).toHaveTextContent('1 000,00 MAD');
+  });
+
+  it('records the way the remittance was made with one click among the choices', async () => {
+    mockApi(
+      routes(manager, {
+        [`GET /api/remittances/outstanding?insurerId=${RMA}&collectedUntil=2026-10-31`]: () => [
+          200,
+          { amount: '1000.00', collectedUntil: '2026-10-31', items: [item] },
+        ],
+      }),
+    );
+    renderApp('/reversements');
+    const user = userEvent.setup();
+    const rma = await screen.findByRole('region', { name: 'RMA (Royale Marocaine d’Assurance)' });
+    await user.click(within(rma).getByRole('button', { name: 'Enregistrer un reversement' }));
+    const dialog = screen.getByRole('dialog', { name: /^Reversement à RMA/ });
+    expect(within(dialog).getByRole('radio', { name: 'Virement' })).toBeChecked();
+    await user.click(within(dialog).getByRole('radio', { name: 'Chèque' }));
+    expect(within(dialog).getByRole('radio', { name: 'Chèque' })).toBeChecked();
+    expect(within(dialog).getByLabelText('N° du chèque et banque')).toBeInTheDocument();
   });
 });
