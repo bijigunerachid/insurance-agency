@@ -1,11 +1,13 @@
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { FormActions } from '../../components/FormActions.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { Spinner } from '../../components/Spinner.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { BORDER_DURATIONS, borderEnd } from '../../features/contracts/borderDurations.js';
@@ -38,7 +40,7 @@ export function ContractFormPage() {
 
   const pending = id ? existing.state : customer.state;
   if (!id && !customerId) return <Alert>{t.intro}</Alert>;
-  if (pending.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (pending.status === 'loading') return <SkeletonDetail />;
   if (pending.status === 'error') {
     return (
       <ErrorState
@@ -152,20 +154,17 @@ function ContractForm({ contract, customer }) {
 
   return (
     <div className="space-y-6">
-      <Link
-        to={back}
-        className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-      >
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {contract ? contract.ref : customer.displayName}
-      </Link>
-      <h1 className="text-2xl font-semibold">
-        {contract ? `${t.edit} · ${contract.ref}` : t.create}
-      </h1>
-      <p className="text-sm text-slate-600">
-        {t.fields.customer} : <span className="font-medium">{customer.displayName}</span> (
-        {customer.ref})
-      </p>
+      <PageHeader
+        back={{ to: back, label: contract ? contract.ref : customer.displayName }}
+        title={contract ? `${t.edit} · ${contract.ref}` : t.create}
+        description={
+          <>
+            {t.fields.customer} :{' '}
+            <span className="font-medium text-ink-soft">{customer.displayName}</span> (
+            {customer.ref})
+          </>
+        }
+      />
 
       <form
         onSubmit={(event) => {
@@ -177,132 +176,148 @@ function ContractForm({ contract, customer }) {
       >
         {error && <Alert>{errorMessage(error)}</Alert>}
         {noProducts && <Alert tone="info">{t.noProducts}</Alert>}
-        <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <h2 className="font-semibold sm:col-span-2">{t.sections.contract}</h2>
-          {/* The list is shown once loaded: an empty list would read as "no product". */}
-          {products.state.status === 'loading' && <Spinner label={fr.app.loading} />}
-          {products.state.status === 'error' && (
-            <div className="sm:col-span-2">
-              <Alert>{errorMessage(products.state.error)}</Alert>
-            </div>
-          )}
-          {products.state.status === 'done' && (
-            <SelectField
-              className="sm:col-span-2"
-              label={t.fields.productId}
-              hint={t.hints.productId}
-              value={form.productId}
-              onChange={chooseProduct}
-              error={fieldErrors.productId}
-              options={[{ value: '', label: '—' }, ...productOptions]}
-            />
-          )}
-          <TextField
-            label={t.fields.startDate}
-            type="date"
-            value={form.startDate}
-            onChange={set('startDate')}
-            error={fieldErrors.startDate}
-          />
-          <TextField
-            label={t.fields.endDate}
-            type="date"
-            value={form.endDate}
-            onChange={set('endDate')}
-            error={fieldErrors.endDate}
-          />
-          {border && (
-            <fieldset className="space-y-2 sm:col-span-2">
-              <legend className="text-sm font-medium">{t.border.duration}</legend>
-              <p className="text-sm text-slate-600">
-                {form.startDate ? t.border.hint : t.border.startFirst}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {BORDER_DURATIONS.map((duration) => (
-                  <Button
-                    key={duration.key}
-                    variant="secondary"
-                    className="aria-pressed:bg-blue-50 aria-pressed:ring-2 aria-pressed:ring-blue-700"
-                    disabled={!form.startDate}
-                    aria-pressed={
-                      Boolean(form.startDate) &&
-                      form.endDate === borderEnd(form.startDate, duration)
-                    }
-                    onClick={() => chooseDuration(duration)}
-                  >
-                    {t.border.durations[duration.key]}
-                  </Button>
-                ))}
+        <Card title={t.sections.contract}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {/* The list is shown once loaded: an empty list would read as "no product". */}
+            {products.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+            {products.state.status === 'error' && (
+              <div className="sm:col-span-2">
+                <Alert>{errorMessage(products.state.error)}</Alert>
               </div>
-            </fieldset>
-          )}
-          <TextField
-            label={t.fields.premiumTotal}
-            hint={t.hints.premiumTotal}
-            inputMode="decimal"
-            maxLength={20}
-            value={form.premiumTotal}
-            onChange={set('premiumTotal')}
-            error={fieldErrors.premiumTotal}
-          />
-          {!border && (
-            <TextField
-              label={t.fields.noticeDays}
-              hint={t.hints.noticeDays}
-              type="number"
-              min={1}
-              max={365}
-              inputMode="numeric"
-              value={form.noticeDays}
-              onChange={set('noticeDays')}
-              error={fieldErrors.noticeDays}
-            />
-          )}
-          {border ? (
-            <p className="text-sm text-slate-600 sm:col-span-2">{t.border.noRenewal}</p>
-          ) : (
-            <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={form.tacitRenewal}
-                onChange={(e) => setForm({ ...form, tacitRenewal: e.target.checked })}
-                className="size-4 rounded border-slate-300"
+            )}
+            {products.state.status === 'done' && (
+              <SelectField
+                className="sm:col-span-2"
+                label={t.fields.productId}
+                hint={t.hints.productId}
+                value={form.productId}
+                onChange={chooseProduct}
+                error={fieldErrors.productId}
+                options={[{ value: '', label: '—' }, ...productOptions]}
               />
-              {t.fields.tacitRenewal}
-            </label>
-          )}
-          {fieldErrors.tacitRenewal && (
-            <p className="text-sm text-red-700 sm:col-span-2">{fieldErrors.tacitRenewal}</p>
-          )}
-        </section>
+            )}
+            <TextField
+              label={t.fields.startDate}
+              type="date"
+              value={form.startDate}
+              onChange={set('startDate')}
+              error={fieldErrors.startDate}
+            />
+            <TextField
+              label={t.fields.endDate}
+              type="date"
+              value={form.endDate}
+              onChange={set('endDate')}
+              error={fieldErrors.endDate}
+            />
+            {border && (
+              <fieldset className="space-y-2 sm:col-span-2">
+                <legend className="text-label text-ink-soft">{t.border.duration}</legend>
+                <p className="text-sm text-ink-muted">
+                  {form.startDate ? t.border.hint : t.border.startFirst}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {BORDER_DURATIONS.map((duration) => (
+                    <Button
+                      key={duration.key}
+                      variant="secondary"
+                      className="aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:text-primary-hover aria-pressed:ring-1 aria-pressed:ring-primary"
+                      disabled={!form.startDate}
+                      aria-pressed={
+                        Boolean(form.startDate) &&
+                        form.endDate === borderEnd(form.startDate, duration)
+                      }
+                      onClick={() => chooseDuration(duration)}
+                    >
+                      {t.border.durations[duration.key]}
+                    </Button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            <TextField
+              label={t.fields.premiumTotal}
+              hint={t.hints.premiumTotal}
+              inputMode="decimal"
+              maxLength={20}
+              value={form.premiumTotal}
+              onChange={set('premiumTotal')}
+              error={fieldErrors.premiumTotal}
+            />
+            {!border && (
+              <TextField
+                label={t.fields.noticeDays}
+                hint={t.hints.noticeDays}
+                type="number"
+                min={1}
+                max={365}
+                inputMode="numeric"
+                value={form.noticeDays}
+                onChange={set('noticeDays')}
+                error={fieldErrors.noticeDays}
+              />
+            )}
+            {border ? (
+              <p className="text-sm text-ink-muted sm:col-span-2">{t.border.noRenewal}</p>
+            ) : (
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-ink sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.tacitRenewal}
+                  onChange={(e) => setForm({ ...form, tacitRenewal: e.target.checked })}
+                  className="size-4 rounded accent-primary"
+                />
+                {t.fields.tacitRenewal}
+              </label>
+            )}
+            {fieldErrors.tacitRenewal && (
+              <p className="text-sm text-danger-ink sm:col-span-2">{fieldErrors.tacitRenewal}</p>
+            )}
+          </div>
+        </Card>
 
         {!contract && (
-          <fieldset className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
-            <legend className="px-1 font-semibold">{t.fields.vehicleIds}</legend>
-            <p className="text-sm text-slate-600">{t.hints.vehicleIds}</p>
-            {vehicles.state.status === 'loading' && <Spinner label={fr.app.loading} />}
-            {vehicles.state.status === 'done' && vehicles.state.data.items.length === 0 && (
-              <p className="text-sm">{t.noVehicles}</p>
-            )}
-            {vehicles.state.status === 'done' &&
-              vehicles.state.data.items.map((vehicle) => (
-                <label key={vehicle.id} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={vehicleIds.includes(vehicle.id)}
-                    onChange={() => toggleVehicle(vehicle.id)}
-                    className="size-4 rounded border-slate-300"
-                  />
-                  <span className="font-mono">{vehicle.registration}</span>
-                  <span className="text-slate-600">
-                    {vehicle.make} {vehicle.model}
-                    {vehicle.usage ? ` · ${vehicle.usage.label}` : ''}
-                  </span>
-                </label>
-              ))}
-            {fieldErrors.vehicleIds && (
-              <p className="text-sm text-red-700">{fieldErrors.vehicleIds}</p>
-            )}
+          <fieldset className="rounded-card border border-line bg-surface p-4 shadow-hairline sm:p-5">
+            {/* Floated, the legend sits inside the box like a heading. */}
+            <legend className="float-left w-full text-section text-ink">
+              {t.fields.vehicleIds}
+            </legend>
+            <div className="clear-both space-y-3 pt-1">
+              <p className="text-sm text-ink-muted">{t.hints.vehicleIds}</p>
+              {vehicles.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+              {vehicles.state.status === 'done' && vehicles.state.data.items.length === 0 && (
+                <p className="text-sm text-ink-soft">{t.noVehicles}</p>
+              )}
+              {vehicles.state.status === 'done' && vehicles.state.data.items.length > 0 && (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {vehicles.state.data.items.map((vehicle) => (
+                    <label
+                      key={vehicle.id}
+                      className="flex cursor-pointer items-center gap-3 rounded-control border border-line-strong/50 px-3.5 py-3 text-sm hover:bg-sunken/60 has-checked:border-primary has-checked:bg-primary-soft has-checked:ring-1 has-checked:ring-primary has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={vehicleIds.includes(vehicle.id)}
+                        onChange={() => toggleVehicle(vehicle.id)}
+                        className="size-4 shrink-0 rounded accent-primary focus:outline-none"
+                      />
+                      <span className="min-w-0">
+                        <span className="block font-mono font-medium text-ink">
+                          {vehicle.registration}
+                        </span>
+                        <span className="block text-ink-muted">
+                          {vehicle.make} {vehicle.model}
+                          {vehicle.usage ? ` · ${vehicle.usage.label}` : ''}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {fieldErrors.vehicleIds && (
+                <p className="text-sm text-danger-ink">{fieldErrors.vehicleIds}</p>
+              )}
+            </div>
           </fieldset>
         )}
 
@@ -312,9 +327,8 @@ function ContractForm({ contract, customer }) {
           </Button>
           <Button
             type="submit"
-            disabled={
-              busy || (contract ? changed.length === 0 : !form.productId || vehicleIds.length === 0)
-            }
+            loading={busy}
+            disabled={contract ? changed.length === 0 : !form.productId || vehicleIds.length === 0}
           >
             {fr.common.save}
           </Button>

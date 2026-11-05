@@ -59,7 +59,8 @@ Amounts, dates and table cells use tabular figures.
 | `PageHeader`, `BackLink` | Every page's top: way back, h1, one line of purpose, actions. |
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
 | `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). `renderCard(row)` draws a list's own phone card (a client's card calls them). |
-| `EmptyState` | Nothing to show, and the real next step if there is one. |
+| `EmptyState` | Nothing to show, and the real next step if there is one; `compact` is one quiet line for a part of a page. |
+| `Disclosure` | Details folded until asked for (the browser's `<details>`): a contract's or a client's less used facts, a history. |
 | `Menu` | A small menu opened by a button (space switch, profile): arrows, Home, End, Enter; Escape, Tab or a click elsewhere closes it and gives the focus back; `menuitemradio` for a choice, `menuitem` for an action. |
 | `Skeleton`, `SkeletonList`, `SkeletonDetail` | The shape of a list (`flush` inside a card) or of a record's page while it loads (announced as « Chargement… »). |
 | `DetailList`, `DetailItem` | A record's facts, label above value, two columns from a small tablet; an empty value shows « — » (or the page's own word), never a blank. |
@@ -131,6 +132,19 @@ the page while loading. On a client's page, contracts and vehicles sit under a `
 with their « + » action; the folded details keep their three parts. Forms (`CustomerFormPage`,
 `VehicleFormPage`): `PageHeader`, one `Card` per part, the client type as two choice tiles, and
 « Enregistrer » showing its work.
+
+## Contracts (stage 6)
+
+The list (`ContractsPage`, `ContractTable` also on a client's page) uses `DataTable`: no column
+heading breaks over two lines any more, what is left to pay is in red when owed with « Encaisser »
+beside it; on a phone each contract keeps its own card with the amount and « Encaisser » at its
+foot. The contract page opens on a section holding the `PageHeader` (the client as title, the
+reference, insurer and product, the statuses and the renewal chain, the actions) and three summary
+tiles (vehicles and policy, « Assuré jusqu'au » in green or amber, what is left to pay); then
+attestations, avenants, guarantees and vehicles each under a `SectionHeading` with one list block
+and a compact empty line; details and history in `Disclosure`s. The form has one card for the
+contract and the vehicles as choice tiles. Payments and documents on the page keep their look
+until their own stages (8 and 10).
 
 ## Stages
 

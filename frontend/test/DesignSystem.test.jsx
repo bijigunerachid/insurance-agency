@@ -8,6 +8,7 @@ import { Button, ButtonLink } from '../src/components/Button.jsx';
 import { Card } from '../src/components/Card.jsx';
 import { DataTable } from '../src/components/DataTable.jsx';
 import { DetailItem, DetailList } from '../src/components/DetailList.jsx';
+import { Disclosure } from '../src/components/Disclosure.jsx';
 import { EmptyState } from '../src/components/EmptyState.jsx';
 import { Menu } from '../src/components/Menu.jsx';
 import { PageHeader } from '../src/components/PageHeader.jsx';
@@ -343,5 +344,28 @@ describe('menus', () => {
     await user.click(screen.getByText('Ailleurs'));
     expect(screen.queryByRole('menu')).toBeNull();
     expect(chosen).toEqual([]);
+  });
+});
+
+describe('folded details and quiet empty lines', () => {
+  it('keep details folded until asked for, then show them', async () => {
+    render(
+      <Disclosure title="Historique">
+        <p>Émis par Nadia</p>
+      </Disclosure>,
+    );
+    const user = userEvent.setup();
+    const details = screen.getByText('Historique').closest('details');
+    expect(details).not.toHaveAttribute('open');
+    await user.click(screen.getByText('Historique'));
+    expect(details).toHaveAttribute('open');
+    expect(screen.getByText('Émis par Nadia')).toBeVisible();
+  });
+
+  it('say there is nothing in one line for a part of a page', () => {
+    render(<EmptyState compact title="Aucune attestation enregistrée." />);
+    const line = screen.getByText('Aucune attestation enregistrée.');
+    expect(line.tagName).toBe('P');
+    expect(line.querySelector('svg')).toBeNull();
   });
 });

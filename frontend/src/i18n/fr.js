@@ -789,6 +789,7 @@ export const fr = {
       ended: (date) => `Terminé le ${date}`,
       daysLeft: (n) => (n === 0 ? 'dernier jour' : n === 1 ? 'encore 1 jour' : `encore ${n} jours`),
       leftToPay: 'Reste à payer',
+      balanceUnavailable: 'Montant indisponible',
       paid: 'Payé',
       noPremium: 'Prime pas encore saisie',
       vehicles: 'Véhicule',

@@ -127,10 +127,10 @@ export function AmendmentDialog({ contract, onDone, onClose }) {
           className="space-y-4"
           noValidate
         >
-          <p className="text-sm text-slate-600">{t.intro}</p>
+          <p className="text-sm text-ink-muted">{t.intro}</p>
           {error && <Alert>{errorMessage(error)}</Alert>}
           <fieldset>
-            <legend className="text-sm font-medium text-slate-800">{t.kind}</legend>
+            <legend className="text-sm font-medium text-ink">{t.kind}</legend>
             <div className="mt-2 flex flex-wrap gap-4">
               {Object.entries(t.kinds).map(([kind, label]) => (
                 <label key={kind} className="flex items-center gap-2 text-sm">
@@ -140,7 +140,7 @@ export function AmendmentDialog({ contract, onDone, onClose }) {
                     value={kind}
                     checked={values.kind === kind}
                     onChange={set('kind')}
-                    className="size-4 accent-blue-700"
+                    className="size-4 accent-primary"
                   />
                   {label}
                 </label>
@@ -178,7 +178,7 @@ export function AmendmentDialog({ contract, onDone, onClose }) {
                 {t.noOtherVehicle}{' '}
                 <Link
                   to={`/vehicules/nouveau?client=${contract.customer.id}`}
-                  className="font-medium text-blue-700 underline"
+                  className="focus-ring rounded-control font-medium text-primary underline underline-offset-2 hover:text-primary-hover"
                 >
                   {t.addVehicle}
                 </Link>
@@ -231,8 +231,8 @@ export function AmendmentDialog({ contract, onDone, onClose }) {
               error={fieldErrors.insurerReference}
             />
           </div>
-          <fieldset className="space-y-4 rounded-lg border border-slate-200 p-3">
-            <legend className="px-1 text-sm font-medium text-slate-800">{t.attestation}</legend>
+          <fieldset className="space-y-4 rounded-card border border-line p-3">
+            <legend className="px-1 text-sm font-medium text-ink">{t.attestation}</legend>
             {series.length === 0 && <Alert tone="info">{a.noSeries}</Alert>}
             <SelectField
               label={a.seriesId}
@@ -262,7 +262,7 @@ export function AmendmentDialog({ contract, onDone, onClose }) {
               onChange={set('validTo')}
               error={fieldErrors.validTo}
             />
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-ink-muted">
               {fr.contracts.fields.period} : {formatDate(contract.startDate)} –{' '}
               {formatDate(contract.endDate)}
             </p>

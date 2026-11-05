@@ -1,13 +1,19 @@
-import { ArrowLeftIcon, PencilSquareIcon, PlusIcon } from '@heroicons/react/20/solid';
+import { PencilSquareIcon, PlusIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
-import { Button } from '../../components/Button.jsx';
+import { Button, ButtonLink } from '../../components/Button.jsx';
+import { DetailItem, DetailList } from '../../components/DetailList.jsx';
+import { Disclosure } from '../../components/Disclosure.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { BackLink, PageHeader } from '../../components/PageHeader.jsx';
 import { ReasonDialog } from '../../components/ReasonDialog.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { Skeleton, SkeletonDetail } from '../../components/Skeleton.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { AmendmentDialog } from '../../features/contracts/AmendmentDialog.jsx';
 import { AttestationDialog } from '../../features/contracts/AttestationDialog.jsx';
@@ -24,6 +30,9 @@ import { usePageTitle } from '../../features/layout/PageTitle.jsx';
 const t = fr.contracts;
 const todayHere = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIME_ZONE }).format(new Date());
+/** A list of a part of the page (attestations, avenants…): one white block, rows divided. */
+const listClasses =
+  'divide-y divide-line overflow-hidden rounded-card border border-line bg-surface text-sm shadow-hairline';
 
 export function ContractDetailPage() {
   const { id } = useParams();
@@ -35,14 +44,14 @@ export function ContractDetailPage() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
       <ErrorState
         title={errorMessage(state.error)}
         body={fr.common.genericError}
         requestId={state.error.requestId}
-        action={<BackLink />}
+        action={<BackLink to="/contrats">{t.back}</BackLink>}
       />
     );
   }
@@ -74,64 +83,62 @@ export function ContractDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <BackLink />
-      <section
-        aria-labelledby="contract-title"
-        className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <h1 id="contract-title" className="text-2xl font-semibold">
-              <Link
-                to={`/clients/${contract.customer.id}`}
-                className="text-slate-900 hover:text-blue-700 hover:underline"
-              >
-                {contract.customer.displayName}
-              </Link>
-            </h1>
-            <p className="text-sm text-slate-600">
+    <div className="space-y-8">
+      <section aria-labelledby="contract-title" className="space-y-5">
+        <PageHeader
+          back={{ to: '/contrats', label: t.back }}
+          titleId="contract-title"
+          title={
+            <Link
+              to={`/clients/${contract.customer.id}`}
+              className="focus-ring rounded-control text-ink hover:text-primary hover:underline"
+            >
+              {contract.customer.displayName}
+            </Link>
+          }
+          description={
+            <>
               <span className="font-mono">{contract.ref}</span> · {contract.insurer.name} ·{' '}
               {contract.product.name}
-            </p>
-            <ContractStatus contract={contract} />
-            {/* The renewal chain stays in sight: last year's and next year's contract. */}
-            {(contract.previousContract || contract.nextContract) && (
-              <p className="text-sm text-slate-700">
-                {contract.previousContract && (
-                  <span className="mr-3">
-                    {t.previousContract} <ContractLink contract={contract.previousContract} />
-                  </span>
+            </>
+          }
+          meta={
+            <>
+              <ContractStatus contract={contract} />
+              {/* The renewal chain stays in sight: last year's and next year's contract. */}
+              {contract.previousContract && (
+                <span className="text-sm text-ink-soft">
+                  {t.previousContract} <ContractLink contract={contract.previousContract} />
+                </span>
+              )}
+              {contract.nextContract && (
+                <span className="text-sm text-ink-soft">
+                  {t.nextContract} <ContractLink contract={contract.nextContract} />
+                </span>
+              )}
+            </>
+          }
+          actions={
+            (canWrite && draft) || transitions.length > 0 ? (
+              <>
+                {canWrite && draft && (
+                  <ButtonLink to={`/contrats/${contract.id}/modifier`} icon={PencilSquareIcon}>
+                    {t.edit}
+                  </ButtonLink>
                 )}
-                {contract.nextContract && (
-                  <span>
-                    {t.nextContract} <ContractLink contract={contract.nextContract} />
-                  </span>
-                )}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {canWrite && draft && (
-              <Link
-                to={`/contrats/${contract.id}/modifier`}
-                className="inline-flex items-center gap-2 rounded-md bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-blue-700"
-              >
-                <PencilSquareIcon aria-hidden="true" className="size-4" />
-                {t.edit}
-              </Link>
-            )}
-            {transitions.map((transition) => (
-              <Button
-                key={transition.to}
-                variant={transition.to === 'CANCELLED' ? 'danger' : 'primary'}
-                onClick={() => setDialog({ type: 'transition', transition })}
-              >
-                {t.transitions[`${contract.status}>${transition.to}`]}
-              </Button>
-            ))}
-          </div>
-        </div>
+                {transitions.map((transition) => (
+                  <Button
+                    key={transition.to}
+                    variant={transition.to === 'CANCELLED' ? 'danger' : 'primary'}
+                    onClick={() => setDialog({ type: 'transition', transition })}
+                  >
+                    {t.transitions[`${contract.status}>${transition.to}`]}
+                  </Button>
+                ))}
+              </>
+            ) : null
+          }
+        />
         <Summary contract={contract} />
       </section>
 
@@ -139,21 +146,27 @@ export function ContractDetailPage() {
 
       {can('payments.read') && <ContractPayments contract={contract} />}
       <section aria-labelledby="attestations-heading" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="attestations-heading" className="text-lg font-semibold">
-            {t.sections.attestations}
-          </h2>
-          {canWrite && contract.status !== 'CANCELLED' && (
-            <Button variant="secondary" onClick={() => setDialog({ type: 'attestation' })}>
-              <PlusIcon aria-hidden="true" className="size-4" />
-              {t.attestations.add}
-            </Button>
-          )}
-        </div>
+        <SectionHeading
+          id="attestations-heading"
+          title={t.sections.attestations}
+          actions={
+            canWrite &&
+            contract.status !== 'CANCELLED' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={PlusIcon}
+                onClick={() => setDialog({ type: 'attestation' })}
+              >
+                {t.attestations.add}
+              </Button>
+            )
+          }
+        />
         {contract.attestations.length === 0 ? (
-          <p className="text-sm text-slate-600">{t.attestations.none}</p>
+          <EmptyState compact title={t.attestations.none} />
         ) : (
-          <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+          <ul className={listClasses}>
             {contract.attestations.map((attestation) => (
               <AttestationRow
                 key={attestation.id}
@@ -185,48 +198,44 @@ export function ContractDetailPage() {
       />
       {can('documents.read') && <ContractDocuments contract={contract} />}
 
-      <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 font-semibold marker:hidden hover:bg-slate-50">
-          <span
-            className="mr-2 inline-block transition-transform group-open:rotate-90"
-            aria-hidden="true"
-          >
-            ›
-          </span>
-          {t.summary.details}
-        </summary>
-        <dl className="grid gap-px border-t border-slate-200 bg-slate-200 text-sm sm:grid-cols-2">
-          <Item
-            label={t.fields.productId}
-            value={`${contract.product.name}${contract.product.insurerCode ? ` (${contract.product.insurerCode})` : ''}`}
-          />
-          <Item label={t.fields.insurer} value={contract.insurer.name} />
-          <Item label={t.fields.policyNumber} value={contract.policyNumber} mono />
-          <Item label={t.fields.insurerReference} value={contract.insurerReference} />
-          <Item
-            label={t.fields.period}
-            value={`${formatDate(contract.startDate)} – ${formatDate(contract.endDate)}`}
-          />
-          <Item label={t.fields.premiumTotal} value={formatMoney(contract.premiumTotal)} />
-          {Number(contract.amendmentsTotal) > 0 && (
-            <Item label={t.fields.amendmentsTotal} value={formatMoney(contract.amendmentsTotal)} />
-          )}
-          <Item label={t.fields.tacitRenewal} value={contract.tacitRenewal ? t.yes : t.no} />
-          <Item label={t.fields.noticeDays} value={contract.noticeDays} />
-          {contract.previousContract && (
-            <Item
-              label={t.previousContract}
-              value={<ContractLink contract={contract.previousContract} />}
+      <Disclosure title={t.summary.details}>
+        <div className="px-4 py-4 sm:px-5">
+          <DetailList>
+            <Fact
+              label={t.fields.productId}
+              value={`${contract.product.name}${contract.product.insurerCode ? ` (${contract.product.insurerCode})` : ''}`}
             />
-          )}
-          {contract.nextContract && (
-            <Item
-              label={t.nextContract}
-              value={<ContractLink contract={contract.nextContract} />}
+            <Fact label={t.fields.insurer} value={contract.insurer.name} />
+            <Fact label={t.fields.policyNumber} value={contract.policyNumber} mono />
+            <Fact label={t.fields.insurerReference} value={contract.insurerReference} />
+            <Fact
+              label={t.fields.period}
+              value={`${formatDate(contract.startDate)} – ${formatDate(contract.endDate)}`}
             />
-          )}
-        </dl>
-      </details>
+            <Fact label={t.fields.premiumTotal} value={formatMoney(contract.premiumTotal)} />
+            {Number(contract.amendmentsTotal) > 0 && (
+              <Fact
+                label={t.fields.amendmentsTotal}
+                value={formatMoney(contract.amendmentsTotal)}
+              />
+            )}
+            <Fact label={t.fields.tacitRenewal} value={contract.tacitRenewal ? t.yes : t.no} />
+            <Fact label={t.fields.noticeDays} value={contract.noticeDays} />
+            {contract.previousContract && (
+              <Fact
+                label={t.previousContract}
+                value={<ContractLink contract={contract.previousContract} />}
+              />
+            )}
+            {contract.nextContract && (
+              <Fact
+                label={t.nextContract}
+                value={<ContractLink contract={contract.nextContract} />}
+              />
+            )}
+          </DetailList>
+        </div>
+      </Disclosure>
 
       <GuaranteesSection guarantees={contract.guarantees ?? []} formula={contract.formula} />
 
@@ -244,27 +253,18 @@ export function ContractDetailPage() {
         }
       />
 
-      <details className="group rounded-lg border border-slate-200 bg-white">
-        <summary className="cursor-pointer list-none px-4 py-3 font-semibold marker:hidden hover:bg-slate-50">
-          <span
-            className="mr-2 inline-block transition-transform group-open:rotate-90"
-            aria-hidden="true"
-          >
-            ›
-          </span>
-          {t.summary.history}
-        </summary>
-        <ol className="space-y-2 border-t border-slate-200 p-4 text-sm">
+      <Disclosure title={t.summary.history}>
+        <ol className="space-y-3 px-4 py-4 text-sm sm:px-5">
           {contract.history.map((change) => (
-            <li key={change.id}>
-              <span className="font-medium">
+            <li key={change.id} className="border-l-2 border-line pl-3">
+              <span className="font-medium text-ink">
                 {t.historyLine(change.from && t.statuses[change.from], t.statuses[change.to])}
               </span>{' '}
-              <span className="text-slate-600">
+              <span className="text-ink-muted">
                 {t.by(change.by.displayName, formatDateTime(change.at))}
               </span>
               {(change.reason || change.insurerReference || change.effectiveDate) && (
-                <span className="block text-slate-700">
+                <span className="block text-ink-soft">
                   {[
                     change.reason,
                     change.insurerReference,
@@ -278,7 +278,7 @@ export function ContractDetailPage() {
             </li>
           ))}
         </ol>
-      </details>
+      </Disclosure>
 
       {dialog?.type === 'transition' && (
         <TransitionDialog
@@ -332,29 +332,28 @@ function GuaranteesSection({ guarantees, formula }) {
   const meaning = formula?.split(/\s+/).find((word) => t.guarantees.formulas[word]);
   return (
     <section aria-labelledby="guarantees-heading" className="space-y-3">
-      <div>
-        <h2 id="guarantees-heading" className="text-lg font-semibold">
-          {t.guarantees.title}
-        </h2>
-        <p className="text-sm text-slate-600">{t.guarantees.intro}</p>
-        {formula && (
-          <p className="mt-1 text-sm">
-            <span className="font-medium">{t.guarantees.formula}</span> {formula}
-            {meaning && ` (${t.guarantees.formulas[meaning]})`}
-          </p>
-        )}
-      </div>
-      <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+      <SectionHeading
+        id="guarantees-heading"
+        title={t.guarantees.title}
+        description={t.guarantees.intro}
+      />
+      {formula && (
+        <p className="text-sm text-ink-soft">
+          <span className="font-medium text-ink">{t.guarantees.formula}</span> {formula}
+          {meaning && ` (${t.guarantees.formulas[meaning]})`}
+        </p>
+      )}
+      <ul className={listClasses}>
         {guarantees.map((g) => (
           <li
             key={g.label}
-            className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm"
+            className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 sm:px-5"
           >
             <div className="min-w-0 space-y-0.5">
-              <p className="font-medium">{g.label}</p>
-              {g.details && <p className="break-words text-xs text-slate-600">{g.details}</p>}
+              <p className="font-medium text-ink">{g.label}</p>
+              {g.details && <p className="break-words text-xs text-ink-muted">{g.details}</p>}
             </div>
-            <span className="tabular-nums">
+            <span className={`tabular-nums ${g.premium ? 'text-ink' : 'text-ink-muted'}`}>
               {g.premium ? formatMoney(g.premium) : t.guarantees.noPremium}
             </span>
           </li>
@@ -376,33 +375,42 @@ function VehiclesSection({ contract, editable, busy, onAdd, onRemove }) {
 
   return (
     <section aria-labelledby="contract-vehicles-heading" className="space-y-3">
-      <h2 id="contract-vehicles-heading" className="text-lg font-semibold">
-        {t.sections.vehicles}
-      </h2>
-      <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-        {contract.vehicles.map((vehicle) => (
-          <li key={vehicle.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-            <span className="text-sm">
-              <Link
-                to={`/vehicules/${vehicle.id}`}
-                className="font-mono font-medium text-blue-700 underline"
-              >
-                {vehicle.registration}
-              </Link>{' '}
-              {vehicle.make} {vehicle.model}
-              {vehicle.usage && <span className="text-slate-600"> · {vehicle.usage.label}</span>}
-              {vehicle.insurerUsage && (
-                <span className="text-slate-600"> · {vehicle.insurerUsage.label}</span>
+      <SectionHeading id="contract-vehicles-heading" title={t.sections.vehicles} />
+      {contract.vehicles.length === 0 ? (
+        <EmptyState compact title={t.summary.noVehicle} />
+      ) : (
+        <ul className={listClasses}>
+          {contract.vehicles.map((vehicle) => (
+            <li
+              key={vehicle.id}
+              className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5"
+            >
+              <span>
+                <TextLink to={`/vehicules/${vehicle.id}`} className="font-mono">
+                  {vehicle.registration}
+                </TextLink>{' '}
+                <span className="text-ink">
+                  {vehicle.make} {vehicle.model}
+                </span>
+                {vehicle.usage && <span className="text-ink-muted"> · {vehicle.usage.label}</span>}
+                {vehicle.insurerUsage && (
+                  <span className="text-ink-muted"> · {vehicle.insurerUsage.label}</span>
+                )}
+              </span>
+              {editable && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onRemove(vehicle.id)}
+                >
+                  {t.removeVehicle}
+                </Button>
               )}
-            </span>
-            {editable && (
-              <Button variant="secondary" disabled={busy} onClick={() => onRemove(vehicle.id)}>
-                {t.removeVehicle}
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
       {editable && others.state.status === 'done' && (
         <form
           onSubmit={(event) => {
@@ -431,7 +439,7 @@ function VehiclesSection({ contract, editable, busy, onAdd, onRemove }) {
               </Button>
             </>
           ) : (
-            <p className="text-sm text-slate-600">{t.noOtherVehicle}</p>
+            <p className="text-sm text-ink-muted">{t.noOtherVehicle}</p>
           )}
         </form>
       )}
@@ -446,31 +454,31 @@ function AmendmentsSection({ contract, onAdd }) {
   if (amendments.length === 0 && !onAdd) return null;
   return (
     <section aria-labelledby="amendments-heading" className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="amendments-heading" className="text-lg font-semibold">
-          {m.title}
-        </h2>
-        {onAdd && (
-          <Button variant="secondary" onClick={onAdd}>
-            <PlusIcon aria-hidden="true" className="size-4" />
-            {m.add}
-          </Button>
-        )}
-      </div>
+      <SectionHeading
+        id="amendments-heading"
+        title={m.title}
+        actions={
+          onAdd && (
+            <Button variant="secondary" size="sm" icon={PlusIcon} onClick={onAdd}>
+              {m.add}
+            </Button>
+          )
+        }
+      />
       {amendments.length === 0 ? (
-        <p className="text-sm text-slate-600">{m.none}</p>
+        <EmptyState compact title={m.none} />
       ) : (
-        <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+        <ul className={listClasses}>
           {amendments.map((amendment) => (
-            <li key={amendment.id} className="space-y-1 p-3 text-sm">
-              <p className="font-medium">
+            <li key={amendment.id} className="space-y-1 px-4 py-3 sm:px-5">
+              <p className="font-medium text-ink">
                 {m.kinds[amendment.kind]}
-                <span className="ml-2 font-normal text-slate-600">
+                <span className="ml-2 font-normal text-ink-muted">
                   {amendment.number ? m.numbered(amendment.number) : m.unnumbered} ·{' '}
                   {m.effective(formatDate(amendment.effectiveDate))}
                 </span>
               </p>
-              <p className="text-slate-700">
+              <p className="text-ink-soft">
                 {amendment.kind === 'REGISTRATION_CHANGE'
                   ? m.line.REGISTRATION_CHANGE(
                       amendment.previousRegistration,
@@ -482,7 +490,7 @@ function AmendmentsSection({ contract, onAdd }) {
                     )}{' '}
                 · {amendment.attestation.series} n° {amendment.attestation.number}
               </p>
-              <p className="text-slate-600">
+              <p className="text-ink-muted">
                 {[
                   amendment.amount && m.amountLine(formatMoney(amendment.amount)),
                   amendment.insurerReference,
@@ -502,23 +510,23 @@ function AmendmentsSection({ contract, onAdd }) {
 function AttestationRow({ attestation, busy, onCancel, onReturned }) {
   const a = t.attestations;
   return (
-    <li className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm">
+    <li className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 sm:px-5">
       <div className="space-y-1">
-        <p className="font-medium">
+        <p className="font-medium text-ink">
           {attestation.series.code} <span className="font-mono">n° {attestation.number}</span>
-          <span className="ml-2 font-normal text-slate-600">
+          <span className="ml-2 font-normal text-ink-muted">
             {a.model(attestation.series.model)} ·{' '}
             <span className="whitespace-nowrap">{attestation.vehicle.registration}</span>
           </span>
         </p>
-        <p className="text-slate-700">
+        <p className="text-ink-soft">
           {formatDate(attestation.validFrom)} – {formatDate(attestation.validTo)} ·{' '}
           {a.mediums[attestation.medium]}
           {attestation.coverNoteRef && ` · ${a.coverNoteRef} ${attestation.coverNoteRef}`}
         </p>
         {/* A plain line, not a badge: it is long and must wrap on a phone. */}
         {attestation.replaced && (
-          <p className="text-slate-700">
+          <p className="text-ink-soft">
             {a.replaced(
               attestation.replaced.number,
               formatDate(attestation.replaced.effectiveDate),
@@ -546,12 +554,12 @@ function AttestationRow({ attestation, busy, onCancel, onReturned }) {
       </div>
       <div className="flex flex-wrap gap-2">
         {onReturned && (
-          <Button variant="secondary" disabled={busy} onClick={onReturned}>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={onReturned}>
             {a.markReturned}
           </Button>
         )}
         {onCancel && (
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" size="sm" onClick={onCancel}>
             {a.cancel}
           </Button>
         )}
@@ -574,21 +582,24 @@ function Summary({ contract }) {
       : contract.period === 'UPCOMING'
         ? s.startsOn(formatDate(contract.startDate))
         : s.coveredUntil(formatDate(contract.endDate));
+  // Green while covered, amber within 30 days of the end; plain once ended or not issued.
   const tone =
     contract.period === 'EXPIRED' || contract.status !== 'ISSUED'
-      ? 'text-slate-700'
+      ? 'text-ink-soft'
       : daysLeft <= 30
-        ? 'text-amber-800'
-        : 'text-green-800';
+        ? 'text-warning-ink'
+        : 'text-success-ink';
   const owed = balance && balance.balance !== null ? Number(balance.balance) : null;
+  const tile = 'rounded-card border border-line bg-surface p-4 shadow-hairline';
+  const label = 'text-xs font-semibold uppercase tracking-wide text-ink-muted';
 
   return (
-    <dl className="grid gap-3 sm:grid-cols-3">
-      <div className="rounded-lg bg-slate-50 p-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{s.vehicles}</dt>
-        <dd className="mt-1 text-sm">
+    <dl className="grid gap-3 md:grid-cols-3">
+      <div className={tile}>
+        <dt className={label}>{s.vehicles}</dt>
+        <dd className="mt-1.5 space-y-0.5 text-sm text-ink">
           {contract.vehicles.length === 0 && (
-            <span className="block text-slate-600">{t.summary.noVehicle}</span>
+            <span className="block text-ink-muted">{t.summary.noVehicle}</span>
           )}
           {contract.vehicles.map((v) => (
             <span key={v.id} className="block">
@@ -596,64 +607,52 @@ function Summary({ contract }) {
             </span>
           ))}
           {contract.policyNumber && (
-            <span className="block text-slate-600">
+            <span className="block text-ink-muted">
               {s.policy} <span className="font-mono">{contract.policyNumber}</span>
             </span>
           )}
         </dd>
       </div>
-      <div className="rounded-lg bg-slate-50 p-3">
+      <div className={tile}>
         <dt className="sr-only">{t.fields.period}</dt>
         <dd className={`text-lg font-semibold ${tone}`}>{until}</dd>
         {contract.period === 'ACTIVE' && (
-          <dd className="text-sm text-slate-600">{s.daysLeft(daysLeft)}</dd>
+          <dd className="mt-0.5 text-sm text-ink-muted">{s.daysLeft(daysLeft)}</dd>
         )}
       </div>
-      <div className="rounded-lg bg-slate-50 p-3">
-        <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          {s.leftToPay}
-        </dt>
+      <div className={tile}>
+        <dt className={label}>{s.leftToPay}</dt>
         <dd
-          className={`mt-1 text-lg font-semibold tabular-nums ${owed > 0 ? 'text-red-700' : 'text-slate-900'}`}
+          className={`mt-1.5 text-2xl font-semibold tabular-nums ${owed > 0 ? 'text-danger-ink' : 'text-ink'}`}
         >
-          {balance === null
-            ? '…'
-            : balance.amountDue === null
-              ? s.noPremium
-              : formatMoney(balance.balance)}
+          {payments.state.status === 'error' ? (
+            // Never an endless wait: the rest of the page stays usable.
+            <span className="text-base font-medium text-ink-muted">{s.balanceUnavailable}</span>
+          ) : balance === null ? (
+            <>
+              <Skeleton className="h-7 w-28" />
+              <span className="sr-only">{fr.app.loading}</span>
+            </>
+          ) : balance.amountDue === null ? (
+            <span className="text-base font-medium text-ink-muted">{s.noPremium}</span>
+          ) : (
+            formatMoney(balance.balance)
+          )}
         </dd>
       </div>
     </dl>
   );
 }
 
-function Item({ label, value, mono }) {
-  return (
-    <div className="bg-white px-4 py-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className={`mt-0.5 font-medium ${mono ? 'font-mono' : ''}`}>
-        {value === null || value === undefined || value === '' ? fr.vehicles.notSpecified : value}
-      </dd>
-    </div>
-  );
+/** A fact of the folded details; empty reads « Non précisé ». */
+function Fact(props) {
+  return <DetailItem empty={fr.vehicles.notSpecified} {...props} />;
 }
 
 function ContractLink({ contract }) {
   return (
-    <Link to={`/contrats/${contract.id}`} className="font-mono text-blue-700 underline">
+    <TextLink to={`/contrats/${contract.id}`} className="font-mono">
       {contract.ref}
-    </Link>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/contrats"
-      className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-    >
-      <ArrowLeftIcon aria-hidden="true" className="size-4" />
-      {t.back}
-    </Link>
+    </TextLink>
   );
 }
