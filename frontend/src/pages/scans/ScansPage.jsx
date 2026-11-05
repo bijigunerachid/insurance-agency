@@ -1,44 +1,33 @@
-import { useId, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { Card } from '../../components/Card.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
+import { FileField } from '../../components/FileField.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
+import { SegmentedControl } from '../../components/SegmentedControl.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiUpload } from '../../services/api.js';
 import { formatDateTime } from '../../utils/format.js';
 
 const t = fr.scans;
-const ACCEPTED = ['application/pdf', 'image/jpeg', 'image/png'];
-const MAX_BYTES = 10 * 1024 * 1024;
 const TONES = { PENDING: 'warning', FILED: 'ok', DISCARDED: 'neutral' };
 
-/** Scan an attestation; the scans waiting to be checked, or those already processed. */
+/** Scan an attestation; the scans waiting to be checked, those recorded, those discarded. */
 export function ScansPage() {
   const navigate = useNavigate();
-  const fileId = useId();
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [closed, setClosed] = useState(false);
-  const { state } = useApiQuery(`/scans?status=${closed ? 'FILED' : 'PENDING'}`);
-
-  function choose(event) {
-    const chosen = event.target.files?.[0] ?? null;
-    setError(null);
-    if (chosen && !ACCEPTED.includes(chosen.type)) {
-      setFile(null);
-      setFileError(fr.documents.wrongType);
-    } else if (chosen && chosen.size > MAX_BYTES) {
-      setFile(null);
-      setFileError(fr.documents.tooBig);
-    } else {
-      setFile(chosen);
-      setFileError(null);
-    }
-  }
+  const [status, setStatus] = useState('PENDING');
+  const { state } = useApiQuery(`/scans?status=${status}`);
 
   async function read(event) {
     event.preventDefault();
@@ -55,97 +44,79 @@ export function ScansPage() {
   }
 
   return (
-    <section aria-labelledby="scans-title" className="space-y-4">
-      <div>
-        <h1 id="scans-title" className="text-2xl font-semibold">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
-      <form
-        onSubmit={read}
-        className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
-        noValidate
-      >
-        {error && <Alert>{errorMessage(error)}</Alert>}
-        <div>
-          <label htmlFor={fileId} className="block text-sm font-medium text-slate-800">
-            {t.file}
-          </label>
-          <input
-            id={fileId}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+    <section aria-labelledby="scans-title" className="space-y-6">
+      <PageHeader titleId="scans-title" title={t.title} description={t.intro} />
+      <Card>
+        <form onSubmit={read} className="space-y-4" noValidate>
+          {error && <Alert>{errorMessage(error)}</Alert>}
+          <FileField
+            label={t.file}
+            hint={t.fileHint}
             capture="environment"
-            onChange={choose}
+            file={file}
+            error={fileError}
             disabled={busy}
-            aria-invalid={fileError ? 'true' : undefined}
-            aria-describedby={`${fileId}-hint${fileError ? ` ${fileId}-error` : ''}`}
-            className="mt-1 block w-full text-sm text-slate-900 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:font-medium file:text-slate-800"
+            onChange={(chosen, problem) => {
+              setFile(chosen);
+              setFileError(problem);
+              setError(null);
+            }}
           />
-          <p id={`${fileId}-hint`} className="mt-1 text-xs text-slate-500">
-            {t.fileHint}
-          </p>
-          {fileError && (
-            <p id={`${fileId}-error`} className="mt-1 text-sm text-red-700">
-              {fileError}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {busy && <Spinner label={t.reading} />}
-          <Button type="submit" disabled={busy || !file}>
-            {t.read}
-          </Button>
-        </div>
-      </form>
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {busy && (
+              <p role="status" className="text-sm text-ink-muted">
+                {t.reading}
+              </p>
+            )}
+            <Button type="submit" size="lg" loading={busy} disabled={!file}>
+              {t.read}
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       <section aria-labelledby="scans-list" className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="scans-list" className="text-lg font-semibold">
-            {closed ? t.closed : t.pending}
-          </h2>
-          <button
-            type="button"
-            onClick={() => setClosed(!closed)}
-            className="text-sm font-medium text-blue-700 underline"
-          >
-            {closed ? t.showPending : t.showClosed}
-          </button>
-        </div>
-        {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+        <SectionHeading id="scans-list" title={t.lists[status]} />
+        <SegmentedControl
+          label={t.statusLabel}
+          value={status}
+          onChange={setStatus}
+          options={Object.entries(t.filters).map(([value, label]) => ({ value, label }))}
+        />
+        {state.status === 'loading' && <SkeletonList rows={3} />}
         {state.status === 'error' && <Alert>{errorMessage(state.error)}</Alert>}
         {state.status === 'done' &&
           (state.data.items.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-              {t.noPending}
-            </p>
+            <EmptyState compact title={t.empty[status]} />
           ) : (
-            <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-              {state.data.items.map((scan) => (
-                <li
-                  key={scan.id}
-                  className="flex flex-wrap items-start justify-between gap-2 p-3 text-sm"
-                >
-                  <div className="min-w-0 space-y-0.5">
-                    <p className="font-medium">
-                      <Link
-                        to={`/scans/${scan.id}`}
-                        className="break-all text-blue-700 underline-offset-2 hover:underline"
-                      >
-                        {scan.proposed.seriesCode && scan.proposed.number
-                          ? `${scan.proposed.seriesCode} n° ${scan.proposed.number}`
-                          : scan.originalName}
-                      </Link>
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      {formatDateTime(scan.uploadedAt)} · {t.by} {scan.uploadedBy.displayName}
-                      {scan.read ? ` · ${t.confidence(scan.confidence)}` : ` · ${t.notRead}`}
-                    </p>
-                  </div>
-                  <StatusBadge tone={TONES[scan.status]}>{t.statuses[scan.status]}</StatusBadge>
-                </li>
-              ))}
+            <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface shadow-hairline">
+              {state.data.items.map((scan) => {
+                const named = scan.proposed.seriesCode && scan.proposed.number;
+                return (
+                  <li
+                    key={scan.id}
+                    className="flex flex-wrap items-start justify-between gap-2 px-4 py-3 text-sm sm:px-5"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p>
+                        <TextLink
+                          to={`/scans/${scan.id}`}
+                          className={named ? 'font-mono' : 'break-all'}
+                        >
+                          {named
+                            ? `${scan.proposed.seriesCode} n° ${scan.proposed.number}`
+                            : scan.originalName}
+                        </TextLink>
+                      </p>
+                      <p className="text-xs text-ink-muted">
+                        {formatDateTime(scan.uploadedAt)} · {t.by} {scan.uploadedBy.displayName}
+                        {scan.read ? ` · ${t.confidence(scan.confidence)}` : ` · ${t.notRead}`}
+                      </p>
+                    </div>
+                    <StatusBadge tone={TONES[scan.status]}>{t.statuses[scan.status]}</StatusBadge>
+                  </li>
+                );
+              })}
             </ul>
           ))}
       </section>

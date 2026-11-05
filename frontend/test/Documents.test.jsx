@@ -168,3 +168,33 @@ describe('documents of the insurer on a contract', () => {
     expect(within(section).queryByRole('button')).toBeNull();
   });
 });
+
+describe('documents of the insurer on the new design', () => {
+  it('keeps its heading and its action while loading, then says when nothing is attached', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      ...routes(agent, () => []),
+      [`GET /api/contracts/${CONTRACT_ID}/documents`]: () => first,
+    });
+    renderApp(`/contrats/${CONTRACT_ID}`);
+    const section = await screen.findByRole('region', { name: 'Documents de l’assureur' });
+    expect(within(section).getByRole('status')).toHaveTextContent('Chargement…');
+    expect(within(section).getByRole('button', { name: 'Joindre un document' })).toBeEnabled();
+
+    answer([200, { items: [] }]);
+    expect(await within(section).findByText('Aucun document joint.')).toBeInTheDocument();
+  });
+
+  it('says why the documents could not be loaded, under its heading', async () => {
+    mockApi({
+      ...routes(agent, () => []),
+      [`GET /api/contracts/${CONTRACT_ID}/documents`]: () => [500, { error: { code: 'INTERNAL' } }],
+    });
+    renderApp(`/contrats/${CONTRACT_ID}`);
+    const section = await screen.findByRole('region', { name: 'Documents de l’assureur' });
+    expect(await within(section).findByRole('alert')).toBeInTheDocument();
+  });
+});

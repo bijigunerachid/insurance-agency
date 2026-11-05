@@ -1,13 +1,16 @@
-import { ArrowLeftIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
+import { ScanPreview } from '../../features/documents/ScanPreview.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost, apiSend } from '../../services/api.js';
@@ -96,7 +99,7 @@ export function DocumentCapturePage() {
   // Kept here: the form below starts again from the server after each save.
   const [notice, setNotice] = useState(null);
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
       <ErrorState
@@ -185,73 +188,39 @@ function CaptureView({ data, reload, notice, setNotice }) {
   }
 
   return (
-    <div className="space-y-4">
-      <Link
-        to={`/contrats/${contract.id}`}
-        className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-      >
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {t.back}
-      </Link>
-      <div>
-        <h1 className="text-2xl font-semibold">{t.title(fr.documents.types[document.type])}</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          <span className="font-mono">{contract.ref}</span> · {document.originalName}
-        </p>
-        <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        back={{ to: `/contrats/${contract.id}`, label: t.back }}
+        title={t.title(fr.documents.types[document.type])}
+        description={t.intro}
+        meta={
+          <p className="break-all text-sm text-ink-muted">
+            <span className="font-mono font-medium text-ink-soft">{contract.ref}</span> ·{' '}
+            {document.originalName}
+          </p>
+        }
+      />
       {error && <Alert>{errorMessage(error)}</Alert>}
-      {notice && <Alert tone="info">{notice}</Alert>}
+      {notice && <Alert tone="success">{notice}</Alert>}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section
-          aria-labelledby="scan-heading"
-          className="space-y-2 rounded-lg border border-slate-200 bg-white p-3"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="scan-heading" className="font-semibold">
-              {t.scan}
-            </h2>
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-            >
-              <ArrowTopRightOnSquareIcon aria-hidden="true" className="size-4" />
-              {t.openScan}
-            </a>
-          </div>
-          {document.mimeType === 'application/pdf' ? (
-            <iframe
-              src={fileUrl}
-              title={document.originalName}
-              className="h-[50vh] w-full rounded border border-slate-200 lg:h-[70vh]"
-            />
-          ) : (
-            <img
-              src={fileUrl}
-              alt={document.originalName}
-              className="max-h-[50vh] w-full rounded border border-slate-200 object-contain lg:max-h-[70vh]"
-            />
-          )}
-        </section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ScanPreview
+          url={fileUrl}
+          mimeType={document.mimeType}
+          name={document.originalName}
+          openLabel={t.openScan}
+        />
 
-        <div className="space-y-4">
-          <section
-            aria-labelledby="form-heading"
-            className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
+        <div className="space-y-6">
+          <Card
+            title={t.form}
+            description={
+              capture &&
+              t.savedBy(capture.capturedBy.displayName, formatDateTime(capture.capturedAt))
+            }
           >
-            <h2 id="form-heading" className="font-semibold">
-              {t.form}
-            </h2>
-            {capture && (
-              <p className="text-xs text-slate-600">
-                {t.savedBy(capture.capturedBy.displayName, formatDateTime(capture.capturedAt))}
-              </p>
-            )}
-            <form onSubmit={save} className="space-y-3" noValidate>
-              <div className="grid gap-3 sm:grid-cols-2">
+            <form onSubmit={save} className="space-y-4" noValidate>
+              <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map(([name, kind]) => (
                   <TextField
                     key={name}
@@ -273,62 +242,62 @@ function CaptureView({ data, reload, notice, setNotice }) {
               </div>
               {canCapture && (
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={busy}>
+                  <Button type="submit" loading={busy}>
                     {t.save}
                   </Button>
                 </div>
               )}
             </form>
-          </section>
+          </Card>
 
-          <section
-            aria-labelledby="checks-heading"
-            className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
-          >
-            <h2 id="checks-heading" className="font-semibold">
-              {t.checks}
-            </h2>
+          <Card title={t.checks} flush>
             {checks.length === 0 ? (
-              <p className="text-sm text-slate-600">{t.noChecks}</p>
+              <p className="px-4 py-4 text-sm text-ink-muted sm:px-5">{t.noChecks}</p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-line">
                 {checks.map((check) => (
-                  <li key={check.field} className="space-y-1 py-3 text-sm">
+                  <li
+                    key={check.field}
+                    className={`space-y-2 px-4 py-3 text-sm sm:px-5 ${
+                      check.status === 'DIFFERENT' ? 'border-l-4 border-l-danger' : ''
+                    }`}
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-medium">{t.fields[check.field]}</p>
+                      <p className="font-medium text-ink">{t.fields[check.field]}</p>
                       <StatusBadge tone={TONES[check.status]}>
                         {t.statuses[check.status]}
                       </StatusBadge>
                     </div>
-                    <dl className="grid gap-x-4 sm:grid-cols-2">
+                    <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
                       <div className="min-w-0">
-                        <dt className="text-xs text-slate-600">{t.document}</dt>
-                        <dd className="break-words">{shown(check.field, check.captured)}</dd>
+                        <dt className="text-xs text-ink-muted">{t.document}</dt>
+                        <dd className="break-words text-ink">
+                          {shown(check.field, check.captured)}
+                        </dd>
                       </div>
                       <div className="min-w-0">
-                        <dt className="text-xs text-slate-600">{t.app}</dt>
-                        <dd className="break-words">{shown(check.field, check.recorded)}</dd>
+                        <dt className="text-xs text-ink-muted">{t.app}</dt>
+                        <dd className="break-words text-ink">
+                          {shown(check.field, check.recorded)}
+                        </dd>
                       </div>
                     </dl>
-                    {check.status !== 'MATCH' && (
-                      <div className="flex flex-wrap gap-2 pt-1">
+                    {check.status !== 'MATCH' && (check.apply || check.link) && (
+                      <div className="flex flex-wrap items-center gap-3">
                         {check.apply &&
                           can('contracts.write') &&
                           canCapture &&
                           (contract.correctable ? (
-                            <Button disabled={busy} onClick={() => apply(check.apply)}>
+                            <Button size="sm" disabled={busy} onClick={() => apply(check.apply)}>
                               {t.apply}
                             </Button>
                           ) : (
-                            <p className="text-xs text-slate-600">{t.notCorrectable}</p>
+                            <p className="text-xs text-ink-muted">{t.notCorrectable}</p>
                           ))}
                         {check.link && (
-                          <Link
-                            to={LINKS[check.link.kind](check.link.id)}
-                            className="text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
-                          >
+                          <TextLink to={LINKS[check.link.kind](check.link.id)} className="text-sm">
                             {t.links[check.link.kind]}
-                          </Link>
+                          </TextLink>
                         )}
                       </div>
                     )}
@@ -336,7 +305,7 @@ function CaptureView({ data, reload, notice, setNotice }) {
                 ))}
               </ul>
             )}
-          </section>
+          </Card>
         </div>
       </div>
     </div>

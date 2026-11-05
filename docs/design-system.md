@@ -68,6 +68,7 @@ Amounts, dates and table cells use tabular figures.
 | `SectionHeading` | The top of a part of a page that holds its own list (h2 and its action). |
 | `PhoneLink` | A client's number that calls them, written 06 12 34 56 78. |
 | `TextLink`, `textLinkClasses` | A link inside text or a table, in the action colour. |
+| `FileField`, `fileProblem` | A scan to send: a wide zone to click, or to drop a file on. The real file input covers the zone, invisible, so the keyboard, screen readers and the drop all use it; the chosen file's name and size are read with the field. PDF, JPEG or PNG of 10 MB at most, checked in the browser first (the server checks the content again). |
 | `ToastProvider`, `useToast` | Short messages after an action, over the page; success and information leave after 6 s, an error stays until closed; announced politely / at once. |
 | `Alert` | A message inside a form or page: error, warning, info, success. |
 | `StatusBadge` | A status with icon and word. |
@@ -181,6 +182,21 @@ per series is a table on a computer (« En stock » in green, empty counts greye
 series on a phone with the forms in stock first and large; the forms held by employees in a card
 below. The batches received and the form search each show the shape of their rows while loading,
 a compact empty line and their own error. The dialogs keep their fields.
+
+## Scanner and documents (stage 10)
+
+`ScansPage`: `PageHeader`, the scan in a card (`FileField`, « Lire l’attestation » large and
+showing its work, the reading time said), then the scans under a `SectionHeading` with a
+`SegmentedControl`: à traiter, enregistrés, écartés (the server already filtered by these three;
+the discarded ones had no list before), loading shapes and a compact empty line for each.
+`ScanReviewPage` and `DocumentCapturePage`: `PageHeader` with the way back, the scan in
+`ScanPreview` (kept in view beside the form on a computer, above it on a phone), the form's parts
+as titled `Card`s. On the scan check, « Existant / Renouvellement / Nouveau » are tiles (real
+radio buttons), the readings of a number to check are pressed buttons, the short confirmation
+« Tout est reconnu » is a raised card with its lines in one block. The logic, the fields and what
+is sent are unchanged. On a contract, « Documents de l’assureur » follows the payments part:
+`SectionHeading` with « Joindre un document », loading shapes, a compact empty line, its own
+error, small actions on each document; the upload window uses `FileField`.
 
 ## Stages
 

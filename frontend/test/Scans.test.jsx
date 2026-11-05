@@ -1358,3 +1358,39 @@ describe('a CAT platform sheet of a coach', () => {
     expect(filed.vehicle.create).not.toHaveProperty('insurerUsageId');
   });
 });
+
+describe('the scans list on the new design', () => {
+  it('shows the shape of the list while loading, then each list with its own empty line', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/scans?status=PENDING': () => first,
+      'GET /api/scans?status=FILED': () => [200, { items: [scan({ status: 'FILED' })] }],
+      'GET /api/scans?status=DISCARDED': () => [200, { items: [] }],
+    });
+    renderApp('/scans');
+    const user = userEvent.setup();
+    const list = await screen.findByRole('region', { name: 'Scans à traiter' });
+    expect(within(list).getByRole('status')).toHaveTextContent('Chargement…');
+
+    answer([200, { items: [] }]);
+    expect(await within(list).findByText('Aucun scan en attente.')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('radio', { name: 'Enregistrés' }));
+    const filed = await screen.findByRole('region', { name: 'Scans enregistrés' });
+    expect(await within(filed).findByRole('link', { name: '14 A n° 990000111' })).toHaveAttribute(
+      'href',
+      `/scans/${SCAN_ID}`,
+    );
+    expect(within(filed).getByText('Enregistré')).toBeInTheDocument();
+
+    // The discarded scans could not be found again before: they have their own list now.
+    await user.click(screen.getByRole('radio', { name: 'Écartés' }));
+    const discarded = await screen.findByRole('region', { name: 'Scans écartés' });
+    expect(await within(discarded).findByText('Aucun scan écarté.')).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/scans?status=DISCARDED');
+  });
+});

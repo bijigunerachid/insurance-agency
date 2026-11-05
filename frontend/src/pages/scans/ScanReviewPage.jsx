@@ -1,14 +1,18 @@
-import { ArrowLeftIcon, ArrowTopRightOnSquareIcon, CheckIcon } from '@heroicons/react/20/solid';
+import { CheckCircleIcon, CheckIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { FormActions } from '../../components/FormActions.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { ReasonDialog } from '../../components/ReasonDialog.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { TextLink, textLinkClasses } from '../../components/TextLink.jsx';
+import { ScanPreview } from '../../features/documents/ScanPreview.jsx';
 import {
   insurerUsageFits,
   insurerUsageOptions,
@@ -58,7 +62,7 @@ export function ScanReviewPage() {
   const states = [state, series.state, usages.state, insurerUsages.state];
 
   if (states.some((s) => s.status === 'loading')) {
-    return <Spinner label={fr.app.loading} />;
+    return <SkeletonDetail />;
   }
   const failed = states.find((s) => s.status === 'error');
   if (failed) {
@@ -345,7 +349,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
         {asRead && (
           <span
             aria-hidden="true"
-            className="absolute right-0 top-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-green-700"
+            className="absolute right-0 top-0.5 inline-flex items-center gap-0.5 text-[11px] font-medium text-success-ink"
           >
             <CheckIcon className="size-3.5" />
             {t.readOnSheet}
@@ -533,116 +537,110 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
   ];
 
   return (
-    <div className="space-y-4">
-      <Link
-        to="/scans"
-        className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-      >
-        <ArrowLeftIcon aria-hidden="true" className="size-4" />
-        {t.back}
-      </Link>
-      <div>
-        <h1 className="text-2xl font-semibold">{t.review}</h1>
-        <p className="mt-1 break-all text-sm text-slate-600">
-          {scan.originalName}
-          {scan.read ? ` · ${t.confidence(scan.confidence)}` : ` · ${t.notRead}`}
-        </p>
-        {pending && <p className="mt-1 text-sm text-slate-600">{t.reviewIntro}</p>}
-        {p.source === 'PLATFORM_PDF' && (
-          <p className="mt-1 text-sm font-medium text-green-800">{t.fromPlatform}</p>
-        )}
-        {p.source === 'PLATFORM_PDF' && p.provisional && pending && (
-          <Alert tone="info">{t.provisionalNumber}</Alert>
-        )}
-        {pending && provisional && knownVehicle?.provisionalsInARow >= PROVISIONALS_IN_A_ROW && (
-          <Alert tone="warning">{t.manyProvisionals(knownVehicle.provisionalsInARow)}</Alert>
-        )}
-      </div>
-      {scan.status === 'DISCARDED' && <Alert tone="info">{t.discarded(scan.closed.reason)}</Alert>}
-      {scan.status === 'FILED' && (
-        <Alert tone="info">
-          {t.filed}{' '}
-          <Link to={`/contrats/${done.contractId}`} className="font-medium underline">
-            {t.openContract}
-          </Link>
-        </Alert>
-      )}
-      {error && <Alert>{errorMessage(error)}</Alert>}
-      {candidates.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span>{t.duplicate}</span>
-          {candidates.map((candidate) => (
-            <Button
-              key={candidate.id}
-              variant="secondary"
-              onClick={() => {
-                setModes((m) => ({ ...m, customer: 'existing' }));
-                setChosen((c) => ({ ...c, customer: candidate.id }));
-                setError(null);
-              }}
-            >
-              {t.useCandidate(`${candidate.ref} ${candidate.displayName ?? ''}`.trim())}
-            </Button>
-          ))}
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setNotDuplicate(true);
-              file(null, true);
-            }}
-          >
-            {fr.customers.notDuplicate}
-          </Button>
+    <div className="space-y-6">
+      <PageHeader
+        back={{ to: '/scans', label: t.back }}
+        title={t.review}
+        description={pending ? t.reviewIntro : undefined}
+        meta={
+          <p className="break-all text-sm text-ink-muted">
+            {scan.originalName}
+            {scan.read ? ` · ${t.confidence(scan.confidence)}` : ` · ${t.notRead}`}
+          </p>
+        }
+      />
+      {(p.source === 'PLATFORM_PDF' ||
+        scan.status !== 'PENDING' ||
+        error ||
+        candidates.length > 0 ||
+        (pending && provisional && knownVehicle?.provisionalsInARow >= PROVISIONALS_IN_A_ROW) ||
+        (pending && Object.values(done).some(Boolean))) && (
+        <div className="space-y-3">
+          {p.source === 'PLATFORM_PDF' && (
+            <p className="flex items-start gap-1.5 text-sm font-medium text-success-ink">
+              <CheckCircleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
+              {t.fromPlatform}
+            </p>
+          )}
+          {p.source === 'PLATFORM_PDF' && p.provisional && pending && (
+            <Alert tone="info">{t.provisionalNumber}</Alert>
+          )}
+          {pending && provisional && knownVehicle?.provisionalsInARow >= PROVISIONALS_IN_A_ROW && (
+            <Alert tone="warning">{t.manyProvisionals(knownVehicle.provisionalsInARow)}</Alert>
+          )}
+          {scan.status === 'DISCARDED' && (
+            <Alert tone="info">{t.discarded(scan.closed.reason)}</Alert>
+          )}
+          {scan.status === 'FILED' && (
+            <Alert tone="success">
+              {t.filed}{' '}
+              <TextLink to={`/contrats/${done.contractId}`} className="underline">
+                {t.openContract}
+              </TextLink>
+            </Alert>
+          )}
+          {error && <Alert>{errorMessage(error)}</Alert>}
+          {candidates.length > 0 && (
+            <div className="space-y-2 rounded-card border border-warning/30 bg-warning-soft px-3.5 py-3 text-sm">
+              <p className="font-medium text-warning-ink">{t.duplicate}</p>
+              <div className="flex flex-wrap gap-2">
+                {candidates.map((candidate) => (
+                  <Button
+                    key={candidate.id}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setModes((m) => ({ ...m, customer: 'existing' }));
+                      setChosen((c) => ({ ...c, customer: candidate.id }));
+                      setError(null);
+                    }}
+                  >
+                    {t.useCandidate(`${candidate.ref} ${candidate.displayName ?? ''}`.trim())}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setNotDuplicate(true);
+                    file(null, true);
+                  }}
+                >
+                  {fr.customers.notDuplicate}
+                </Button>
+              </div>
+            </div>
+          )}
+          {pending && Object.values(done).some(Boolean) && <Alert tone="info">{t.progress}</Alert>}
         </div>
       )}
-      {pending && Object.values(done).some(Boolean) && <Alert tone="info">{t.progress}</Alert>}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section
-          aria-labelledby="scan-heading"
-          className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 lg:sticky lg:top-4 lg:self-start"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="scan-heading" className="font-semibold">
-              {fr.capture.scan}
-            </h2>
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-            >
-              <ArrowTopRightOnSquareIcon aria-hidden="true" className="size-4" />
-              {t.open}
-            </a>
-          </div>
-          {scan.mimeType === 'application/pdf' ? (
-            <iframe
-              src={fileUrl}
-              title={scan.originalName}
-              className="h-[35vh] w-full rounded border border-slate-200 lg:h-[80vh]"
-            />
-          ) : (
-            <img
-              src={fileUrl}
-              alt={scan.originalName}
-              className="max-h-[35vh] w-full rounded border border-slate-200 object-contain lg:max-h-[80vh]"
-            />
-          )}
-        </section>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ScanPreview
+          url={fileUrl}
+          mimeType={scan.mimeType}
+          name={scan.originalName}
+          openLabel={t.open}
+          tall
+        />
 
         {quick ? (
           <section
             aria-labelledby="quick-heading"
-            className="order-first space-y-4 self-start rounded-xl border border-green-200 bg-white p-5 shadow-sm lg:order-none"
+            className="order-first space-y-5 self-start rounded-card border border-success/30 bg-surface p-5 shadow-raised lg:order-none"
           >
-            <div>
-              <h2 id="quick-heading" className="text-lg font-semibold text-green-800">
-                {t.quickTitle}
-              </h2>
-              <p className="text-sm text-slate-600">{t.quickIntro}</p>
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-success-soft">
+                <CheckIcon aria-hidden="true" className="size-5 text-success" />
+              </span>
+              <div>
+                <h2 id="quick-heading" className="text-section text-ink">
+                  {t.quickTitle}
+                </h2>
+                <p className="text-sm text-ink-muted">{t.quickIntro}</p>
+              </div>
             </div>
-            <dl className="space-y-3 text-sm">
+            <dl className="divide-y divide-line rounded-control border border-line text-sm">
               <QuickLine label={t.customer} value={found.customer?.displayName} />
               <QuickLine
                 label={t.vehicle}
@@ -653,7 +651,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 value={
                   <>
                     {t.quickAttestation(selectedSeries.code, values.number)}
-                    <span className="block text-slate-600">
+                    <span className="block font-normal text-ink-muted">
                       {t.quickPeriod(formatDate(values.validFrom), formatDate(values.validTo))}
                     </span>
                   </>
@@ -682,22 +680,22 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 />
               )}
             </dl>
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap-reverse items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setDetailed(true)}
-                className="text-sm font-medium text-blue-700 underline"
+                className={`${textLinkClasses} text-sm`}
               >
                 {t.showDetails}
               </button>
-              <Button disabled={busy} onClick={() => file()}>
+              <Button size="lg" loading={busy} onClick={() => file()}>
                 {busy ? t.filing : t.save}
               </Button>
             </div>
           </section>
         ) : (
-          <form onSubmit={file} className="space-y-4" noValidate>
-            <Card id="attestation-heading" title={t.attestation}>
+          <form onSubmit={file} className="space-y-6" noValidate>
+            <Part title={t.attestation}>
               {p.seriesUnknown && <Alert>{t.seriesUnknown(p.seriesCode)}</Alert>}
               {found.attestation && <Alert>{t.alreadyRecorded(found.attestation.ref)}</Alert>}
               <SelectField
@@ -710,16 +708,17 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
               />
               {field('number', t.number, { inputMode: 'numeric', maxLength: 20 })}
               {p.numberToCheck && (
-                <div className="space-y-1 text-sm">
-                  <p className="text-amber-900">{t.numberToCheck}</p>
+                <div className="space-y-2 rounded-control bg-warning-soft px-3 py-2.5 text-sm">
+                  <p className="text-warning-ink">{t.numberToCheck}</p>
                   <div className="flex flex-wrap gap-2">
                     {p.numberCandidates.map((n) => (
                       <button
                         key={n}
                         type="button"
                         disabled={!pending}
+                        aria-pressed={values.number === n}
                         onClick={() => set('number')({ target: { value: n } })}
-                        className={`rounded border px-2 py-1 font-mono ${values.number === n ? 'border-blue-700 bg-blue-50' : 'border-slate-300'}`}
+                        className={`focus-ring rounded-control border px-2.5 py-1 font-mono ${values.number === n ? 'border-primary bg-primary-soft text-ink ring-1 ring-primary' : 'border-line-strong/60 bg-surface text-ink-soft hover:bg-canvas'}`}
                       >
                         {n}
                       </button>
@@ -727,7 +726,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   </div>
                 </div>
               )}
-              {p.numberFromStock && <p className="text-xs text-slate-600">{t.numberFromStock}</p>}
+              {p.numberFromStock && <p className="text-xs text-ink-muted">{t.numberFromStock}</p>}
               <div className="grid gap-3 sm:grid-cols-2">
                 {field('validFrom', t.validFrom, { type: 'date' })}
                 {field('validTo', t.validTo, { type: 'date' })}
@@ -740,7 +739,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   maxLength: 30,
                 })}
               {p.premiumTotal && (
-                <p className="text-sm text-slate-700">
+                <p className="rounded-control bg-sunken px-3 py-2 text-sm tabular-nums text-ink-soft">
                   {t.premiums(
                     formatMoney(p.premiumNet),
                     formatMoney(p.taxes),
@@ -751,11 +750,11 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   )}
                 </p>
               )}
-            </Card>
+            </Part>
 
-            <Card id="customer-heading" title={t.customer}>
+            <Part title={t.customer}>
               {p.holderName && (
-                <p className="text-xs text-slate-600">{t.printedHolder(p.holderName)}</p>
+                <p className="text-xs text-ink-muted">{t.printedHolder(p.holderName)}</p>
               )}
               <Choice
                 kind="customer"
@@ -806,11 +805,11 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   {field('customer.city', fr.customers.fields.city, { maxLength: 80 })}
                 </div>
               )}
-            </Card>
+            </Part>
 
-            <Card id="vehicle-heading" title={t.vehicle}>
+            <Part title={t.vehicle}>
               {renumbering && onExistingContract ? (
-                <p className="text-sm text-slate-700">{t.avenant.renumbered}</p>
+                <p className="text-sm text-ink-soft">{t.avenant.renumbered}</p>
               ) : (
                 <>
                   {selectedSeries &&
@@ -842,7 +841,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                         disabled={!pending}
                       />
                       {usageMismatch && (
-                        <p className="text-sm text-amber-900">
+                        <p className="text-sm text-warning-ink">
                           {t.usageMismatch(selectedSeries.model.code)}
                         </p>
                       )}
@@ -852,7 +851,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                     found.vehicle &&
                     found.customer &&
                     found.vehicle.owner.id !== found.customer.id && (
-                      <p className="text-xs text-amber-900">
+                      <p className="text-xs text-warning-ink">
                         {t.otherOwner(found.vehicle.owner.displayName)}
                       </p>
                     )}
@@ -956,7 +955,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                         <div className="-mt-2 sm:col-span-2">
                           <button
                             type="button"
-                            className="text-sm font-medium text-blue-700 underline"
+                            className={`${textLinkClasses} text-sm`}
                             onClick={() => setAllInsurerUsages((all) => !all)}
                           >
                             {allInsurerUsages ? t.fewerInsurerUsages : t.allInsurerUsages}
@@ -997,16 +996,16 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   )}
                 </>
               )}
-            </Card>
+            </Part>
 
             {avenantPossible && (
-              <Card id="avenant-heading" title={t.avenant.title}>
+              <Part title={t.avenant.title}>
                 {p.amendmentKind && (
-                  <p className="text-sm text-slate-700">
+                  <p className="text-sm text-ink-soft">
                     {t.avenant.found(p.amendmentLabel ?? t.avenant.title, p.amendmentNumber)}
                   </p>
                 )}
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex cursor-pointer items-start gap-2.5 text-sm font-medium text-ink">
                   <input
                     type="checkbox"
                     checked={avenantOn}
@@ -1017,7 +1016,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                         amendment: { ...v.amendment, on: event.target.checked },
                       }))
                     }
-                    className="size-4 accent-blue-700"
+                    className="mt-0.5 size-4 shrink-0 accent-primary"
                   />
                   {t.avenant.isAvenant}
                 </label>
@@ -1077,7 +1076,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                             }))}
                           />
                         ) : (
-                          <p className="text-sm text-slate-700">
+                          <p className="text-sm text-ink-soft">
                             {t.avenant.previousVehicle[avenant.kind]} : {t.avenant.notRecorded}.{' '}
                             {t.avenant.newContractHint}
                           </p>
@@ -1086,10 +1085,10 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                     )}
                   </div>
                 )}
-              </Card>
+              </Part>
             )}
 
-            <Card id="contract-heading" title={t.contract}>
+            <Part title={t.contract}>
               <Choice
                 kind="contract"
                 mode={mode('contract')}
@@ -1138,7 +1137,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   {field('contract.endDate', fr.contracts.fields.endDate, { type: 'date' })}
                 </div>
               )}
-            </Card>
+            </Part>
 
             {pending && (
               <FormActions hint={<span className="hidden sm:inline">{t.checkThenSave}</span>}>
@@ -1147,8 +1146,8 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 </Button>
                 <Button
                   type="submit"
+                  loading={busy}
                   disabled={
-                    busy ||
                     !values.seriesId ||
                     !values.number ||
                     (avenantOn && (!avenant.kind || renumberBlocked))
@@ -1178,66 +1177,59 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
 
 function QuickLine({ label, value }) {
   return (
-    <div className="flex flex-wrap gap-x-3">
-      <dt className="w-28 shrink-0 text-slate-600">{label}</dt>
-      <dd className="min-w-0 flex-1 break-words font-medium">{value}</dd>
+    <div className="flex flex-wrap gap-x-3 gap-y-0.5 px-3.5 py-2.5">
+      <dt className="w-28 shrink-0 text-ink-muted">{label}</dt>
+      <dd className="min-w-0 flex-1 break-words font-medium text-ink">{value}</dd>
     </div>
   );
 }
 
-function Card({ id, title, children }) {
+/** A part of the form: a titled card (a region named by its title). */
+function Part({ title, children }) {
   return (
-    <section
-      aria-labelledby={id}
-      className="space-y-3 rounded-lg border border-slate-200 bg-white p-4"
-    >
-      <h2 id={id} className="font-semibold">
-        {title}
-      </h2>
-      {children}
-    </section>
+    <Card title={title}>
+      <div className="space-y-4">{children}</div>
+    </Card>
   );
 }
 
+const TILE =
+  'flex cursor-pointer items-center gap-3 rounded-control border border-line-strong/50 px-3.5 py-3 text-sm text-ink hover:bg-sunken/60 has-checked:border-primary has-checked:bg-primary-soft has-checked:ring-1 has-checked:ring-primary has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary has-disabled:cursor-not-allowed has-disabled:opacity-70';
+
 /** Existing record found by the scan's values, or a new one; "done" once a filing created it. */
 function Choice({ kind, mode, existing, chosenId, renew, onChange, disabled }) {
-  if (mode === 'done') return <p className="text-sm text-slate-700">{t.progress}</p>;
+  if (mode === 'done') {
+    return (
+      <p className="flex items-start gap-2 text-sm text-ink-soft">
+        <CheckCircleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
+        {t.progress}
+      </p>
+    );
+  }
   if (!existing && !chosenId) return null;
+  const options = [
+    ['existing', t.useExisting(existing ?? chosenId)],
+    ...(renew ? [['renew', renew]] : []),
+    ['new', t.createNew],
+  ];
   return (
-    <fieldset className="space-y-1 text-sm">
+    <fieldset>
       <legend className="sr-only">{t[kind]}</legend>
-      <label className="flex items-center gap-2">
-        <input
-          type="radio"
-          name={`${kind}-mode`}
-          checked={mode === 'existing'}
-          onChange={() => onChange('existing')}
-          disabled={disabled}
-        />
-        {t.useExisting(existing ?? chosenId)}
-      </label>
-      {renew && (
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name={`${kind}-mode`}
-            checked={mode === 'renew'}
-            onChange={() => onChange('renew')}
-            disabled={disabled}
-          />
-          {renew}
-        </label>
-      )}
-      <label className="flex items-center gap-2">
-        <input
-          type="radio"
-          name={`${kind}-mode`}
-          checked={mode === 'new'}
-          onChange={() => onChange('new')}
-          disabled={disabled}
-        />
-        {t.createNew}
-      </label>
+      <div className="grid gap-2">
+        {options.map(([value, label]) => (
+          <label key={value} className={TILE}>
+            <input
+              type="radio"
+              name={`${kind}-mode`}
+              checked={mode === value}
+              onChange={() => onChange(value)}
+              disabled={disabled}
+              className="size-4 shrink-0 accent-primary focus:outline-none"
+            />
+            <span className="min-w-0 break-words">{label}</span>
+          </label>
+        ))}
+      </div>
     </fieldset>
   );
 }
