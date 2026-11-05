@@ -203,6 +203,36 @@ describe('data tables', () => {
     const cards = within(screen.getByRole('list', { name: 'Contrats' })).getAllByRole('listitem');
     expect(cards.map((card) => card.textContent)).toEqual(['Carte CTR-1', 'Carte CTR-2']);
   });
+
+  it('end with a totals line, the last row of the table, and can keep the first column in view', () => {
+    const footer = { label: 'Total', cells: { amount: '1 000,00 MAD' } };
+    render(
+      <DataTable caption="Contrats" columns={columns} rows={rows} footer={footer} stickyFirst />,
+    );
+    const table = screen.getByRole('table', { name: 'Contrats' });
+    const last = within(table).getAllByRole('row').at(-1);
+    expect(
+      within(last)
+        .getAllByRole('cell')
+        .map((td) => td.textContent),
+    ).toEqual(['Total', '', '1 000,00 MAD', '']);
+    expect(within(last).getAllByRole('cell')[0]).toHaveClass('sticky');
+    expect(within(table).getByRole('columnheader', { name: 'Référence' })).toHaveClass('sticky');
+    expect(within(table).getByRole('columnheader', { name: 'Client' })).not.toHaveClass('sticky');
+  });
+
+  it('show the totals in their own card under the list on a phone', () => {
+    restore = phoneScreen();
+    const footer = { label: 'Total', cells: { amount: '1 000,00 MAD' } };
+    render(<DataTable caption="Contrats" columns={columns} rows={rows} footer={footer} />);
+    expect(
+      within(screen.getByRole('list', { name: 'Contrats' })).getAllByRole('listitem'),
+    ).toHaveLength(2);
+    const totals = screen.getByRole('region', { name: 'Total' });
+    expect(within(totals).getByText('Montant')).toBeInTheDocument();
+    expect(within(totals).getByText('1 000,00 MAD')).toBeInTheDocument();
+    expect(within(totals).queryByText('Client')).toBeNull();
+  });
 });
 
 describe('record details', () => {

@@ -58,7 +58,7 @@ Amounts, dates and table cells use tabular figures.
 | `PasswordField` | A password field like `TextField`, with « Afficher les caractères » (a toggle; its name avoids « mot de passe » so the field alone answers to its label) and a warning while Caps Lock is on. |
 | `PageHeader`, `BackLink` | Every page's top: way back, h1, one line of purpose, actions. |
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
-| `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). `renderCard(row)` draws a list's own phone card (a client's card calls them). |
+| `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). `renderCard(row)` draws a list's own phone card (a client's card calls them). `footer` adds a totals line (the last row of the table, its own card under the list on a phone); `stickyFirst` keeps the first column in view when a wide table scrolls inside its box. |
 | `EmptyState` | Nothing to show, and the real next step if there is one; `compact` is one quiet line for a part of a page. |
 | `SegmentedControl` | A few choices side by side, one chosen (a list's status): real radio buttons, so the arrow keys move between them. |
 | `Disclosure` | Details folded until asked for (the browser's `<details>`): a contract's or a client's less used facts, a history. |
@@ -210,6 +210,18 @@ who, amount; a cancelled one with its badge and its amount struck through). The 
 (`RecordRemittanceDialog`) keeps its logic: the amount from the server in a highlighted line, the
 modes as `ChoicePills` (shared with the payment window), « Enregistrer » showing its work. The
 bordereau (`RemittanceDetailPage`) moved to the tokens on screen; its printed layout is unchanged.
+
+## Reports (stage 12)
+
+`ReportsPage`: `PageHeader`, then one card with the report (a list: six long names), the period
+(Du, Au; side by side with the report from 1024 px, under it below) and the quick periods as
+pills that say which one is chosen (`aria-pressed`). A report that shows today's situation says
+so in the card. The result under a `SectionHeading`: its title, its number of lines with the
+period (or « situation d’aujourd’hui ») and, for management, the two exports, each showing its
+work while the other waits. The lines are a `DataTable` built from the server's columns
+(figures on the right, never cut, the first column kept in view on a computer), the money totals
+as its `footer`; a phone gets one card per line and a totals card. The shape of the lines while
+loading, an `EmptyState` with what to try when the period is empty.
 
 ## Stages
 

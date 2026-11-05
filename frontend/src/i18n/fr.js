@@ -1435,9 +1435,12 @@ export const fr = {
     exportCsv: 'Exporter en CSV',
     exportXlsx: 'Exporter en Excel',
     exported: (name) => `Fichier téléchargé : ${name}`,
-    rows: (n) => (n === 1 ? '1 ligne' : `${n} lignes`),
+    rows: (n) => (n <= 1 ? `${n} ligne` : `${n} lignes`),
     total: 'Total',
     none: 'Aucune donnée sur cette période.',
+    noneHint: 'Choisissez une autre période ou un autre rapport.',
+    today: 'situation d’aujourd’hui',
+    between: (from, to) => `du ${from} au ${to}`,
     rules: {
       END_BEFORE_START: 'La fin de la période est avant son début.',
       PERIOD_TOO_LONG: 'Choisissez une période d’un an au plus.',
