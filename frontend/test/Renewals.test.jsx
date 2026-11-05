@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { me, mockApi } from './mockApi.js';
@@ -178,6 +178,7 @@ describe('renewal follow-up', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Préparer le nouveau contrat' }));
     const dialog = screen.getByRole('dialog', { name: 'Préparer le nouveau contrat' });
+    await user.type(within(dialog).getByLabelText('N° de police'), 'pol 2');
     await user.click(within(dialog).getByRole('button', { name: 'Préparer le nouveau contrat' }));
 
     // The new contract's page is requested.
@@ -185,12 +186,12 @@ describe('renewal follow-up', () => {
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/contracts/${NEW_CONTRACT_ID}`)).toBe(
       true,
     );
-    // Last year's policy number was proposed and kept: nothing more is sent.
+    // The new year's policy number is sent; the server drops spaces and capitalises it.
     const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/renew'));
-    expect(JSON.parse(call[1].body)).toEqual({ version: 1 });
+    expect(JSON.parse(call[1].body)).toEqual({ policyNumber: 'pol 2', version: 1 });
   });
 
-  it('sends the new policy number when the platform gave another one', async () => {
+  it('asks for a new policy number at every renewal', async () => {
     const fetchMock = mockApi({
       'GET /api/auth/me': agent,
       [`GET /api/renewals/${RENEWAL_ID}`]: () => [200, renewal()],
@@ -203,15 +204,31 @@ describe('renewal follow-up', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Préparer le nouveau contrat' }));
     const dialog = screen.getByRole('dialog', { name: 'Préparer le nouveau contrat' });
+    // Empty, with last year's number as a reminder only.
     const policy = within(dialog).getByLabelText('N° de police');
-    expect(policy).toHaveValue('POL-1');
+    expect(policy).toHaveValue('');
+    expect(policy).toHaveAccessibleDescription(
+      'Le nouveau numéro donné par la plateforme (l’an dernier : POL-1).',
+    );
     const prepare = within(dialog).getByRole('button', { name: 'Préparer le nouveau contrat' });
-    await user.clear(policy);
     expect(prepare).toBeDisabled();
+
+    // Last year's number (as typed, spaces and small letters included) is refused here.
+    await user.type(policy, 'pol- 1');
+    await user.click(prepare);
+    expect(policy).toHaveAccessibleDescription(
+      expect.stringContaining('un renouvellement a toujours un nouveau n° de police'),
+    );
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/renew'))).toBe(false);
+
+    // A number another contract has: the server's answer is shown under the field.
+    await user.clear(policy);
     await user.type(policy, 'POL-2');
     await user.click(prepare);
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Cet assureur a déjà un contrat avec ce numéro de police.',
+    await waitFor(() =>
+      expect(policy).toHaveAccessibleDescription(
+        expect.stringContaining('Cet assureur a déjà un contrat avec ce numéro de police.'),
+      ),
     );
     const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/renew'));
     expect(JSON.parse(call[1].body)).toEqual({ policyNumber: 'POL-2', version: 1 });

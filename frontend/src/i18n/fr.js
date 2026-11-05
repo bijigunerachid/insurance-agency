@@ -985,6 +985,8 @@ export const fr = {
       INVALID_AMOUNT: 'Montant invalide (par exemple 1234,50).',
       INVALID_POLICY_NUMBER:
         'Recopiez le n° de police imprimé : lettres, chiffres, « / », « - » ou « . ».',
+      SAME_POLICY_AS_PREVIOUS:
+        'C’est le numéro de l’an dernier : un renouvellement a toujours un nouveau n° de police.',
       SERIES_OTHER_INSURER: 'Cette série est celle d’un autre assureur.',
       SERIES_NOT_USABLE: 'Cette série n’est pas confirmée dans le catalogue.',
       VEHICLE_NOT_ON_CONTRACT: 'Ce véhicule n’est pas sur le contrat.',
@@ -1107,8 +1109,8 @@ export const fr = {
     assignButton: 'Confier',
     renew: 'Préparer le nouveau contrat',
     renewTitle: 'Préparer le nouveau contrat',
-    renewPolicyHint:
-      'Celui de l’an dernier ; changez-le seulement si la plateforme a donné un autre numéro.',
+    renewPolicyHint: (lastYear) =>
+      `Le nouveau numéro donné par la plateforme (l’an dernier : ${lastYear}).`,
     renewIntro:
       'Un contrat en préparation est créé avec le même client, le même produit et les mêmes véhicules. Complétez-le ensuite avec les informations de la plateforme de l’assureur.',
     startDate: 'Début',

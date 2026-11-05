@@ -161,9 +161,22 @@ describe('renewals', () => {
     expect(await eventsOffClock()).toBe(0);
   });
 
-  it('renews under the new policy number the platform gave, never one another contract holds', async () => {
-    const { agent, products, customer, car } = await setup();
+  it('renews under the new policy number the platform gave, never last year’s nor one another contract holds', async () => {
+    const { agent, products, customer, car, ending } = await setup();
     const [renewal] = (await agent.get('/api/renewals')).body.items;
+    // The platform gives a new number at every renewal (owner, 05/11/2026).
+    const missing = await agent.post(`/api/renewals/${renewal.id}/renew`, { version: 1 });
+    expect(missing.body.error.details).toEqual([
+      expect.objectContaining({ path: 'policyNumber', rule: 'REQUIRED' }),
+    ]);
+    const lastYear = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: ending.policyNumber.toLowerCase().replace('-', '- '),
+      version: 1,
+    });
+    expect(lastYear.status).toBe(400);
+    expect(lastYear.body.error.details).toEqual([
+      { path: 'policyNumber', rule: 'SAME_POLICY_AS_PREVIOUS' },
+    ]);
     await agent.post(
       '/api/contracts',
       contractBody(customer, products.RMA, [car.id], {
@@ -182,13 +195,32 @@ describe('renewals', () => {
     expect(res.status).toBe(201);
     const next = (await agent.get(`/api/contracts/${res.body.contractId}`)).body;
     expect(next.policyNumber).toBe('POL2027');
+
+    // Nor can the draft be corrected back to last year's number…
+    const back = await agent.send('patch', `/api/contracts/${next.id}`, {
+      policyNumber: ending.policyNumber,
+      version: next.version,
+    });
+    expect(back.body.error.details).toEqual([
+      { path: 'policyNumber', rule: 'SAME_POLICY_AS_PREVIOUS' },
+    ]);
+    // …and the database refuses it too, renewal chain or not.
+    await expect(
+      runtime.query(`UPDATE "contract" SET "policyNumber" = $1 WHERE "id" = $2`, [
+        ending.policyNumber,
+        next.id,
+      ]),
+    ).rejects.toThrow(/policy number already used/);
   });
 
   it('prepares the next contract as a draft linked to the old one', async () => {
     const { agent, ending, car } = await setup();
     const [renewal] = (await agent.get('/api/renewals')).body.items;
 
-    const res = await agent.post(`/api/renewals/${renewal.id}/renew`, { version: 1 });
+    const res = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: 'POL-2027',
+      version: 1,
+    });
     expect(res.status).toBe(201);
     expect(res.body.renewal).toMatchObject({
       status: 'RENEWED',
@@ -202,8 +234,8 @@ describe('renewals', () => {
       endDate: addDays('2026-11-16', 360),
       tacitRenewal: true,
       noticeDays: 30,
-      // A renewal keeps its policy number (the platform may give another one: see below).
-      policyNumber: ending.policyNumber,
+      // The new year's policy number (the platform gives one at every renewal).
+      policyNumber: 'POL-2027',
       premiumTotal: null,
       vehicles: [expect.objectContaining({ id: car.id })],
       previousContract: { id: ending.id, ref: ending.ref, policyNumber: ending.policyNumber },
@@ -212,11 +244,14 @@ describe('renewals', () => {
     expect(old.nextContract).toEqual({
       id: next.id,
       ref: next.ref,
-      policyNumber: ending.policyNumber,
+      policyNumber: 'POL-2027',
     });
     expect(await ctx.auditActions()).toContain('renewal.renewed');
 
-    const twice = await agent.post(`/api/renewals/${renewal.id}/renew`, { version: 2 });
+    const twice = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: 'POL-2028',
+      version: 2,
+    });
     expect(twice.body.error.code).toBe('RENEWAL_CLOSED');
     // The renewed contract is not listed again.
     expect((await agent.get('/api/renewals')).body.total).toBe(0);

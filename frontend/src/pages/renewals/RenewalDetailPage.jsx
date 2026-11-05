@@ -22,6 +22,7 @@ import { formatDate, formatDateTime } from '../../utils/format.js';
 import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.renewals;
+const rules = fr.contracts.rules;
 const FOLLOW_STEPS = ['TO_PREPARE', 'CUSTOMER_CONTACTED', 'DOCUMENTS_COMPLETE', 'NOT_RENEWED'];
 
 export function RenewalDetailPage() {
@@ -240,27 +241,40 @@ function AssignForm({ renewal, onDone }) {
 /** Dates default to the same length of cover, starting the day after the old contract. */
 function RenewDialog({ renewal, onClose, onDone }) {
   const [dates, setDates] = useState({ startDate: '', endDate: '' });
-  // A renewal keeps last year's policy number unless the platform gave another one.
+  // The platform gives a new policy number at every renewal (owner, 05/11/2026): last year's
+  // is shown as a reminder, never proposed.
   const lastYear = renewal.contract.policyNumber ?? '';
-  const [policyNumber, setPolicyNumber] = useState(lastYear);
+  const [policyNumber, setPolicyNumber] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [policyError, setPolicyError] = useState(null);
+  // The same comparison as the server's (spaces dropped, capitals).
+  const compact = (value) => value.replace(/\s/g, '').toUpperCase();
+  const sameAsLastYear = Boolean(lastYear) && compact(policyNumber) === compact(lastYear);
 
   async function submit(event) {
     event.preventDefault();
+    if (sameAsLastYear) {
+      setPolicyError(rules.SAME_POLICY_AS_PREVIOUS);
+      return;
+    }
     setBusy(true);
     setError(null);
+    setPolicyError(null);
     try {
-      const body = { version: renewal.version };
+      const body = { version: renewal.version, policyNumber: policyNumber.trim() };
       if (dates.startDate) body.startDate = dates.startDate;
       if (dates.endDate) body.endDate = dates.endDate;
-      if (policyNumber.trim() && policyNumber.trim() !== lastYear) {
-        body.policyNumber = policyNumber.trim();
-      }
       const result = await apiPost(`/renewals/${renewal.id}/renew`, body);
       onDone(result.contractId);
     } catch (err) {
-      setError(err);
+      // A number refused by the server is explained under the field.
+      const rule =
+        err?.code === 'DUPLICATE_POLICY'
+          ? 'DUPLICATE_POLICY'
+          : err?.details?.find((d) => d.path === 'policyNumber')?.rule;
+      if (rule) setPolicyError(fr.errors[rule] ?? rules[rule] ?? rules.invalid_format);
+      else setError(err);
       setBusy(false);
     }
   }
@@ -272,13 +286,17 @@ function RenewDialog({ renewal, onClose, onDone }) {
         {error && <Alert>{errorMessage(error)}</Alert>}
         <TextField
           label={fr.contracts.fields.policyNumber}
-          hint={t.renewPolicyHint}
+          hint={lastYear ? t.renewPolicyHint(lastYear) : undefined}
+          error={policyError}
           required
           autoComplete="off"
           maxLength={60}
           inputClassName="font-mono"
           value={policyNumber}
-          onChange={(e) => setPolicyNumber(e.target.value)}
+          onChange={(e) => {
+            setPolicyNumber(e.target.value);
+            setPolicyError(null);
+          }}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField

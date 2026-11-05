@@ -13,8 +13,8 @@ CHANGEMENT DE VEHICULE" PDF: the new attestation replaces the old one (its paper
 agency), the replaced car is archived with its history, an old plate still finds its car, and the avenant's own
 amount is added to what is left to pay; the insurer's own usages (the 42 of the RMA GAMA « Type d'usage » list,
 each under the legal usage of its attestation) chosen on a vehicle or read from the platform PDF, and shown on the
-vehicle, the contract, the catalogue and the report of contracts ending. Phase 8 — a scanned renewal filed as the next year of its contract (the policy number may be
-kept along a renewal chain, never reused elsewhere); the PDF made by the RMA platform (to print on the pre-printed sheet) read
+vehicle, the contract, the catalogue and the report of contracts ending. Phase 8 — a scanned renewal filed as the next year of its contract (found by its vehicle: a
+renewal always has a new policy number, never last year's nor another contract's); the PDF made by the RMA platform (to print on the pre-printed sheet) read
 exactly from its text: attestation, policy, quittance, period, holder, vehicle and premiums; scanning an attestation:
 the server reads it offline (tesseract.js, French
 data bundled), the employee checks each value beside the scan, and one click records the customer, vehicle and
@@ -52,7 +52,8 @@ for each model (agency rule, 23/10/2026; six of them seen on the blank forms), e
 
 **A contract is known by the insurer's policy number** (owner, 05/11/2026): it is typed (or read from the platform sheet)
 when the contract is recorded, shown first in every list, page, receipt, bordereau and report, and searched; the app's
-own `CTR-…` reference stays internal (audit log, folded details).
+own `CTR-…` reference stays internal (audit log, folded details). The platform gives a new policy number at every
+renewal (owner, 05/11/2026): « Préparer le nouveau contrat » asks for it, and last year's is refused.
 
 The application is a helper: the agency works on the RMA and CAT official platforms, and this application keeps the
 agency's own records and follow-up. It does not issue official insurer documents, calculate official

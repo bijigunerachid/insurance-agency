@@ -21,8 +21,11 @@ async function setup() {
   );
   return { manager, agent, products, customer, car, first };
 }
-/** A draft for the year after `previous` (linked to it when `linked`), then sent to RMA. */
-async function nextYear({ agent, products, customer, car }, previous, linked = true) {
+/**
+ * A draft for the year after `previous` (linked to it when `linked`, under `policy`, the new
+ * number the platform gave), then sent to RMA.
+ */
+async function nextYear({ agent, products, customer, car }, previous, linked = true, policy) {
   const body = contractBody(customer, products.RMA, [car.id], {
     startDate: '2027-11-01',
     endDate: '2028-10-31',
@@ -33,7 +36,10 @@ async function nextYear({ agent, products, customer, car }, previous, linked = t
     const renewal = await ctx.prisma.renewal.create({
       data: { contractId: row.id, dueDate: row.endDate, assignedUserId: row.createdById },
     });
-    const res = await agent.post(`/api/renewals/${renewal.id}/renew`, { version: 1 });
+    const res = await agent.post(`/api/renewals/${renewal.id}/renew`, {
+      policyNumber: policy ?? `${previous.policyNumber}-R`,
+      version: 1,
+    });
     expect(res.status).toBe(201);
     draft = (await agent.get(`/api/contracts/${res.body.contractId}`)).body;
   } else {
@@ -54,16 +60,27 @@ const issueWith = (client, contract, policyNumber) =>
   });
 
 describe('policy numbers along a renewal chain', () => {
-  it('lets a renewal keep the policy number, and refuses it to any other contract', async () => {
+  it('gives every year its own number: last year’s is refused to a renewal, as to any contract', async () => {
     const data = await setup();
-    const renewal = await nextYear(data, data.first);
-    expect((await issueWith(data.agent, renewal, 'POL-0001')).status).toBe(200);
+    const renewal = await nextYear(data, data.first, true, 'POL-0002');
+    // The insurer cannot be said to have issued it under last year's number…
+    const kept = await issueWith(data.agent, renewal, 'POL-0001');
+    expect(kept.status).toBe(400);
+    expect(kept.body.error.details).toEqual([
+      { path: 'policyNumber', rule: 'SAME_POLICY_AS_PREVIOUS' },
+    ]);
+    // …nor written so in the database, renewal chain or not (owner, 05/11/2026).
+    await expect(
+      ctx.owner.query(`UPDATE "contract" SET "policyNumber" = 'POL-0001' WHERE "id" = $1`, [
+        renewal.id,
+      ]),
+    ).rejects.toThrow(/policy number already used/);
+    expect((await issueWith(data.agent, renewal, 'POL-0002')).status).toBe(200);
 
-    // A contract that renews nothing cannot take the number.
+    // A contract that renews nothing cannot take the number either.
     const other = await nextYear(data, data.first, false);
     const refused = await issueWith(data.agent, other, 'POL-0001');
     expect(refused.body.error.code).toBe('DUPLICATE_POLICY');
-    // Nor by writing to the database directly.
     await expect(
       ctx.owner.query(`UPDATE "contract" SET "policyNumber" = 'POL-0001' WHERE "id" = $1`, [
         other.id,
@@ -71,11 +88,17 @@ describe('policy numbers along a renewal chain', () => {
     ).rejects.toThrow(/policy number already used/);
   });
 
-  it('a third year keeps the number too; two unrelated contracts at once: only one gets it', async () => {
+  it('a third year has its own number too; two unrelated contracts at once: only one gets it', async () => {
     const data = await setup();
-    const second = (await issueWith(data.agent, await nextYear(data, data.first), 'POL-0001')).body;
-    const third = await nextYear(data, second);
-    expect((await issueWith(data.agent, third, 'POL-0001')).status).toBe(200);
+    const second = (
+      await issueWith(data.agent, await nextYear(data, data.first, true, 'POL-0002'), 'POL-0002')
+    ).body;
+    // The first year's number is not the third's either.
+    const third = await nextYear(data, second, true, 'POL-0003');
+    expect((await issueWith(data.agent, third, 'POL-0001')).body.error.code).toBe(
+      'DUPLICATE_POLICY',
+    );
+    expect((await issueWith(data.agent, third, 'POL-0003')).status).toBe(200);
 
     const a = await nextYear(data, data.first, false);
     const b = await nextYear(data, data.first, false);
@@ -97,7 +120,7 @@ DU: ${from}
 AU: ${to}`;
 
 describe('a scanned renewal', () => {
-  it('files the next year as the renewal of the contract, with the same policy number', async () => {
+  it('files the next year, found by its vehicle, as the renewal of the contract under its new number', async () => {
     const data = await setup();
     const { agent, first, car, customer } = data;
     const old = await ctx.prisma.contract.findUniqueOrThrow({ where: { id: first.id } });
@@ -105,7 +128,7 @@ describe('a scanned renewal', () => {
       data: { contractId: old.id, dueDate: old.endDate, assignedUserId: old.createdById },
     });
     ctx.reading = {
-      text: READ('POL-0001', '218000777', '01 11 2027', '31 10 2028'),
+      text: READ('POL-0002', '218000777', '01 11 2027', '31 10 2028'),
       confidence: 80,
     };
     const scan = (
@@ -113,20 +136,26 @@ describe('a scanned renewal', () => {
         name: 'renouvellement.pdf',
       })
     ).body;
+    // The new number is no contract's yet: the vehicle's contract at RMA is the one it renews.
+    const registration = encodeURIComponent(car.registration);
     const matches = (
       await agent.get(
-        `/api/scans/${scan.id}/matches?policyNumber=POL-0001&seriesId=${scan.proposed.seriesId}&number=218000777`,
+        `/api/scans/${scan.id}/matches?policyNumber=POL-0002&registration=${registration}&seriesId=${scan.proposed.seriesId}&number=218000777`,
       )
     ).body;
-    expect(matches.contract).toMatchObject({ id: first.id, endDate: '2027-10-31' });
+    expect(matches.contract).toMatchObject({
+      id: first.id,
+      endDate: '2027-10-31',
+      byVehicle: true,
+      replacedPolicy: false,
+    });
 
-    const res = await agent.post(`/api/scans/${scan.id}/file`, {
+    const filing = {
       version: scan.version,
       seriesId: scan.proposed.seriesId,
       number: '218000777',
       validFrom: '2027-11-01',
       validTo: '2028-10-31',
-      policyNumber: 'POL-0001',
       customer: { id: customer.id },
       vehicle: { id: car.id },
       contract: {
@@ -138,12 +167,28 @@ describe('a scanned renewal', () => {
         },
       },
       printed: { seriesCode: '14 A', number: '218000777' },
+    };
+    // Last year's number is refused, and no contract is recorded.
+    const kept = await agent.post(`/api/scans/${scan.id}/file`, {
+      ...filing,
+      policyNumber: 'POL-0001',
+    });
+    expect(kept.body.error.details).toEqual([
+      { path: 'policyNumber', rule: 'SAME_POLICY_AS_PREVIOUS' },
+    ]);
+    expect(await ctx.prisma.contract.count({ where: { previousContractId: first.id } })).toBe(0);
+
+    // The customer and vehicle already chosen stay on the scan (its version moved on).
+    const res = await agent.post(`/api/scans/${scan.id}/file`, {
+      ...filing,
+      version: (await agent.get(`/api/scans/${scan.id}`)).body.version,
+      policyNumber: 'POL-0002',
     });
     expect(res.status).toBe(200);
     const next = (await agent.get(`/api/contracts/${res.body.contractId}`)).body;
     expect(next).toMatchObject({
       status: 'ISSUED',
-      policyNumber: 'POL-0001',
+      policyNumber: 'POL-0002',
       premiumTotal: '1300.00',
       startDate: '2027-11-01',
       previousContract: { id: first.id },
@@ -158,7 +203,7 @@ describe('a scanned renewal', () => {
 
     // The same contract is not renewed twice.
     ctx.reading = {
-      text: READ('POL-0001', '218000778', '01 11 2027', '31 10 2028'),
+      text: READ('POL-0003', '218000778', '01 11 2027', '31 10 2028'),
       confidence: 80,
     };
     const again = (
@@ -172,7 +217,7 @@ describe('a scanned renewal', () => {
       number: '218000778',
       validFrom: '2027-11-01',
       validTo: '2028-10-31',
-      policyNumber: 'POL-0001',
+      policyNumber: 'POL-0003',
       customer: { id: customer.id },
       vehicle: { id: car.id },
       contract: { renew: { id: first.id, startDate: '2027-11-01', endDate: '2028-10-31' } },

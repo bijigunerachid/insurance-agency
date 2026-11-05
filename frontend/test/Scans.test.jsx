@@ -455,6 +455,70 @@ describe('a similar customer already exists', () => {
 });
 
 describe('a scan of the next year of a contract', () => {
+  /** A sheet of the period given, whose vehicle's contract at the insurer was found. */
+  function sheetFor(validFrom, validTo, contract) {
+    const next = scan({
+      proposed: {
+        ...scan().proposed,
+        number: '218000777',
+        numberToCheck: false,
+        numberCandidates: undefined,
+        validFrom,
+        validTo,
+      },
+    });
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/scans/${SCAN_ID}`]: () => [200, next],
+      ...catalogue,
+    });
+    const real = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((url, init) =>
+      url.includes('/matches?')
+        ? Promise.resolve(
+            new Response(
+              JSON.stringify({
+                customer: { id: 'cu1', ref: 'CLI-000001', displayName: 'Saida El Amrani' },
+                vehicle: {
+                  id: 've1',
+                  registration: '12345-A-6',
+                  makeAndModel: 'Dacia Logan',
+                  owner: { id: 'cu1', displayName: 'Saida El Amrani' },
+                },
+                contract,
+                attestation: null,
+              }),
+            ),
+          )
+        : real(url, init),
+    );
+  }
+
+  it('found by its vehicle under last year’s number: a renewal for the next period only', async () => {
+    // The platform gives a new number at every renewal: the sheet's is no contract's yet.
+    const lastYear = {
+      id: CONTRACT_ID,
+      ref: 'CTR-2026-00001',
+      policyNumber: 'POL-0001',
+      startDate: '2026-11-01',
+      endDate: '2027-10-31',
+      byVehicle: true,
+    };
+    sheetFor('2027-11-01', '2028-10-31', lastYear);
+    const first = renderApp(`/scans/${SCAN_ID}`);
+    expect(
+      await screen.findByLabelText('Renouvellement de POL-0001 (nouvelle période)'),
+    ).toBeChecked();
+    first.unmount();
+
+    // A sheet of a period inside that contract, under another number: another contract.
+    sheetFor('2027-03-01', '2027-10-31', lastYear);
+    renderApp(`/scans/${SCAN_ID}`);
+    const contract = await screen.findByRole('region', { name: 'Contrat' });
+    expect(await within(contract).findByLabelText('Nouveau')).toBeChecked();
+    expect(within(contract).queryByLabelText(/^Renouvellement de/)).toBeNull();
+  });
+
   it('proposes to file it as the renewal of that contract', async () => {
     let filed = null;
     const next = scan({

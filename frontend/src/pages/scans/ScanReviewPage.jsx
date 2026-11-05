@@ -245,7 +245,9 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
     if (done[`${kind}Id`]) return 'done';
     if (modes[kind]) return modes[kind];
     if (!found[kind]) return 'new';
-    return kind === 'contract' && nextPeriod ? 'renew' : 'existing';
+    if (kind === 'contract' && nextPeriod) return 'renew';
+    // A contract found by the vehicle has another number than the sheet: not this contract.
+    return kind === 'contract' && found.contract.byVehicle ? 'new' : 'existing';
   };
   const existingId = (kind) => chosen[kind] ?? found[kind]?.id;
   // Proposed for a new contract until the employee chooses (a renewal keeps last year's).
