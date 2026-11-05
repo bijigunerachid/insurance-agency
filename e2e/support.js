@@ -361,7 +361,8 @@ export async function seedContractEndingSoon(
       customerId: customer.id,
       productId: product.id,
       insurerId: product.insurerId,
-      policyNumber: `POL-E2E-${suffix}`,
+      // Always five digits: a search for one number never finds another that starts with it.
+      policyNumber: `POL-E2E-${String(suffix).padStart(5, '0')}`,
       insurerReference: 'Courriel synthétique',
       startDate: day(-355),
       endDate: day(10),

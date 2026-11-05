@@ -3,13 +3,23 @@ import { useId } from 'react';
 /**
  * A few choices side by side, one chosen (a list's status filter). Real radio buttons under the
  * look: the arrow keys move between them and screen readers say « 1 sur 4 ».
+ * `gridOnPhone`: two even columns on a phone, for labels too long to fit on one line.
  */
-export function SegmentedControl({ label, value, options, onChange, className = '' }) {
+export function SegmentedControl({
+  label,
+  value,
+  options,
+  onChange,
+  className = '',
+  gridOnPhone = false,
+}) {
   const name = useId();
   return (
     <fieldset className={`min-w-0 ${className}`}>
       <legend className="mb-1.5 text-label text-ink-soft">{label}</legend>
-      <div className="inline-flex max-w-full flex-wrap gap-1 rounded-control border border-line bg-sunken p-1">
+      <div
+        className={`${gridOnPhone ? 'grid grid-cols-2 text-center sm:inline-flex' : 'inline-flex'} max-w-full flex-wrap gap-1 rounded-control border border-line bg-sunken p-1`}
+      >
         {options.map((option) => (
           <label
             key={option.value}

@@ -781,6 +781,9 @@ export const fr = {
     },
     periods: { UPCOMING: 'À venir', ACTIVE: 'Actif', EXPIRED: 'Expiré' },
     unpaidOnly: 'Seulement les contrats émis dont il reste une partie de la prime à payer.',
+    paymentLabel: 'Paiement',
+    paymentAll: 'Tous',
+    paymentStates: { NONE: 'Rien payé', PARTIAL: 'Payé en partie', PAID: 'Payé' },
     showAll: 'Voir tous les contrats',
     payFor: (ref) => `Encaisser un paiement pour ${ref}`,
     summary: {

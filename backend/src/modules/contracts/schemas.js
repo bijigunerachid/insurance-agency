@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { paginationFields } from '../../utils/pagination.js';
 
 export const CONTRACT_STATUSES = ['DRAFT', 'AWAITING_INSURER', 'ISSUED', 'SUSPENDED', 'CANCELLED'];
+export const PAYMENT_STATES = ['NONE', 'PARTIAL', 'PAID'];
 
 export const idParams = z.strictObject({ id: z.uuid() });
 export const vehicleParams = z.strictObject({ id: z.uuid(), vehicleId: z.uuid() });
@@ -26,6 +27,11 @@ export const listContractsQuery = z.strictObject({
   insurerId: z.uuid().optional(),
   /** Only issued contracts with something left to pay to the insurer premium. */
   unpaid: z.enum(['1']).optional(),
+  /**
+   * What the customer paid of the amount due (owner, 05/11/2026): nothing, part of it, all of
+   * it. Only contracts sent to the insurer or issued, not cancelled, whose amount is known.
+   */
+  payment: z.enum(PAYMENT_STATES).optional(),
   ...paginationFields,
 });
 

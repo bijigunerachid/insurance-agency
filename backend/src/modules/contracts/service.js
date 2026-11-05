@@ -521,20 +521,33 @@ export function createContractsService({ prisma, audit, clock, config }) {
   }
 
   return {
-    async list({ q, status, customerId, insurerId, unpaid, page, pageSize }) {
-      // Issued contracts whose insurer premium is not fully paid (the "Aujourd'hui" to-do list).
-      const unpaidIds = unpaid
+    async list({ q, status, customerId, insurerId, unpaid, payment, page, pageSize }) {
+      // How much of the amount due was paid: "unpaid" is the "Aujourd'hui" to-do list (issued
+      // contracts not fully paid); "payment" the list's filter (nothing, part, all).
+      const paid = Prisma.sql`coalesce(p."paid", 0)`;
+      const conditions = [];
+      if (unpaid) conditions.push(Prisma.sql`c."status" = 'ISSUED' AND ${DUE_SQL} > ${paid}`);
+      if (payment) {
+        conditions.push(Prisma.sql`c."status" IN ('AWAITING_INSURER', 'ISSUED', 'SUSPENDED')`);
+        conditions.push(
+          {
+            NONE: Prisma.sql`${paid} <= 0`,
+            PARTIAL: Prisma.sql`${paid} > 0 AND ${paid} < ${DUE_SQL}`,
+            PAID: Prisma.sql`${paid} >= ${DUE_SQL}`,
+          }[payment],
+        );
+      }
+      const byPaymentIds = conditions.length
         ? (
             await prisma.$queryRaw`
               SELECT c."id" FROM "contract" c
               LEFT JOIN (SELECT "contractId", sum("amount") AS "paid" FROM "payment" GROUP BY 1) p
                 ON p."contractId" = c."id"
-              WHERE c."status" = 'ISSUED' AND ${DUE_KNOWN_SQL}
-                AND ${DUE_SQL} > coalesce(p."paid", 0)`
+              WHERE ${DUE_KNOWN_SQL} AND ${Prisma.join(conditions, ' AND ')}`
           ).map((row) => row.id)
         : null;
       const where = {
-        ...(unpaidIds ? { id: { in: unpaidIds } } : {}),
+        ...(byPaymentIds ? { id: { in: byPaymentIds } } : {}),
         ...(status ? { status } : {}),
         ...(customerId ? { customerId } : {}),
         ...(insurerId ? { insurerId } : {}),
@@ -560,12 +573,12 @@ export function createContractsService({ prisma, audit, clock, config }) {
       ]);
       const day = today();
       // What is left of the insurer premium, for every contract of the page in one query.
-      const paid = await prisma.payment.groupBy({
+      const sums = await prisma.payment.groupBy({
         by: ['contractId'],
         where: { contractId: { in: rows.map((row) => row.id) } },
         _sum: { amount: true },
       });
-      const paidOf = new Map(paid.map((p) => [p.contractId, p._sum.amount]));
+      const paidOf = new Map(sums.map((p) => [p.contractId, p._sum.amount]));
       return pageResult(
         rows.map((row) => ({
           ...summaryView(row, day),
