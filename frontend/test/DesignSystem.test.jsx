@@ -1,6 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PlusIcon } from '@heroicons/react/20/solid';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Alert } from '../src/components/Alert.jsx';
@@ -10,6 +11,7 @@ import { DataTable } from '../src/components/DataTable.jsx';
 import { DetailItem, DetailList } from '../src/components/DetailList.jsx';
 import { Disclosure } from '../src/components/Disclosure.jsx';
 import { EmptyState } from '../src/components/EmptyState.jsx';
+import { FileField } from '../src/components/FileField.jsx';
 import { Menu } from '../src/components/Menu.jsx';
 import { PageHeader } from '../src/components/PageHeader.jsx';
 import { PasswordField } from '../src/components/PasswordField.jsx';
@@ -367,5 +369,61 @@ describe('folded details and quiet empty lines', () => {
     const line = screen.getByText('Aucune attestation enregistrée.');
     expect(line.tagName).toBe('P');
     expect(line.querySelector('svg')).toBeNull();
+  });
+});
+
+describe('the file picker', () => {
+  // The page around the picker keeps what it says; `onChange` records each call.
+  const picker = (onChange) => {
+    function Picker() {
+      const [state, setState] = useState({ file: null, error: null });
+      return (
+        <FileField
+          label="Fichier"
+          hint="PDF, JPEG ou PNG, 10 Mo au plus."
+          file={state.file}
+          error={state.error}
+          onChange={(file, error) => {
+            setState({ file, error });
+            onChange(file, error);
+          }}
+        />
+      );
+    }
+    return <Picker />;
+  };
+
+  it('takes a PDF and says which file was chosen, with its size', async () => {
+    const onChange = vi.fn();
+    render(picker(onChange));
+    const user = userEvent.setup();
+    const input = screen.getByLabelText('Fichier');
+    expect(input).toHaveAccessibleDescription('PDF, JPEG ou PNG, 10 Mo au plus.');
+
+    const pdf = new File(['%PDF-1.7'.padEnd(3000, ' ')], 'Attestation.pdf', {
+      type: 'application/pdf',
+    });
+    await user.upload(input, pdf);
+    expect(onChange).toHaveBeenLastCalledWith(pdf, null);
+    expect(input).toHaveAccessibleDescription(/Attestation\.pdf/);
+    expect(input).toHaveAccessibleDescription(/3 Ko/);
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('refuses another type or more than 10 MB before anything is sent', async () => {
+    const onChange = vi.fn();
+    render(picker(onChange));
+    const user = userEvent.setup({ applyAccept: false });
+    const input = screen.getByLabelText('Fichier');
+
+    await user.upload(input, new File(['<html>'], 'page.html', { type: 'text/html' }));
+    expect(onChange).toHaveBeenLastCalledWith(null, 'Choisissez un fichier PDF, JPEG ou PNG.');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(input).toHaveAccessibleDescription(/Choisissez un fichier PDF, JPEG ou PNG\./);
+
+    const big = new File(['x'], 'scan.png', { type: 'image/png' });
+    Object.defineProperty(big, 'size', { value: 10 * 1024 * 1024 + 1 });
+    await user.upload(input, big);
+    expect(onChange).toHaveBeenLastCalledWith(null, 'Le fichier dépasse 10 Mo.');
   });
 });
