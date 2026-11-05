@@ -26,13 +26,17 @@ export function DueBadge({ renewal }) {
 export function RenewalList({ renewals, flush = false }) {
   return (
     <ul
-      className={`divide-y divide-line bg-surface ${flush ? '' : 'rounded-card border border-line'}`}
+      className={`divide-y divide-line bg-surface ${flush ? '' : 'overflow-hidden rounded-card border border-line shadow-hairline'}`}
     >
       {renewals.map((renewal) => (
         <li
           key={renewal.id}
           className="relative flex items-start justify-between gap-3 px-4 py-3.5 text-sm hover:bg-sunken/60 sm:px-5"
         >
+          {renewal.open && renewal.daysLeft < 0 && (
+            // Visual only: the badge says « En retard de N jours ».
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-danger" />
+          )}
           <div className="min-w-0 space-y-0.5">
             <Link
               to={`/renouvellements/${renewal.id}`}

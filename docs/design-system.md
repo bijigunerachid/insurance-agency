@@ -60,6 +60,7 @@ Amounts, dates and table cells use tabular figures.
 | `Card` | A white block; with `title` a named region (h2) with actions; `flush` for tables. |
 | `DataTable` | A table on a computer, one card per record on a phone. Shows the rows it is given: sorting, filtering and pagination stay with the page and its API (the API has no sorting, so no sort headers). `renderCard(row)` draws a list's own phone card (a client's card calls them). |
 | `EmptyState` | Nothing to show, and the real next step if there is one; `compact` is one quiet line for a part of a page. |
+| `SegmentedControl` | A few choices side by side, one chosen (a list's status): real radio buttons, so the arrow keys move between them. |
 | `Disclosure` | Details folded until asked for (the browser's `<details>`): a contract's or a client's less used facts, a history. |
 | `Menu` | A small menu opened by a button (space switch, profile): arrows, Home, End, Enter; Escape, Tab or a click elsewhere closes it and gives the focus back; `menuitemradio` for a choice, `menuitem` for an action. |
 | `Skeleton`, `SkeletonList`, `SkeletonDetail` | The shape of a list (`flush` inside a card) or of a record's page while it loads (announced as « Chargement… »). |
@@ -145,6 +146,19 @@ attestations, avenants, guarantees and vehicles each under a `SectionHeading` wi
 and a compact empty line; details and history in `Disclosure`s. The form has one card for the
 contract and the vehicles as choice tiles. Payments and documents on the page keep their look
 until their own stages (8 and 10).
+
+## Renewals (stage 7)
+
+The list (`RenewalsPage`): `PageHeader`, the status as a `SegmentedControl` (« À suivre,
+Renouvelés, Non renouvelés, Tous ») beside « Seulement les miens », the shape of the rows while
+loading and an `EmptyState` that says no issued contract ends within 30 days. A late renewal's
+row has a red edge (also on the home page); the API lists the nearest end first, so late ones
+come first without any sorting of the screen. The follow-up page (`RenewalDetailPage`):
+`PageHeader` with the way back, the contract, the days left and « Préparer le nouveau contrat »;
+`RenewalSteps`, drawn from the stored status only (done, in progress, to come; ending
+« Renouvelé » or « Non renouvelé »), two by two on a phone; then cards for the dates and the
+follow-up, the follow-up form, the hand-over form and the history. The page's API does not send
+the client's phone (only the list does), so the number to call stays on the list.
 
 ## Stages
 

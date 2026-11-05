@@ -1,15 +1,20 @@
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
+import { DetailItem, DetailList } from '../../components/DetailList.jsx';
 import { Dialog } from '../../components/Dialog.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { BackLink, PageHeader } from '../../components/PageHeader.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { TextLink } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
+import { usePageTitle } from '../../features/layout/PageTitle.jsx';
 import { DueBadge } from '../../features/renewals/RenewalList.jsx';
+import { RenewalSteps } from '../../features/renewals/RenewalSteps.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost, apiSend } from '../../services/api.js';
@@ -23,16 +28,18 @@ export function RenewalDetailPage() {
   const { can } = useAuth();
   const navigate = useNavigate();
   const { state, reload } = useApiQuery(`/renewals/${id}`);
+  // The header shows « … › {the client} » once loaded.
+  usePageTitle(state.status === 'done' ? state.data.contract.customer.displayName : null);
   const [renewing, setRenewing] = useState(false);
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
       <ErrorState
         title={errorMessage(state.error)}
         body={fr.common.genericError}
         requestId={state.error.requestId}
-        action={<BackLink />}
+        action={<BackLink to="/renouvellements">{t.back}</BackLink>}
       />
     );
   }
@@ -42,69 +49,65 @@ export function RenewalDetailPage() {
 
   return (
     <div className="space-y-6">
-      <BackLink />
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold">{contract.customer.displayName}</h1>
-          <p className="text-sm text-slate-600">
-            <Link to={`/contrats/${contract.id}`} className="font-mono text-blue-700 underline">
+      <PageHeader
+        back={{ to: '/renouvellements', label: t.back }}
+        title={contract.customer.displayName}
+        description={
+          <>
+            <TextLink to={`/contrats/${contract.id}`} className="font-mono">
               {contract.ref}
-            </Link>{' '}
+            </TextLink>{' '}
             · {contract.insurer.code} · {contract.product.name}
-          </p>
-          <DueBadge renewal={renewal} />
-        </div>
-        {editable && <Button onClick={() => setRenewing(true)}>{t.renew}</Button>}
-      </div>
+          </>
+        }
+        meta={<DueBadge renewal={renewal} />}
+        actions={editable && <Button onClick={() => setRenewing(true)}>{t.renew}</Button>}
+      />
 
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <dl className="grid gap-px bg-slate-200 text-sm sm:grid-cols-2">
-          <Item label={t.dueDate} value={formatDate(renewal.dueDate)} />
-          <Item label={t.statusLabel} value={t.statuses[renewal.status]} />
-          <Item label={t.assignedUser} value={renewal.assignedUser.displayName} />
-          <Item label={fr.contracts.fields.policyNumber} value={contract.policyNumber} />
+      <RenewalSteps status={renewal.status} />
+
+      <Card title={t.facts}>
+        <DetailList>
+          <Fact label={t.dueDate} value={formatDate(renewal.dueDate)} />
+          <Fact label={t.statusLabel} value={t.statuses[renewal.status]} />
+          <Fact label={t.assignedUser} value={renewal.assignedUser.displayName} />
+          <Fact label={fr.contracts.fields.policyNumber} value={contract.policyNumber} mono />
           {/* Only for tacit renewal with a notice period (rule L11). */}
           {renewal.noticeDeadline && (
-            <Item label={t.noticeDeadline} value={formatDate(renewal.noticeDeadline)} />
+            <Fact label={t.noticeDeadline} value={formatDate(renewal.noticeDeadline)} />
           )}
-          {renewal.outcomeReason && <Item label={t.outcomeReason} value={renewal.outcomeReason} />}
+          {renewal.outcomeReason && <Fact label={t.outcomeReason} value={renewal.outcomeReason} />}
           {renewal.renewedContract && (
-            <Item
+            <Fact
               label={t.renewed}
               value={
-                <Link
-                  to={`/contrats/${renewal.renewedContract.id}`}
-                  className="font-mono text-blue-700 underline"
-                >
+                <TextLink to={`/contrats/${renewal.renewedContract.id}`} className="font-mono">
                   {renewal.renewedContract.ref}
-                </Link>
+                </TextLink>
               }
             />
           )}
-        </dl>
-      </section>
+        </DetailList>
+      </Card>
 
       {editable && <FollowForm renewal={renewal} onDone={() => reload({ silent: true })} />}
       {renewal.open && can('renewals.assign') && (
         <AssignForm renewal={renewal} onDone={() => reload({ silent: true })} />
       )}
 
-      <section aria-labelledby="renewal-history" className="space-y-3">
-        <h2 id="renewal-history" className="text-lg font-semibold">
-          {t.history}
-        </h2>
-        <ol className="space-y-2 rounded-lg border border-slate-200 bg-white p-4 text-sm">
+      <Card title={t.history}>
+        <ol className="space-y-3 text-sm">
           {renewal.events.map((e) => (
-            <li key={e.id}>
-              <span className="font-medium">{t.event(e, t.statuses)}</span>{' '}
-              <span className="text-slate-600">
+            <li key={e.id} className="border-l-2 border-line pl-3">
+              <span className="font-medium text-ink">{t.event(e, t.statuses)}</span>{' '}
+              <span className="text-ink-muted">
                 {e.by ? e.by.displayName : t.system}, {formatDateTime(e.at)}
               </span>
-              {e.note && <span className="block text-slate-700">{e.note}</span>}
+              {e.note && <span className="block text-ink-soft">{e.note}</span>}
             </li>
           ))}
         </ol>
-      </section>
+      </Card>
 
       {renewing && (
         <RenewDialog
@@ -145,36 +148,38 @@ function FollowForm({ renewal, onDone }) {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
-      noValidate
-    >
-      <h2 className="font-semibold sm:col-span-2">{t.follow}</h2>
-      {error && (
+    <Card title={t.follow}>
+      <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2" noValidate>
+        {error && (
+          <div className="sm:col-span-2">
+            <Alert>{errorMessage(error)}</Alert>
+          </div>
+        )}
+        <SelectField
+          label={t.newStatus}
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          options={FOLLOW_STEPS.map((value) => ({ value, label: t.statuses[value] }))}
+        />
+        <TextField
+          label={refusing ? `${t.outcomeReason} *` : t.note}
+          hint={refusing ? undefined : t.noteHint}
+          maxLength={300}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
         <div className="sm:col-span-2">
-          <Alert>{errorMessage(error)}</Alert>
+          <Button
+            type="submit"
+            variant={refusing ? 'danger' : 'primary'}
+            loading={busy}
+            disabled={!valid}
+          >
+            {t.follow}
+          </Button>
         </div>
-      )}
-      <SelectField
-        label={t.newStatus}
-        value={status}
-        onChange={(e) => setStatus(e.target.value)}
-        options={FOLLOW_STEPS.map((value) => ({ value, label: t.statuses[value] }))}
-      />
-      <TextField
-        label={refusing ? `${t.outcomeReason} *` : t.note}
-        hint={refusing ? undefined : t.noteHint}
-        maxLength={300}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      <div className="sm:col-span-2">
-        <Button type="submit" variant={refusing ? 'danger' : 'primary'} disabled={busy || !valid}>
-          {t.follow}
-        </Button>
-      </div>
-    </form>
+      </form>
+    </Card>
   );
 }
 
@@ -207,10 +212,15 @@ function AssignForm({ renewal, onDone }) {
   return (
     <form
       onSubmit={submit}
-      className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-4"
+      className="flex flex-wrap items-end gap-3 rounded-card border border-line bg-surface p-4 shadow-hairline sm:p-5"
     >
-      {error && <Alert>{errorMessage(error)}</Alert>}
+      {error && (
+        <div className="w-full">
+          <Alert>{errorMessage(error)}</Alert>
+        </div>
+      )}
       <SelectField
+        className="min-w-56"
         label={t.assign}
         value={userId}
         onChange={(e) => setUserId(e.target.value)}
@@ -219,7 +229,7 @@ function AssignForm({ renewal, onDone }) {
           ...others.map((u) => ({ value: u.id, label: u.displayName })),
         ]}
       />
-      <Button type="submit" variant="secondary" disabled={busy || !userId}>
+      <Button type="submit" variant="secondary" loading={busy} disabled={!userId}>
         {t.assignButton}
       </Button>
     </form>
@@ -251,7 +261,7 @@ function RenewDialog({ renewal, onClose, onDone }) {
   return (
     <Dialog title={t.renewTitle} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <p className="text-sm text-slate-700">{t.renewIntro}</p>
+        <p className="text-sm text-ink-soft">{t.renewIntro}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
@@ -271,7 +281,7 @@ function RenewDialog({ renewal, onClose, onDone }) {
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             {fr.common.cancel}
           </Button>
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" loading={busy}>
             {t.renew}
           </Button>
         </div>
@@ -280,25 +290,7 @@ function RenewDialog({ renewal, onClose, onDone }) {
   );
 }
 
-function Item({ label, value }) {
-  return (
-    <div className="bg-white px-4 py-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className="mt-0.5 font-medium">
-        {value === null || value === undefined || value === '' ? fr.vehicles.notSpecified : value}
-      </dd>
-    </div>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/renouvellements"
-      className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-    >
-      <ArrowLeftIcon aria-hidden="true" className="size-4" />
-      {t.back}
-    </Link>
-  );
+/** A fact of the renewal; empty reads « Non précisé ». */
+function Fact(props) {
+  return <DetailItem empty={fr.vehicles.notSpecified} {...props} />;
 }
