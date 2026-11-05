@@ -173,6 +173,15 @@ back in green, the rarely used fields folded, « Encaisser » showing its work. 
 (`ReceiptPage`) moved to the tokens on screen; its printed layout is unchanged (two copies on one
 A4 sheet, checked by printing it to PDF: one page).
 
+## Attestation stock (stage 9)
+
+`StockPage`: `PageHeader` with « Réceptionner un lot » and « Enregistrer un mouvement », the
+message after an action as a success `Alert`; then three parts under `SectionHeading`s. The stock
+per series is a table on a computer (« En stock » in green, empty counts greyed) and one card per
+series on a phone with the forms in stock first and large; the forms held by employees in a card
+below. The batches received and the form search each show the shape of their rows while loading,
+a compact empty line and their own error. The dialogs keep their fields.
+
 ## Stages
 
 The redesign goes stage by stage, each on its own branch, merged by the owner before the next

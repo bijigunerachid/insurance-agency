@@ -309,7 +309,7 @@ export function FormHistoryDialog({ formId, onClose }) {
                 {t.movement({ from: m.from && t.statuses[m.from], to: t.statuses[m.to] })}
               </span>
               {m.toHolder && ` · ${m.toHolder.displayName}`}
-              <span className="block text-slate-600">
+              <span className="block text-ink-muted">
                 {m.by.displayName}, {formatDateTime(m.at)}
                 {m.reason && ` · ${m.reason}`}
               </span>

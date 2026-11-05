@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { EmptyState } from '../../components/EmptyState.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
+import { SectionHeading } from '../../components/SectionHeading.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
 import { StatusBadge } from '../../components/StatusBadge.jsx';
 import { TextField } from '../../components/TextField.jsx';
+import { TextLink, textLinkClasses } from '../../components/TextLink.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import {
   FormHistoryDialog,
@@ -31,6 +34,9 @@ const TONES = {
   CANCELLED: 'warning',
 };
 const seriesLabel = (s) => `${s.insurer.code} ${s.code}`;
+/** One white block whose rows are divided (batches, forms, people holding forms). */
+const listClasses =
+  'divide-y divide-line overflow-hidden rounded-card border border-line bg-surface text-sm shadow-hairline';
 
 /** The same query, its data passed through `pick` once loaded (reload kept). */
 const withData = (query, pick) =>
@@ -70,35 +76,37 @@ export function StockPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{t.title}</h1>
-          <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
+    <div className="space-y-8">
+      <PageHeader
+        title={t.title}
+        description={t.intro}
+        actions={
+          canManage && (
+            <>
+              <Button onClick={() => setDialog({ type: 'receive' })}>{t.receive}</Button>
+              {tracked.length > 0 && (
+                <Button variant="secondary" onClick={() => setDialog({ type: 'move' })}>
+                  {t.move}
+                </Button>
+              )}
+            </>
+          )
+        }
+      />
+      {(notice || workspace) && (
+        <div className="space-y-3">
+          <WorkspaceNotice />
+          {notice && <Alert tone="success">{notice}</Alert>}
         </div>
-        {canManage && (
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setDialog({ type: 'receive' })}>{t.receive}</Button>
-            {tracked.length > 0 && (
-              <Button variant="secondary" onClick={() => setDialog({ type: 'move' })}>
-                {t.move}
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
-      <WorkspaceNotice />
-      {notice && <Alert tone="info">{notice}</Alert>}
+      )}
 
       <section aria-labelledby="summary-title" className="space-y-3">
-        <h2 id="summary-title" className="text-lg font-semibold">
-          {t.sections.summary}
-        </h2>
-        {summary.state.status === 'loading' && <Spinner label={fr.app.loading} />}
+        <SectionHeading id="summary-title" title={t.sections.summary} />
+        {summary.state.status === 'loading' && <SkeletonList rows={3} />}
         {summary.state.status === 'error' && <Alert>{errorMessage(summary.state.error)}</Alert>}
         {summary.state.status === 'done' &&
           (summary.state.data.series.length === 0 ? (
-            <p className="text-sm text-slate-600">{t.empty}</p>
+            <EmptyState compact title={t.empty} />
           ) : (
             <>
               {/* Phones: one card per series (eight columns do not fit). */}
@@ -106,22 +114,31 @@ export function StockPage() {
                 {summary.state.data.series.map((row) => (
                   <li
                     key={row.series.id}
-                    className="rounded-lg border border-slate-200 bg-white p-4"
+                    className="rounded-card border border-line bg-surface p-4 shadow-hairline"
                   >
-                    <p className="font-medium">
-                      {seriesLabel(row.series)}
-                      <span className="block text-xs font-normal text-slate-600">
-                        {row.series.model.label}
-                      </span>
-                    </p>
-                    <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                      {STATUSES.map((status) => (
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-ink">
+                        {seriesLabel(row.series)}
+                        <span className="block text-xs font-normal text-ink-muted">
+                          {row.series.model.label}
+                        </span>
+                      </p>
+                      {/* What can be given out today: the number to read first. */}
+                      <p className="text-right">
+                        <span className="block text-2xl font-semibold tabular-nums text-success-ink">
+                          {row.counts.AVAILABLE}
+                        </span>
+                        <span className="text-xs text-ink-muted">{t.statuses.AVAILABLE}</span>
+                      </p>
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-line pt-3 text-sm">
+                      {STATUSES.filter((status) => status !== 'AVAILABLE').map((status) => (
                         <div key={status} className="flex justify-between gap-2">
-                          <dt className="text-slate-600">{t.statuses[status]}</dt>
-                          <dd className="tabular-nums">{row.counts[status]}</dd>
+                          <dt className="text-ink-muted">{t.statuses[status]}</dt>
+                          <dd className="tabular-nums text-ink">{row.counts[status]}</dd>
                         </div>
                       ))}
-                      <div className="flex justify-between gap-2 font-semibold">
+                      <div className="flex justify-between gap-2 font-semibold text-ink">
                         <dt>{t.total}</dt>
                         <dd className="tabular-nums">{row.total}</dd>
                       </div>
@@ -129,41 +146,50 @@ export function StockPage() {
                   </li>
                 ))}
               </ul>
-              <div className="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white sm:block">
-                <table className="min-w-full divide-y divide-slate-200 text-sm">
-                  <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <div className="hidden overflow-x-auto rounded-card border border-line bg-surface shadow-hairline sm:block">
+                <table className="min-w-full text-sm">
+                  <thead className="border-b border-line bg-canvas/70 text-left text-xs font-semibold uppercase tracking-wide text-ink-muted">
                     <tr>
-                      <th scope="col" className="px-4 py-3">
+                      <th scope="col" className="px-4 py-2.5">
                         {t.fields.seriesId}
                       </th>
                       {STATUSES.map((status) => (
-                        <th key={status} scope="col" className="px-3 py-3 text-right">
+                        <th key={status} scope="col" className="px-3 py-2.5 text-right">
                           {t.statuses[status]}
                         </th>
                       ))}
-                      <th scope="col" className="px-4 py-3 text-right">
+                      <th scope="col" className="px-4 py-2.5 text-right">
                         {t.total}
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200">
+                  <tbody className="divide-y divide-line">
                     {summary.state.data.series.map((row) => (
-                      <tr key={row.series.id}>
+                      <tr key={row.series.id} className="hover:bg-canvas/60">
                         <th
                           scope="row"
-                          className="whitespace-nowrap px-4 py-3 text-left font-medium"
+                          className="whitespace-nowrap px-4 py-3 text-left font-semibold text-ink"
                         >
                           {seriesLabel(row.series)}
-                          <span className="block text-xs font-normal text-slate-600">
+                          <span className="block text-xs font-normal text-ink-muted">
                             {row.series.model.label}
                           </span>
                         </th>
                         {STATUSES.map((status) => (
-                          <td key={status} className="px-3 py-3 text-right tabular-nums">
+                          <td
+                            key={status}
+                            className={`px-3 py-3 text-right tabular-nums ${
+                              status === 'AVAILABLE'
+                                ? 'font-semibold text-success-ink'
+                                : row.counts[status]
+                                  ? 'text-ink'
+                                  : 'text-ink-muted'
+                            }`}
+                          >
                             {row.counts[status]}
                           </td>
                         ))}
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-ink">
                           {row.total}
                         </td>
                       </tr>
@@ -174,16 +200,24 @@ export function StockPage() {
             </>
           ))}
         {summary.state.status === 'done' && (
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <h3 className="font-semibold">{t.sections.assigned}</h3>
+          <div className="overflow-hidden rounded-card border border-line bg-surface shadow-hairline">
+            <h3 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink sm:px-5">
+              {t.sections.assigned}
+            </h3>
             {summary.state.data.assigned.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-600">{t.noAssigned}</p>
+              <p className="px-4 py-3 text-sm text-ink-muted sm:px-5">{t.noAssigned}</p>
             ) : (
-              <ul className="mt-2 space-y-1 text-sm">
+              <ul className="divide-y divide-line text-sm">
                 {summary.state.data.assigned.map((row) => (
-                  <li key={`${row.holder.id}-${row.series.id}`}>
-                    <span className="font-medium">{row.holder.displayName}</span> ·{' '}
-                    {seriesLabel(row.series)} · {row.count}
+                  <li
+                    key={`${row.holder.id}-${row.series.id}`}
+                    className="flex justify-between gap-3 px-4 py-2.5 sm:px-5"
+                  >
+                    <span>
+                      <span className="font-medium text-ink">{row.holder.displayName}</span>
+                      <span className="text-ink-muted"> · {seriesLabel(row.series)}</span>
+                    </span>
+                    <span className="font-semibold tabular-nums text-ink">{row.count}</span>
                   </li>
                 ))}
               </ul>
@@ -193,21 +227,25 @@ export function StockPage() {
       </section>
 
       <section aria-labelledby="batches-title" className="space-y-3">
-        <h2 id="batches-title" className="text-lg font-semibold">
-          {t.sections.batches}
-        </h2>
+        <SectionHeading id="batches-title" title={t.sections.batches} />
+        {/* Loading, failing or empty used to show nothing at all here. */}
+        {batches.state.status === 'loading' && <SkeletonList rows={2} />}
+        {batches.state.status === 'error' && <Alert>{errorMessage(batches.state.error)}</Alert>}
+        {batches.state.status === 'done' && batches.state.data.items.length === 0 && (
+          <EmptyState compact title={t.empty} />
+        )}
         {batches.state.status === 'done' && batches.state.data.items.length > 0 && (
-          <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+          <ul className={listClasses}>
             {batches.state.data.items.map((batch) => (
-              <li key={batch.id} className="space-y-0.5 p-3 text-sm">
-                <p className="font-medium">
+              <li key={batch.id} className="space-y-0.5 px-4 py-3 sm:px-5">
+                <p className="font-medium text-ink">
                   {seriesLabel(batch.series)} · {t.received(batch)}
                 </p>
-                <p className="text-slate-700">
+                <p className="text-ink-soft">
                   {batch.location} · {t.fields.holderId} : {batch.holder.displayName}
                   {batch.insurerReference && ` · ${batch.insurerReference}`}
                 </p>
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-ink-muted">
                   {t.receivedBy(batch.receivedBy.displayName, formatDate(batch.receivedOn))} (
                   {formatDay(batch.createdAt)})
                 </p>
@@ -253,16 +291,14 @@ function FormSearch({ tracked, onHistory }) {
 
   return (
     <section aria-labelledby="forms-title" className="space-y-3">
-      <h2 id="forms-title" className="text-lg font-semibold">
-        {t.sections.forms}
-      </h2>
+      <SectionHeading id="forms-title" title={t.sections.forms} />
       <form
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
           setFilters({ ...filters, q: number.trim(), page: 1 });
         }}
-        className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end"
+        className="grid gap-3 rounded-card border border-line bg-surface p-3 shadow-hairline sm:grid-cols-2 sm:p-4 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end"
       >
         <TextField
           label={t.fields.number}
@@ -294,39 +330,37 @@ function FormSearch({ tracked, onHistory }) {
           {fr.common.search}
         </Button>
       </form>
-      {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {state.status === 'loading' && <SkeletonList rows={3} />}
       {state.status === 'error' && <Alert>{errorMessage(state.error)}</Alert>}
       {state.status === 'done' && state.data.items.length === 0 && (
-        <p className="text-sm text-slate-600">{fr.common.empty}</p>
+        <EmptyState compact title={fr.common.empty} />
       )}
       {state.status === 'done' && state.data.items.length > 0 && (
         <>
-          <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+          <ul className={listClasses}>
             {state.data.items.map((form) => (
               <li
                 key={form.id}
-                className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5"
               >
                 <span>
+                  {/* Opens the form's history. */}
                   <button
                     type="button"
                     onClick={() => onHistory(form.id)}
-                    className="font-mono font-medium text-blue-700 underline-offset-2 hover:underline"
+                    className={`${textLinkClasses} font-mono`}
                   >
                     {seriesLabel(form.series)} n° {form.number}
                   </button>
                   {form.holder && (
-                    <span className="text-slate-600"> · {form.holder.displayName}</span>
+                    <span className="text-ink-muted"> · {form.holder.displayName}</span>
                   )}
                   {form.contract && (
                     <>
                       {' · '}
-                      <Link
-                        to={`/contrats/${form.contract.id}`}
-                        className="text-blue-700 underline"
-                      >
+                      <TextLink to={`/contrats/${form.contract.id}`} className="font-mono">
                         {form.contract.ref}
-                      </Link>
+                      </TextLink>
                     </>
                   )}
                 </span>
