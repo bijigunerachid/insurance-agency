@@ -10,15 +10,15 @@ export function TemporaryPasswordDialog({ username, password, onClose }) {
       onClose={onClose}
       footer={<Button onClick={onClose}>{fr.users.temporaryDone}</Button>}
     >
-      <p className="text-sm text-slate-700">{fr.users.temporaryIntro}</p>
-      <dl className="space-y-2 text-sm">
+      <p className="text-sm text-ink-soft">{fr.users.temporaryIntro}</p>
+      <dl className="mt-4 space-y-3 text-sm">
         <div>
-          <dt className="text-slate-600">{fr.users.username}</dt>
-          <dd className="font-mono text-base">{username}</dd>
+          <dt className="text-ink-muted">{fr.users.username}</dt>
+          <dd className="mt-0.5 font-mono text-base text-ink">{username}</dd>
         </div>
         <div>
-          <dt className="text-slate-600">{fr.login.password}</dt>
-          <dd className="select-all rounded bg-slate-100 px-2 py-1 font-mono text-lg tracking-wider">
+          <dt className="text-ink-muted">{fr.login.password}</dt>
+          <dd className="mt-1 select-all break-all rounded-control border border-primary/20 bg-primary-soft px-3 py-2 font-mono text-lg tracking-wider text-ink">
             {password}
           </dd>
         </div>

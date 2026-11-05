@@ -156,5 +156,18 @@ describe('System status page', () => {
     mockApi(signedInAdmin);
     renderApp('/nulle-part');
     expect(await screen.findByRole('heading', { name: 'Page introuvable' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: "Retour à l'accueil" })).toHaveAttribute('href', '/');
+  });
+
+  it('shows the signed-in person their account: identity, two-step check, password', async () => {
+    mockApi(signedInAdmin);
+    renderApp('/compte');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Mon compte' }),
+    ).toBeInTheDocument();
+    const identity = screen.getByRole('region', { name: 'Identité' });
+    expect(identity).toHaveTextContent('karim.admin');
+    expect(identity).toHaveTextContent('Administrateur');
+    expect(screen.getByRole('region', { name: 'Changer le mot de passe' })).toBeInTheDocument();
   });
 });

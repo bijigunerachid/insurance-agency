@@ -1,8 +1,9 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { renderApp } from './renderApp.jsx';
 import { me, mockApi } from './mockApi.js';
+import { phoneScreen } from './phoneScreen.js';
 
 const ROLES = [
   { code: 'ADMIN', name: 'Administrateur', requiresTwoFactor: true },
@@ -187,5 +188,99 @@ describe('audit log page', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
       '/api/audit?page=1&action=user.disabled&from=2026-10-01',
     );
+  });
+});
+
+describe('administration on the new design', () => {
+  let restore;
+  afterEach(() => restore?.());
+
+  it('shows the shape of the list while loading, then filters the accounts by state in one click', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    const fetchMock = mockApi({
+      ...base,
+      'GET /api/users?status=active&page=1': () => first,
+      'GET /api/users?status=disabled&page=1': () => page([{ ...agent, active: false }]),
+    });
+    renderApp('/utilisateurs');
+    const user = userEvent.setup();
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+
+    answer(page([agent]));
+    const table = await screen.findByRole('table', { name: 'Utilisateurs' });
+    expect(within(table).getByRole('link', { name: 'Samira Test' })).toHaveAttribute(
+      'href',
+      `/utilisateurs/${AGENT_ID}`,
+    );
+    await user.click(screen.getByRole('radio', { name: 'Désactivés' }));
+    expect(await screen.findByText('Désactivé')).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain('/api/users?status=disabled&page=1');
+  });
+
+  it('shows one card per account on a phone', async () => {
+    restore = phoneScreen();
+    mockApi({ ...base, 'GET /api/users?status=active&page=1': () => page([agent]) });
+    renderApp('/utilisateurs');
+    const list = await screen.findByRole('list', { name: 'Utilisateurs' });
+    const [card] = within(list).getAllByRole('listitem');
+    expect(within(card).getByRole('link', { name: 'Samira Test' })).toBeInTheDocument();
+    expect(card).toHaveTextContent('samira.agent');
+    expect(within(card).getByText('Verrouillé')).toBeInTheDocument();
+    expect(card).toHaveTextContent('Jamais');
+  });
+
+  it('says what each action on an account does before it is chosen', async () => {
+    mockApi({
+      ...base,
+      [`GET /api/users/${AGENT_ID}`]: () => [200, { ...agent, activeSessions: 0 }],
+    });
+    renderApp(`/utilisateurs/${AGENT_ID}`);
+    const actions = await screen.findByRole('region', { name: 'Actions' });
+    const lines = within(actions).getAllByRole('listitem');
+    // Active, locked, no code app, no session: disable, unlock, new password.
+    expect(lines.map((line) => within(line).getByRole('button').textContent)).toEqual([
+      'Désactiver le compte',
+      'Déverrouiller',
+      'Réinitialiser le mot de passe',
+    ]);
+    expect(lines[1]).toHaveTextContent(
+      'Les tentatives de connexion échouées seront remises à zéro.',
+    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Samira Test' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Retour à la liste' })).toHaveAttribute(
+      'href',
+      '/utilisateurs',
+    );
+  });
+
+  it('confirms a saved change in green', async () => {
+    mockApi({
+      ...base,
+      [`GET /api/users/${AGENT_ID}`]: () => [200, { ...agent, activeSessions: 0 }],
+      [`PATCH /api/users/${AGENT_ID}`]: () => [200, { ...agent, displayName: 'Samira Nouveau' }],
+    });
+    renderApp(`/utilisateurs/${AGENT_ID}`);
+    const user = userEvent.setup();
+    const edit = await screen.findByRole('region', { name: 'Modifier' });
+    const name = within(edit).getByLabelText('Nom affiché');
+    await user.clear(name);
+    await user.type(name, 'Samira Nouveau');
+    await user.click(within(edit).getByRole('button', { name: 'Enregistrer' }));
+    const saved = await screen.findByText('Modifications enregistrées.');
+    expect(saved.closest('[role="status"]')).toHaveClass('bg-success-soft');
+  });
+
+  it('says plainly when the audit log has nothing for the filters', async () => {
+    mockApi({
+      'GET /api/auth/me': () => [200, me()],
+      'GET /api/audit/actions': () => [200, { items: [] }],
+      'GET /api/audit?page=1': () => page([]),
+    });
+    renderApp('/journal');
+    expect(await screen.findByText('Aucun résultat.')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: "Journal d'audit" })).toBeNull();
   });
 });

@@ -1,7 +1,8 @@
 import { ArrowPathIcon } from '@heroicons/react/20/solid';
 import { Button } from '../components/Button.jsx';
 import { ErrorState } from '../components/ErrorState.jsx';
-import { Spinner } from '../components/Spinner.jsx';
+import { PageHeader } from '../components/PageHeader.jsx';
+import { SkeletonList } from '../components/Skeleton.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { useReadiness } from '../features/system/useReadiness.js';
 import { fr } from '../i18n/fr.js';
@@ -21,30 +22,33 @@ export function SystemStatus() {
   const { state, refresh } = useReadiness();
 
   return (
-    <section aria-labelledby="status-title" className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 id="status-title" className="text-2xl font-semibold">
-            {t.title}
-          </h1>
-          <p className="mt-1 text-sm text-slate-600">{t.intro}</p>
-        </div>
-        <Button variant="secondary" onClick={refresh} disabled={state.status === 'loading'}>
-          <ArrowPathIcon aria-hidden="true" className="size-4" />
-          {t.refresh}
-        </Button>
-      </div>
+    <section aria-labelledby="status-title" className="space-y-6">
+      <PageHeader
+        titleId="status-title"
+        title={t.title}
+        description={t.intro}
+        actions={
+          <Button
+            variant="secondary"
+            icon={ArrowPathIcon}
+            onClick={refresh}
+            loading={state.status === 'loading'}
+          >
+            {t.refresh}
+          </Button>
+        }
+      />
 
-      <div aria-live="polite">
-        {state.status === 'loading' && <Spinner label={t.loading} />}
+      <div aria-live="polite" className="max-w-3xl">
+        {state.status === 'loading' && <SkeletonList rows={4} label={t.loading} />}
 
         {state.status === 'error' && (
           <ErrorState title={t.errorTitle} body={t.errorBody} requestId={state.error.requestId} />
         )}
 
         {state.status === 'done' && (
-          <div className="rounded-lg border border-slate-200 bg-white">
-            <dl className="divide-y divide-slate-200">
+          <div className="overflow-hidden rounded-card border border-line bg-surface shadow-hairline">
+            <dl className="divide-y divide-line">
               <StatusRow label={t.server} ok />
               <StatusRow label={t.database} ok={state.data?.checks?.database === 'ok'} />
               {state.data?.serverTime && (
@@ -54,7 +58,7 @@ export function SystemStatus() {
                 <BackupRow backup={state.data.backup} checkedAt={state.checkedAt} />
               )}
             </dl>
-            <p className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+            <p className="border-t border-line bg-canvas px-4 py-3 text-xs text-ink-muted sm:px-5">
               {t.checkedAt} : {formatDateTime(state.checkedAt)}
             </p>
           </div>
@@ -69,10 +73,10 @@ function ClockRow({ serverTime, checkedAt }) {
   const gapMs = new Date(serverTime).getTime() - checkedAt.getTime();
   const ok = Math.abs(gapMs) <= CLOCK_TOLERANCE_MS;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-      <dt className="text-sm font-medium">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5">
+      <dt className="min-w-0 text-sm font-medium text-ink">
         {t.clock}
-        <span className="block text-xs font-normal text-slate-600">
+        <span className="mt-0.5 block text-xs font-normal text-ink-muted">
           {formatDateTime(serverTime)}
           {!ok && ` · ${t.clockGap(Math.round(Math.abs(gapMs) / 60_000))}`}
         </span>
@@ -94,10 +98,10 @@ function BackupRow({ backup, checkedAt }) {
   else if (checkedAt - ranAt > BACKUP_RUN_MAX_MS) problem = t.backupStopped(formatDateTime(ranAt));
   else if (!base || checkedAt - base > BACKUP_BASE_MAX_MS) problem = t.backupNoBase;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-      <dt className="text-sm font-medium">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5">
+      <dt className="min-w-0 text-sm font-medium text-ink">
         {t.backup}
-        <span className="block text-xs font-normal text-slate-600">
+        <span className="mt-0.5 block text-xs font-normal text-ink-muted">
           {problem ??
             t.backupDetails({
               disk: backup.disk,
@@ -117,8 +121,8 @@ function BackupRow({ backup, checkedAt }) {
 
 function StatusRow({ label, ok }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-      <dt className="text-sm font-medium">{label}</dt>
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5">
+      <dt className="min-w-0 text-sm font-medium text-ink">{label}</dt>
       <dd>
         <StatusBadge tone={ok ? 'ok' : 'error'}>{ok ? t.ok : t.unavailable}</StatusBadge>
       </dd>

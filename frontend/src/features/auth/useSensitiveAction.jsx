@@ -69,7 +69,7 @@ function ReauthDialog({ needsCode, onDone, onCancel }) {
         className="space-y-4"
         noValidate
       >
-        <p className="text-sm text-slate-600">{fr.reauth.intro}</p>
+        <p className="text-sm text-ink-muted">{fr.reauth.intro}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
         <TextField
           label={fr.login.password}

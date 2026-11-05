@@ -30,7 +30,12 @@ test('an administrator creates an account; the new employee signs in; the audit 
   await loginWithCode(page, admin, secret);
   await openMenu(page, 'Utilisateurs');
   await expect(page.getByRole('heading', { level: 1, name: 'Utilisateurs' })).toBeVisible();
-  await expect(page.getByRole('table')).toBeVisible();
+  // A table on a computer, one card per account on a phone; the administrator is listed.
+  const accounts =
+    testInfo.project.name === 'phone-390'
+      ? page.getByRole('list', { name: 'Utilisateurs' }).getByRole('listitem')
+      : page.getByRole('table', { name: 'Utilisateurs' }).getByRole('row');
+  await expect(accounts.filter({ hasText: admin })).toHaveCount(1);
   await expectNoHorizontalScroll(page, expect);
   await shot('users');
 
