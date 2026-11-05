@@ -86,9 +86,8 @@ test('an agent scans an attestation, checks what was read and files it to follow
   await page.getByRole('button', { name: 'Enregistrer et suivre' }).click();
 
   // 4. The contract is issued with its attestation and the scan, and followed from now on.
-  await expect(page.getByText(/^CTR-/).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  // The contract's page opens (known by its policy number).
+  await expect(page).toHaveURL(/\/contrats\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   await expect(page.getByText('Émis').first()).toBeVisible();
   await expect(page.getByText(`POL-SCAN-${unique}`).first()).toBeVisible();
   await expect(
@@ -269,9 +268,8 @@ test('an agent uploads the PDF of the RMA platform: every value is read exactly,
   await page.getByRole('button', { name: 'Enregistrer et suivre' }).click();
 
   // Up to 30 s, like the first journey: the other browser may be reading a picture meanwhile.
-  await expect(page.getByText(/^CTR-/).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  // The contract's page opens (known by its policy number).
+  await expect(page).toHaveURL(/\/contrats\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   const payments = page.getByRole('region', { name: 'Paiements' });
   // Same patience: the payments load after the contract while the other browser may be reading.
   await expect(payments.getByText('1 520,00 MAD').first()).toBeVisible({ timeout: 30_000 });
@@ -354,7 +352,7 @@ test('an agent uploads the PDF of the CAT platform: read exactly, CAT 91 B, a co
   await contract.getByLabel('Produit').selectOption({ label: 'Transport de voyageurs' });
   await page.getByRole('button', { name: 'Enregistrer et suivre' }).click();
 
-  await expect(page.getByText(/^CTR-/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/contrats\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   await expect(page.getByText(`C2026/${unique}`).first()).toBeVisible();
   const guarantees = page.getByRole('region', { name: 'Garanties imprimées par l’assureur' });
   await expect(guarantees.getByText('500 000 · franchise 5 %')).toBeVisible();
@@ -447,7 +445,7 @@ test('an electric moped on a white D sheet: only the RMA usages its cut label ma
   await page.getByLabel('N° de l’attestation').fill(number);
   await page.getByRole('button', { name: 'Enregistrer et suivre' }).click();
 
-  await expect(page.getByText(/^CTR-/).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page).toHaveURL(/\/contrats\/[0-9a-f-]{36}$/, { timeout: 30_000 });
   await expect(page.getByText('CYLINDRÉE < 50 CM3 VITESSE > 60 KM/H')).toBeVisible();
 
   expect(external).toEqual([]);
@@ -498,13 +496,13 @@ test('a scan of a car already insured: everything is recognised and filed in one
   const quick = page.getByRole('region', { name: 'Tout est reconnu' });
   await expect(quick).toBeVisible();
   await expect(quick.getByText(`Attestation 14 A n° ${number}`)).toBeVisible();
-  await expect(quick.getByText(`Ajoutée au contrat ${contract.ref}`)).toBeVisible();
+  await expect(quick.getByText(`Ajoutée au contrat ${contract.policyNumber}`)).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await shot('scan-quick');
   await quick.getByRole('button', { name: 'Enregistrer et suivre' }).click();
 
   // The attestation is on the contract, with the scan.
-  await expect(page.getByText(contract.ref).first()).toBeVisible();
+  await expect(page.getByText(contract.policyNumber).first()).toBeVisible();
   await expect(page.getByText(new RegExp(`n° ${number}`))).toBeVisible();
 
   expect(external).toEqual([]);
@@ -552,7 +550,7 @@ test('a new policy that replaces one the agency follows becomes its next contrac
   const quick = page.getByRole('region', { name: 'Tout est reconnu' });
   await expect(quick).toBeVisible();
   await expect(
-    quick.getByText(`Remplacement du contrat ${contract.ref} (nouvelle police)`),
+    quick.getByText(`Remplacement du contrat ${contract.policyNumber} (nouvelle police)`),
   ).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await page.screenshot({
@@ -563,7 +561,7 @@ test('a new policy that replaces one the agency follows becomes its next contrac
 
   // A new contract with the new policy, following the replaced one.
   await expect(page.getByText(policy).first()).toBeVisible();
-  await expect(page.getByRole('link', { name: contract.ref })).toBeVisible();
+  await expect(page.getByRole('link', { name: contract.policyNumber })).toBeVisible();
 
   expect(external).toEqual([]);
   expect(consoleMessages).toEqual([]);

@@ -69,7 +69,8 @@ export const BORDER_MAX_MONTHS = 6;
 const TRANSITIONS = {
   'DRAFT>AWAITING_INSURER': { needs: [] },
   'AWAITING_INSURER>DRAFT': { needs: ['reason'] },
-  'AWAITING_INSURER>ISSUED': { needs: ['policyNumber', 'insurerReference'] },
+  // The policy number is recorded with the contract; the issue may correct it.
+  'AWAITING_INSURER>ISSUED': { needs: ['insurerReference'] },
   'ISSUED>SUSPENDED': { needs: ['insurerReference', 'effectiveDate'], manager: true },
   'SUSPENDED>ISSUED': { needs: ['insurerReference', 'effectiveDate'], manager: true },
   'DRAFT>CANCELLED': { needs: ['reason'] },
@@ -107,8 +108,8 @@ const detailInclude = {
     },
   },
   statusChanges: { orderBy: { id: 'desc' }, include: { user: userName } },
-  previousContract: { select: { id: true, ref: true } },
-  nextContract: { select: { id: true, ref: true } },
+  previousContract: { select: { id: true, ref: true, policyNumber: true } },
+  nextContract: { select: { id: true, ref: true, policyNumber: true } },
   attestations: {
     orderBy: [{ createdAt: 'desc' }],
     include: {
@@ -357,6 +358,14 @@ export function createContractsService({ prisma, audit, clock, config }) {
     const product = await usableProduct(tx, body.productId);
     assertBorderTerms(product, body);
     await assertVehiclesOf(tx, vehicleIds, customer.id);
+    // The insurer's policy number is the contract's number (owner, 05/11/2026): known from the
+    // platform before the contract is recorded, unique per insurer outside a renewal chain.
+    if (!body.policyNumber) throw invalid('policyNumber', 'REQUIRED');
+    if (
+      await policyTaken(tx, product.insurerId, body.policyNumber, null, body.previousContractId)
+    ) {
+      throw duplicatePolicy();
+    }
 
     const year = Number(today().slice(0, 4));
     const number = await nextCounterValue(tx, 'contract', year);
@@ -366,6 +375,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
         customerId: customer.id,
         productId: product.id,
         insurerId: product.insurerId,
+        policyNumber: body.policyNumber,
         startDate: toDate(body.startDate),
         endDate: toDate(body.endDate),
         premiumTotal: body.premiumTotal ?? null,
@@ -393,6 +403,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
     });
     await record(tx, auth, request, 'contract.created', contract.id, {
       ref: contract.ref,
+      policyNumber: contract.policyNumber,
       customerRef: customer.ref,
       vehicles: vehicleIds.length,
     });
@@ -556,13 +567,26 @@ export function createContractsService({ prisma, audit, clock, config }) {
     },
 
     async create(auth, request, body) {
-      const id = await prisma.$transaction((tx) => insertDraft(tx, auth, request, body));
-      return this.get(id);
+      try {
+        const id = await prisma.$transaction((tx) => insertDraft(tx, auth, request, body));
+        return this.get(id);
+      } catch (err) {
+        throw mapUnique(err, duplicatePolicy);
+      }
     },
 
     insertDraft,
 
     async update(auth, request, id, { version, ...changes }) {
+      try {
+        await this.updateDraft(auth, request, id, version, changes);
+      } catch (err) {
+        throw mapUnique(err, duplicatePolicy);
+      }
+      return this.get(id);
+    },
+
+    async updateDraft(auth, request, id, version, changes) {
       await prisma.$transaction(async (tx) => {
         const current = await load(tx, id);
         if (current.status !== 'DRAFT') throw notEditable();
@@ -600,10 +624,28 @@ export function createContractsService({ prisma, audit, clock, config }) {
             changed.push(field);
           }
         }
+        // A number typed wrong is corrected on the draft; another insurer checks it again.
+        const policy = changes.policyNumber ?? current.policyNumber;
+        if (changes.policyNumber && changes.policyNumber !== current.policyNumber) {
+          data.policyNumber = changes.policyNumber;
+          changed.push('policyNumber');
+        }
+        if (
+          policy &&
+          (data.policyNumber || data.insurerId) &&
+          (await policyTaken(
+            tx,
+            data.insurerId ?? current.insurerId,
+            policy,
+            id,
+            current.previousContractId,
+          ))
+        ) {
+          throw duplicatePolicy();
+        }
         await bumpVersion(tx, id, version, data);
         await record(tx, auth, request, 'contract.updated', id, { fields: changed });
       });
-      return this.get(id);
     },
 
     async addVehicle(auth, request, id, { vehicleId, version }) {
@@ -690,20 +732,16 @@ export function createContractsService({ prisma, audit, clock, config }) {
             await usableProduct(tx, fresh.productId);
           }
           if (current.status === 'AWAITING_INSURER' && body.to === 'ISSUED') {
+            // The number the insurer confirmed, else the one recorded with the contract (a
+            // contract recorded before 05/11/2026 may have none: it is asked for here).
+            const policy = body.policyNumber ?? current.policyNumber;
+            if (!policy) throw invalid('policyNumber', 'REQUIRED');
             // Unique per insurer, except along this contract's renewal chain (same rule as the
             // database trigger, which also holds against two issues at the same moment).
-            if (
-              await policyTaken(
-                tx,
-                current.insurerId,
-                body.policyNumber,
-                id,
-                current.previousContractId,
-              )
-            ) {
+            if (await policyTaken(tx, current.insurerId, policy, id, current.previousContractId)) {
               throw duplicatePolicy();
             }
-            data.policyNumber = body.policyNumber;
+            data.policyNumber = policy;
             data.insurerReference = body.insurerReference;
           }
           await bumpVersion(tx, id, body.version, data);

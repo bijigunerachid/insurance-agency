@@ -36,7 +36,7 @@ test('an agent starts the day: sees what is owed, finds a contract with the sear
   // The policy number, typed any way, finds the contract.
   const search = page.getByRole('searchbox', { name: 'Rechercher' });
   await search.fill(contract.policyNumber.replace(/-/g, ' ').toLowerCase());
-  const result = page.getByRole('link', { name: new RegExp(contract.ref) });
+  const result = page.getByRole('link', { name: new RegExp(contract.policyNumber) });
   await expect(result).toBeVisible();
   await shot('today-search');
   await result.click();
@@ -54,7 +54,9 @@ test('an agent starts the day: sees what is owed, finds a contract with the sear
     .getByRole('region', { name: 'À faire' })
     .getByRole('link', { name: /doi(t|vent) encore/ })
     .click();
-  await page.getByRole('button', { name: `Encaisser un paiement pour ${contract.ref}` }).click();
+  await page
+    .getByRole('button', { name: `Encaisser un paiement pour ${contract.policyNumber}` })
+    .click();
   const dialog = page.getByRole('dialog', { name: 'Encaisser un paiement' });
   await dialog.getByLabel('Montant (MAD)').fill('600');
   await shot('pay-from-list');

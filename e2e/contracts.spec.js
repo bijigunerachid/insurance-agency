@@ -49,17 +49,20 @@ test('an agent records a contract from draft to issue, with its attestation', as
 
   // 2. A draft contract with a confirmed product.
   await page.getByRole('link', { name: 'Nouveau contrat' }).click();
+  // The contract's number is the insurer's policy number, typed as printed.
+  await page.getByLabel('N° de police').fill(policy);
   await page.getByLabel('Produit').selectOption({ label: `RMA · ${productName}` });
   await page.getByLabel('Début').fill('2026-11-01');
   await page.getByLabel('Fin').fill('2027-10-31');
   await page.getByLabel(/Prime confirmée/).fill('1 234,50');
   await page.getByRole('checkbox', { name: new RegExp(plate) }).check();
   await page.getByRole('button', { name: 'Enregistrer' }).click();
-  // The contract page opens on the insured person, the reference just under the name.
-  // In the page (the header shows it too, as « Contrats › CTR-… »).
-  await expect(page.locator('#contenu').getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
-  // Status badges sit under the title (the history lists the same words).
+  // The contract page opens on the insured person, the policy number just under the name (the
+  // app's CTR reference only in the folded details).
   const header = page.getByRole('heading', { level: 1 }).locator('..');
+  await expect(header.getByText(policy, { exact: true })).toBeVisible();
+  await expect(header.getByText(/CTR-\d{4}-\d{5}/)).toHaveCount(0);
+  // Status badges sit under the title (the history lists the same words).
   await expect(header.getByText('En préparation', { exact: true })).toBeVisible();
   // The premium shows in the contract and, as what is left to pay, in its payments.
   await expect(page.getByText('1 234,50 MAD').first()).toBeVisible();
@@ -73,7 +76,8 @@ test('an agent records a contract from draft to issue, with its attestation', as
   await expect(header.getByText('Envoyé à l’assureur', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Enregistrer l’émission' }).click();
   let dialog = page.getByRole('dialog', { name: 'Enregistrer l’émission' });
-  await dialog.getByLabel(/N° de police/).fill(policy);
+  // The number recorded with the contract is proposed for the agent to confirm.
+  await expect(dialog.getByLabel(/N° de police/)).toHaveValue(policy);
   await dialog.getByLabel(/Preuve de l’assureur/).fill('Courriel synthétique de l’assureur');
   await dialog.getByRole('button', { name: 'Enregistrer l’émission' }).click();
   // Shown in the summary card (and again in the folded details).

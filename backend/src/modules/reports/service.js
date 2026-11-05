@@ -96,13 +96,13 @@ export function createReportsService({ prisma, audit, clock, config }) {
         columns: [
           { key: 'month', label: 'Mois', type: 'text' },
           { key: 'endDate', label: 'Échéance', type: 'date' },
-          { key: 'ref', label: 'Contrat', type: 'text' },
+          // The contract's number in the agency is the insurer's policy number (05/11/2026).
+          { key: 'policyNumber', label: 'N° de police', type: 'text' },
           { key: 'customer', label: 'Client', type: 'text' },
           { key: 'insurer', label: 'Assureur', type: 'text' },
           { key: 'product', label: 'Produit', type: 'text' },
           { key: 'formula', label: 'Formule', type: 'text' },
           { key: 'insurerUsage', label: 'Usage assureur', type: 'text' },
-          { key: 'policyNumber', label: 'N° de police', type: 'text' },
           { key: 'status', label: 'État', type: 'text' },
           { key: 'renewal', label: 'Renouvellement', type: 'text' },
           { key: 'followedBy', label: 'Suivi par', type: 'text' },
@@ -110,7 +110,6 @@ export function createReportsService({ prisma, audit, clock, config }) {
         rows: rows.map((c) => ({
           month: fromDate(c.endDate).slice(0, 7),
           endDate: fromDate(c.endDate),
-          ref: c.ref,
           customer: displayNameOf(c.customer),
           insurer: c.insurer.code,
           product: c.product.name,
@@ -266,7 +265,6 @@ export function createReportsService({ prisma, audit, clock, config }) {
         return {
           customer: displayNameOf(c.customer),
           phone: c.customer.phone,
-          ref: c.ref,
           insurer: c.insurer.code,
           policyNumber: c.policyNumber,
           startDate: fromDate(c.startDate),
@@ -286,7 +284,6 @@ export function createReportsService({ prisma, audit, clock, config }) {
           { key: 'balance', label: 'Reste à payer (MAD)', type: 'money' },
           { key: 'late', label: 'Relance', type: 'text' },
           { key: 'days', label: 'Jours depuis le début', type: 'int' },
-          { key: 'ref', label: 'Contrat', type: 'text' },
           { key: 'policyNumber', label: 'N° de police', type: 'text' },
           { key: 'insurer', label: 'Assureur', type: 'text' },
           { key: 'startDate', label: 'Début', type: 'date' },
@@ -315,7 +312,7 @@ export function createReportsService({ prisma, audit, clock, config }) {
           receivedBy: { select: { displayName: true } },
           contract: {
             select: {
-              ref: true,
+              policyNumber: true,
               customer: {
                 select: { type: true, firstName: true, lastName: true, legalName: true },
               },
@@ -329,7 +326,7 @@ export function createReportsService({ prisma, audit, clock, config }) {
         day: todayIn(tz, p.receivedAt),
         receipt: p.receiptNumber,
         customer: displayNameOf(p.contract.customer),
-        ref: p.contract.ref,
+        policyNumber: p.contract.policyNumber,
         insurer: p.contract.insurer.code,
         owed: money(p.amount),
         clientPaid: money(p.clientPaid),
@@ -345,7 +342,7 @@ export function createReportsService({ prisma, audit, clock, config }) {
           { key: 'clientPaid', label: 'Donné par le client (MAD)', type: 'money' },
           { key: 'gap', label: 'Écart agence (MAD)', type: 'money' },
           { key: 'by', label: 'Accepté par', type: 'text' },
-          { key: 'ref', label: 'Contrat', type: 'text' },
+          { key: 'policyNumber', label: 'N° de police', type: 'text' },
           { key: 'insurer', label: 'Assureur', type: 'text' },
         ],
         rows,

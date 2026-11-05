@@ -96,7 +96,7 @@ describe('remittances to the insurers (rule L5)', () => {
         kind: 'PAYMENT',
         amount: '1000.00',
         customer: 'Sara Test',
-        contract: { id: contract.id, ref: contract.ref },
+        contract: { id: contract.id, ref: contract.ref, policyNumber: contract.policyNumber },
       }),
     ]);
 

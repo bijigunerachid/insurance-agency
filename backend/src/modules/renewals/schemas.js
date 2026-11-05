@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { policyNumber } from '../contracts/schemas.js';
 import { paginationFields } from '../../utils/pagination.js';
 
 /** Statuses an employee sets by hand; RENEWED comes from the "Renouveler" action. */
@@ -43,6 +44,8 @@ export const assignRenewalBody = z.strictObject({ assignedUserId: z.uuid(), vers
 /** Defaults: the same product, and the same length of cover starting the day after. */
 export const renewBody = z.strictObject({
   productId: z.preprocess(blankToNull, z.uuid().nullable().optional()),
+  /** Another number than last year's, when the platform gave one; else last year's is kept. */
+  policyNumber: z.preprocess(blankToNull, policyNumber.nullable().optional()),
   startDate: z.preprocess(blankToNull, z.iso.date().nullable().optional()),
   endDate: z.preprocess(blankToNull, z.iso.date().nullable().optional()),
   version,

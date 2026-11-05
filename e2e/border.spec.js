@@ -57,13 +57,14 @@ test('an agent records CAT border insurance for a car registered abroad, 10 days
   await expect(page.getByRole('checkbox', { name: /tacite reconduction/ })).toHaveCount(0);
   await expect(page.getByText(/pas de tacite reconduction ni de suivi/)).toBeVisible();
   await page.getByLabel(/Prime confirmée/).fill('350');
+  await page.getByLabel('N° de police').fill(`C2026/F${run}`);
   await page.getByRole('checkbox', { name: new RegExp(plate) }).check();
   await expectNoHorizontalScroll(page, expect);
   await shot('border-form');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
 
-  // In the page (the header shows it too, as « Contrats › CTR-… »).
-  await expect(page.locator('#contenu').getByText(/^CTR-\d{4}-\d{5}/)).toBeVisible();
+  // Known by its policy number, under the visitor's name.
+  await expect(page.locator('#contenu').getByText(`C2026/F${run}`).first()).toBeVisible();
   await expect(page.getByText('Assurance aux frontières').first()).toBeVisible();
   await expect(page.getByText('Assuré jusqu’au 12/11/2026')).toBeVisible();
   await expect(page.getByText('Chargement…')).toHaveCount(0);

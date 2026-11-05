@@ -226,6 +226,7 @@ export function createPaymentsService({ prisma, audit, clock, config }) {
               select: {
                 id: true,
                 ref: true,
+                policyNumber: true,
                 customer: {
                   select: { type: true, firstName: true, lastName: true, legalName: true },
                 },
@@ -261,6 +262,7 @@ export function createPaymentsService({ prisma, audit, clock, config }) {
             contract: {
               id: row.contract.id,
               ref: row.contract.ref,
+              policyNumber: row.contract.policyNumber,
               customer: displayNameOf(row.contract.customer),
               insurer: row.contract.insurer.code,
             },

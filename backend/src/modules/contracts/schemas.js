@@ -29,6 +29,20 @@ export const listContractsQuery = z.strictObject({
   ...paginationFields,
 });
 
+/**
+ * The insurer's policy number, the contract's number in the agency (owner, 05/11/2026): as
+ * printed (RMA « 663070526001509 », CAT « C2026/… »), spaces dropped, letters in capitals.
+ */
+export const policyNumber = z
+  .string({ error: 'REQUIRED' })
+  .transform((value) => value.replace(/\s/g, '').toUpperCase())
+  .pipe(
+    z
+      .string()
+      .min(1, 'REQUIRED')
+      .regex(/^[A-Z0-9][A-Z0-9/.-]{3,39}$/, 'INVALID_POLICY_NUMBER'),
+  );
+
 const contractFields = {
   productId: z.uuid(),
   startDate: date,
@@ -44,12 +58,14 @@ const contractFields = {
 
 export const createContractBody = z.strictObject({
   customerId: z.uuid(),
+  policyNumber,
   ...contractFields,
   vehicleIds: z.array(z.uuid()).min(1).max(200),
 });
 
 /** Only a draft is edited; the customer never changes (another customer = another contract). */
 export const updateContractBody = z.strictObject({
+  policyNumber: policyNumber.optional(),
   productId: contractFields.productId.optional(),
   startDate: date.optional(),
   endDate: date.optional(),
@@ -69,7 +85,8 @@ export const removeVehicleBody = z.strictObject({ version });
 export const transitionBody = z.strictObject({
   to: z.enum(CONTRACT_STATUSES),
   reason: optional(text(300)),
-  policyNumber: optional(text(40)),
+  /** At the issue: the number the insurer confirmed, when it differs from the one recorded. */
+  policyNumber: optional(policyNumber),
   insurerReference: optional(text(120)),
   effectiveDate: optional(date),
   version,

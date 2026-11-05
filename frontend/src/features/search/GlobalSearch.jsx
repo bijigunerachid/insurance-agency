@@ -6,6 +6,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDate } from '../../utils/format.js';
 import { useInsurerFilter } from '../workspace/Workspace.jsx';
+import { contractNumber } from '../contracts/contractNumber.js';
 
 const t = fr.home;
 const SEARCH_DELAY_MS = 300;
@@ -63,10 +64,9 @@ export function SearchResults({ query, results, onPick }) {
           <ResultGroup title={t.results.contracts} items={data.contracts}>
             {(c) => (
               <Link to={`/contrats/${c.id}`} onClick={onPick} className={link}>
-                <span className="font-mono font-medium text-primary">{c.ref}</span>{' '}
+                <span className="font-mono font-medium text-primary">{contractNumber(c)}</span>{' '}
                 <span className="text-xs text-ink-muted">
-                  {c.customer} · {c.insurer}
-                  {c.policyNumber && ` · ${c.policyNumber}`} · {fr.contracts.statuses[c.status]} ·{' '}
+                  {c.customer} · {c.insurer} · {fr.contracts.statuses[c.status]} ·{' '}
                   {formatDate(c.endDate)}
                 </span>
               </Link>

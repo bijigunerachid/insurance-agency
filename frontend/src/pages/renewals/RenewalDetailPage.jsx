@@ -19,6 +19,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost, apiSend } from '../../services/api.js';
 import { formatDate, formatDateTime } from '../../utils/format.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.renewals;
 const FOLLOW_STEPS = ['TO_PREPARE', 'CUSTOMER_CONTACTED', 'DOCUMENTS_COMPLETE', 'NOT_RENEWED'];
@@ -55,7 +56,7 @@ export function RenewalDetailPage() {
         description={
           <>
             <TextLink to={`/contrats/${contract.id}`} className="font-mono">
-              {contract.ref}
+              {contractNumber(contract)}
             </TextLink>{' '}
             · {contract.insurer.code} · {contract.product.name}
           </>
@@ -239,6 +240,9 @@ function AssignForm({ renewal, onDone }) {
 /** Dates default to the same length of cover, starting the day after the old contract. */
 function RenewDialog({ renewal, onClose, onDone }) {
   const [dates, setDates] = useState({ startDate: '', endDate: '' });
+  // A renewal keeps last year's policy number unless the platform gave another one.
+  const lastYear = renewal.contract.policyNumber ?? '';
+  const [policyNumber, setPolicyNumber] = useState(lastYear);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -250,6 +254,9 @@ function RenewDialog({ renewal, onClose, onDone }) {
       const body = { version: renewal.version };
       if (dates.startDate) body.startDate = dates.startDate;
       if (dates.endDate) body.endDate = dates.endDate;
+      if (policyNumber.trim() && policyNumber.trim() !== lastYear) {
+        body.policyNumber = policyNumber.trim();
+      }
       const result = await apiPost(`/renewals/${renewal.id}/renew`, body);
       onDone(result.contractId);
     } catch (err) {
@@ -263,6 +270,16 @@ function RenewDialog({ renewal, onClose, onDone }) {
       <form onSubmit={submit} className="space-y-4" noValidate>
         <p className="text-sm text-ink-soft">{t.renewIntro}</p>
         {error && <Alert>{errorMessage(error)}</Alert>}
+        <TextField
+          label={fr.contracts.fields.policyNumber}
+          hint={t.renewPolicyHint}
+          required
+          autoComplete="off"
+          maxLength={60}
+          inputClassName="font-mono"
+          value={policyNumber}
+          onChange={(e) => setPolicyNumber(e.target.value)}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             label={t.startDate}
@@ -281,7 +298,7 @@ function RenewDialog({ renewal, onClose, onDone }) {
           <Button variant="secondary" onClick={onClose} disabled={busy}>
             {fr.common.cancel}
           </Button>
-          <Button type="submit" loading={busy}>
+          <Button type="submit" loading={busy} disabled={!policyNumber.trim()}>
             {t.renew}
           </Button>
         </div>

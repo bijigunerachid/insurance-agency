@@ -269,7 +269,12 @@ export function createStockService({ prisma, audit, clock }) {
           include: {
             series: seriesSelect,
             holder: userName,
-            attestation: { select: { id: true, contract: { select: { id: true, ref: true } } } },
+            attestation: {
+              select: {
+                id: true,
+                contract: { select: { id: true, ref: true, policyNumber: true } },
+              },
+            },
           },
           orderBy: [{ seriesId: 'asc' }, { number: 'asc' }],
           ...toSkipTake({ page, pageSize }),
@@ -298,7 +303,9 @@ export function createStockService({ prisma, audit, clock }) {
           series: seriesSelect,
           holder: userName,
           batch: { select: { id: true, receivedOn: true, location: true, insurerReference: true } },
-          attestation: { select: { id: true, contract: { select: { id: true, ref: true } } } },
+          attestation: {
+            select: { id: true, contract: { select: { id: true, ref: true, policyNumber: true } } },
+          },
           movements: {
             orderBy: { id: 'desc' },
             include: { user: userName, fromHolder: userName, toHolder: userName },

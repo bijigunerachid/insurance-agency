@@ -12,6 +12,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { formatDate, formatDateTime, formatDay, formatMoney } from '../../utils/format.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.bordereau;
 
@@ -152,7 +153,7 @@ export function RemittanceDetailPage() {
                   </td>
                   <td className="py-2 pr-3">{item.customer}</td>
                   <td className="hidden py-2 pr-3 font-mono sm:table-cell print:table-cell">
-                    {item.contract.ref}
+                    {contractNumber(item.contract)}
                   </td>
                   <td className="whitespace-nowrap py-2 text-right tabular-nums">
                     {formatMoney(item.amount)}

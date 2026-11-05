@@ -185,8 +185,36 @@ describe('renewal follow-up', () => {
     expect(fetchMock.mock.calls.some(([url]) => url === `/api/contracts/${NEW_CONTRACT_ID}`)).toBe(
       true,
     );
+    // Last year's policy number was proposed and kept: nothing more is sent.
     const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/renew'));
     expect(JSON.parse(call[1].body)).toEqual({ version: 1 });
+  });
+
+  it('sends the new policy number when the platform gave another one', async () => {
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/renewals/${RENEWAL_ID}`]: () => [200, renewal()],
+      [`POST /api/renewals/${RENEWAL_ID}/renew`]: () => [
+        409,
+        { error: { code: 'DUPLICATE_POLICY' } },
+      ],
+    });
+    renderApp(`/renouvellements/${RENEWAL_ID}`);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Préparer le nouveau contrat' }));
+    const dialog = screen.getByRole('dialog', { name: 'Préparer le nouveau contrat' });
+    const policy = within(dialog).getByLabelText('N° de police');
+    expect(policy).toHaveValue('POL-1');
+    const prepare = within(dialog).getByRole('button', { name: 'Préparer le nouveau contrat' });
+    await user.clear(policy);
+    expect(prepare).toBeDisabled();
+    await user.type(policy, 'POL-2');
+    await user.click(prepare);
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Cet assureur a déjà un contrat avec ce numéro de police.',
+    );
+    const call = fetchMock.mock.calls.find(([url]) => url.endsWith('/renew'));
+    expect(JSON.parse(call[1].body)).toEqual({ policyNumber: 'POL-2', version: 1 });
   });
 });
 

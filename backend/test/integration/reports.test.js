@@ -135,7 +135,6 @@ describe('reports', () => {
     expect(owed.rows).toEqual([
       expect.objectContaining({
         customer: 'Sara Test',
-        ref: contract.ref,
         insurer: 'RMA',
         policyNumber: 'POL-0001',
         startDate: '2026-11-01',
@@ -180,7 +179,7 @@ describe('reports', () => {
         day: '2026-10-22',
         receipt: 'REC-2026-00004',
         customer: 'Sara Test',
-        ref: contract.ref,
+        policyNumber: 'POL-0001',
         insurer: 'RMA',
         owed: '1000.00',
         clientPaid: '999.50',
@@ -196,13 +195,12 @@ describe('reports', () => {
   });
 
   it('lists the contracts ending in the period, the stock per series and the activity of each employee', async () => {
-    const { manager, contract } = await setup();
+    const { manager } = await setup();
     const expiring = (await report(manager, 'contrats-echeances', '2027-10-01', '2027-10-31')).body;
     expect(expiring.rows).toEqual([
       expect.objectContaining({
         month: '2027-10',
         endDate: '2027-10-31',
-        ref: contract.ref,
         customer: 'Sara Test',
         insurer: 'RMA',
         policyNumber: 'POL-0001',

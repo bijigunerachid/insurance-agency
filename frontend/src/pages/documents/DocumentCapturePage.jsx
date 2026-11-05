@@ -15,6 +15,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost, apiSend } from '../../services/api.js';
 import { formatDate, formatDateTime, formatMoney } from '../../utils/format.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.capture;
 
@@ -195,8 +196,8 @@ function CaptureView({ data, reload, notice, setNotice }) {
         description={t.intro}
         meta={
           <p className="break-all text-sm text-ink-muted">
-            <span className="font-mono font-medium text-ink-soft">{contract.ref}</span> ·{' '}
-            {document.originalName}
+            <span className="font-mono font-medium text-ink-soft">{contractNumber(contract)}</span>{' '}
+            · {document.originalName}
           </p>
         }
       />

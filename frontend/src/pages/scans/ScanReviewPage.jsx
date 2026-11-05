@@ -22,6 +22,7 @@ import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiPost } from '../../services/api.js';
 import { formatDate, formatMoney } from '../../utils/format.js';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 // The agency takes three provisional attestations in a row for a vehicle, then the next must be
 // definitive (owner, 29/10/2026). Not in arrêté 213-05: the review only warns, it never refuses.
@@ -318,7 +319,9 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
     !usageMismatch &&
     // An avenant changes the contract's vehicles: always checked on the full form.
     !avenantOn &&
-    (provisional || Boolean(values.policyNumber));
+    // A contract recorded or renewed from the sheet takes its policy number (provisionals print
+    // it too); a provisional added to a contract already followed needs none.
+    (Boolean(values.policyNumber) || (provisional && mode('contract') === 'existing'));
 
   const set = (path) => (event) => {
     const value = event.target.value;
@@ -663,9 +666,9 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                   found.contract
                     ? mode('contract') === 'renew'
                       ? found.contract.replacedPolicy
-                        ? t.quickReplacement(found.contract.ref)
-                        : t.quickRenewal(found.contract.ref)
-                      : t.quickContract(found.contract.ref)
+                        ? t.quickReplacement(contractNumber(found.contract))
+                        : t.quickRenewal(contractNumber(found.contract))
+                      : t.quickContract(contractNumber(found.contract))
                     : t.progress
                 }
               />
@@ -731,7 +734,12 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 {field('validFrom', t.validFrom, { type: 'date' })}
                 {field('validTo', t.validTo, { type: 'date' })}
               </div>
-              {field('policyNumber', t.policyNumber, { hint: t.policyHint, maxLength: 40 })}
+              {field('policyNumber', t.policyNumber, {
+                hint: t.policyHint,
+                maxLength: 40,
+                // The contract recorded from this sheet is known by it (05/11/2026).
+                required: mode('contract') !== 'existing',
+              })}
               {provisional && field('coverNoteRef', t.coverNoteRef, { maxLength: 60 })}
               {(p.quittanceNumber || values.quittanceNumber) &&
                 field('quittanceNumber', t.quittanceNumber, {
@@ -1094,13 +1102,13 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 mode={mode('contract')}
                 existing={
                   found.contract &&
-                  `${found.contract.ref} · ${formatDate(found.contract.startDate)} – ${formatDate(found.contract.endDate)}`
+                  `${contractNumber(found.contract)} · ${formatDate(found.contract.startDate)} – ${formatDate(found.contract.endDate)}`
                 }
                 renew={
                   nextPeriod && found.contract
                     ? found.contract.replacedPolicy
-                      ? t.replacementOf(found.contract.ref, found.contract.policyNumber)
-                      : t.renewOf(found.contract.ref)
+                      ? t.replacementOf(contractNumber(found.contract))
+                      : t.renewOf(contractNumber(found.contract))
                     : null
                 }
                 onChange={(m) => setModes((s) => ({ ...s, contract: m }))}

@@ -15,6 +15,7 @@ import { errorMessage, fr } from '../../i18n/fr.js';
 import { APP_TIME_ZONE, formatDateTime, formatMoney, signedMoney } from '../../utils/format.js';
 import { useInsurerFilter } from '../../features/workspace/Workspace.jsx';
 import { WorkspaceNotice } from '../../features/workspace/WorkspaceNotice.jsx';
+import { contractNumber } from '../../features/contracts/contractNumber.js';
 
 const t = fr.payments;
 const todayHere = () =>
@@ -39,7 +40,8 @@ const COLUMNS = [
       <>
         <span className="font-medium">{payment.contract.customer}</span>
         <span className="block text-xs text-ink-muted">
-          <span className="font-mono">{payment.contract.ref}</span> · {payment.contract.insurer}
+          <span className="font-mono">{contractNumber(payment.contract)}</span> ·{' '}
+          {payment.contract.insurer}
         </span>
         {/* The agency rounded what the client gave: the exact amount stays the payment. */}
         {payment.clientPaid && (

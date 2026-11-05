@@ -116,9 +116,15 @@ describe('contract page', () => {
     });
     renderApp(`/contrats/${CONTRACT_ID}`);
 
-    // The page opens on who is insured, with the contract reference under the name.
-    expect(await screen.findByRole('heading', { name: 'Sara Test' })).toBeInTheDocument();
-    expect(screen.getByText(/CTR-2026-00001/)).toBeInTheDocument();
+    // The page opens on who is insured, with the policy number under the name: the contract's
+    // number in the agency. The app's own reference stays in the folded details only.
+    const title = await screen.findByRole('heading', { name: 'Sara Test' });
+    const header = title.closest('header');
+    expect(header).toHaveTextContent('N° de police POL-0001 · ');
+    expect(header).not.toHaveTextContent('CTR-2026-00001');
+    expect(screen.getByText('Référence interne de l’application').nextSibling).toHaveTextContent(
+      'CTR-2026-00001',
+    );
     expect(screen.getByText('Émis')).toBeInTheDocument();
     expect(screen.getByText('Actif')).toBeInTheDocument();
     expect(screen.getByText('1 234,50 MAD')).toBeInTheDocument();
@@ -180,7 +186,7 @@ describe('contract page', () => {
         contract({
           status: 'AWAITING_INSURER',
           period: null,
-          policyNumber: null,
+          policyNumber: 'POL-0009',
           attestations: [],
         }),
       ],
@@ -192,7 +198,11 @@ describe('contract page', () => {
     await user.click(await screen.findByRole('button', { name: 'Enregistrer l’émission' }));
     const dialog = screen.getByRole('dialog', { name: 'Enregistrer l’émission' });
     const submit = within(dialog).getByRole('button', { name: 'Enregistrer l’émission' });
-    await user.type(within(dialog).getByLabelText(/N° de police/), 'POL-0001');
+    // The number recorded with the contract is proposed; the insurer confirmed another one.
+    const policy = within(dialog).getByLabelText(/N° de police/);
+    expect(policy).toHaveValue('POL-0009');
+    await user.clear(policy);
+    await user.type(policy, 'POL-0001');
     expect(submit).toBeDisabled();
     await user.type(
       within(dialog).getByLabelText(/Preuve de l’assureur/),
@@ -430,12 +440,16 @@ describe('contract form', () => {
     const save = screen.getByRole('button', { name: 'Enregistrer' });
     expect(save).toBeDisabled();
     await user.click(await screen.findByRole('checkbox', { name: /12345-B-6/ }));
+    // The contract's number is the insurer's: nothing is saved without it.
+    expect(save).toBeDisabled();
+    await user.type(screen.getByLabelText('N° de police'), '663070526001509');
     await user.click(save);
 
     expect(await screen.findByText('La fin doit être après le début.')).toBeInTheDocument();
     const call = fetchMock.mock.calls.find(([url]) => url === '/api/contracts');
     expect(JSON.parse(call[1].body)).toEqual({
       customerId: CUSTOMER_ID,
+      policyNumber: '663070526001509',
       productId: 'p1',
       startDate: '2026-11-01',
       endDate: '2026-10-01',
@@ -444,6 +458,36 @@ describe('contract form', () => {
       vehicleIds: ['v1'],
     });
   });
+  it('says under the field when the insurer already has a contract with this policy number', async () => {
+    mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      [`GET /api/customers/${CUSTOMER_ID}`]: () => [
+        200,
+        { id: CUSTOMER_ID, ref: 'CLI-000001', displayName: 'Sara Test', archivedAt: null },
+      ],
+      'GET /api/products?status=CONFIRMED': () => [
+        200,
+        { items: [{ id: 'p1', name: 'Produit RMA', insurer: { code: 'RMA' }, usable: true }] },
+      ],
+      [`GET /api/vehicles?customerId=${CUSTOMER_ID}&pageSize=100`]: () => [
+        200,
+        { items: [vehicle] },
+      ],
+      'POST /api/contracts': () => [409, { error: { code: 'DUPLICATE_POLICY' } }],
+    });
+    renderApp(`/contrats/nouveau?client=${CUSTOMER_ID}`);
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText('N° de police'), '663070526001509');
+    await user.selectOptions(await screen.findByLabelText('Produit'), 'RMA · Produit RMA');
+    await user.click(await screen.findByRole('checkbox', { name: /12345-B-6/ }));
+    await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    const field = screen.getByLabelText('N° de police');
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(field).toHaveAccessibleDescription(
+      expect.stringContaining('Cet assureur a déjà un contrat avec ce numéro de police.'),
+    );
+  });
+
   it('fills the end of border insurance from its five durations, without tacit renewal (rule C5)', async () => {
     const fetchMock = mockApi({
       'GET /api/auth/me': () => [200, agentMe()],
@@ -506,6 +550,7 @@ describe('contract form', () => {
     await user.click(within(durations).getByRole('button', { name: '6 mois' }));
     expect(screen.getByLabelText('Fin')).toHaveValue('2027-02-28');
     await user.click(await screen.findByRole('checkbox', { name: /12345-B-6/ }));
+    await user.type(screen.getByLabelText('N° de police'), 'C2026/000111');
     await user.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() =>
@@ -514,6 +559,7 @@ describe('contract form', () => {
     const call = fetchMock.mock.calls.find(([url]) => url === '/api/contracts');
     expect(JSON.parse(call[1].body)).toEqual({
       customerId: CUSTOMER_ID,
+      policyNumber: 'C2026/000111',
       productId: 'pb',
       startDate: '2026-08-31',
       endDate: '2027-02-28',

@@ -769,7 +769,7 @@ export const fr = {
     edit: 'Modifier le contrat',
     back: 'Tous les contrats',
     none: 'Aucun contrat pour ce client.',
-    searchLabel: 'Rechercher (référence, police, client)',
+    searchLabel: 'Rechercher (n° de police, client)',
     statusLabel: 'Statut',
     allStatuses: 'Tous les statuts',
     statuses: {
@@ -814,6 +814,7 @@ export const fr = {
     },
     fields: {
       ref: 'Référence',
+      internalRef: 'Référence interne de l’application',
       customer: 'Client',
       productId: 'Produit',
       insurer: 'Assureur',
@@ -834,7 +835,10 @@ export const fr = {
       productId: 'Seuls les produits confirmés dans le catalogue sont proposés.',
       premiumTotal: 'Montant de l’assureur, sans remise (règle L4). Peut être saisi plus tard.',
       noticeDays: 'Préavis prévu au contrat (règle L11).',
-      policyNumber: 'Numéro attribué par l’assureur.',
+      policyNumber:
+        'Le numéro de l’assureur, imprimé en haut du contrat de la plateforme (par exemple 663070526001509).',
+      policyAtIssue:
+        'Celui enregistré avec le contrat : corrigez-le seulement si l’assureur en a donné un autre.',
       insurerReference:
         'Par exemple : courriel, bordereau ou document de l’assureur, avec sa date.',
       vehicleIds: 'Véhicules non archivés du client.',
@@ -979,6 +983,8 @@ export const fr = {
       VEHICLE_NOT_OF_CUSTOMER: 'Ce véhicule n’appartient pas au client.',
       VEHICLE_ARCHIVED: 'Ce véhicule est archivé.',
       INVALID_AMOUNT: 'Montant invalide (par exemple 1234,50).',
+      INVALID_POLICY_NUMBER:
+        'Recopiez le n° de police imprimé : lettres, chiffres, « / », « - » ou « . ».',
       SERIES_OTHER_INSURER: 'Cette série est celle d’un autre assureur.',
       SERIES_NOT_USABLE: 'Cette série n’est pas confirmée dans le catalogue.',
       VEHICLE_NOT_ON_CONTRACT: 'Ce véhicule n’est pas sur le contrat.',
@@ -1101,6 +1107,8 @@ export const fr = {
     assignButton: 'Confier',
     renew: 'Préparer le nouveau contrat',
     renewTitle: 'Préparer le nouveau contrat',
+    renewPolicyHint:
+      'Celui de l’an dernier ; changez-le seulement si la plateforme a donné un autre numéro.',
     renewIntro:
       'Un contrat en préparation est créé avec le même client, le même produit et les mêmes véhicules. Complétez-le ensuite avec les informations de la plateforme de l’assureur.',
     startDate: 'Début',
@@ -1403,17 +1411,17 @@ export const fr = {
       `Aucun usage confirmé du catalogue n’a le modèle ${model} de cette série : un responsable doit l’ajouter dans le catalogue avant d’enregistrer.`,
     chooseFuel: 'Non indiqué',
     renewOf: (label) => `Renouvellement de ${label} (nouvelle période)`,
-    replacementOf: (label, policy) =>
-      `Remplacement de ${label} (police ${policy}) : nouveau contrat avec la nouvelle police`,
+    replacementOf: (policy) =>
+      `Remplacement de la police ${policy} : nouveau contrat avec la nouvelle police`,
     sameProduct: 'Même produit que le contrat renouvelé',
     vehicleUsage: 'Usage du véhicule',
     quickTitle: 'Tout est reconnu',
     quickIntro: 'Vérifiez ces valeurs avec le scan, puis enregistrez.',
     quickAttestation: (series, number) => `Attestation ${series} n° ${number}`,
     quickPeriod: (from, to) => `Du ${from} au ${to}`,
-    quickContract: (ref) => `Ajoutée au contrat ${ref}`,
-    quickRenewal: (ref) => `Renouvellement du contrat ${ref}`,
-    quickReplacement: (ref) => `Remplacement du contrat ${ref} (nouvelle police)`,
+    quickContract: (number) => `Ajoutée au contrat ${number}`,
+    quickRenewal: (number) => `Renouvellement du contrat ${number}`,
+    quickReplacement: (number) => `Remplacement du contrat ${number} (nouvelle police)`,
     showDetails: 'Vérifier ou corriger en détail',
     quickPremium: 'Prime (total à payer)',
     usageMismatch: (model) =>
@@ -1526,7 +1534,7 @@ export const fr = {
     receipt: 'Reçu',
     date: 'Date',
     customer: 'Client',
-    contract: 'Contrat',
+    contract: 'N° de police',
     amount: 'Montant',
     total: 'Total reversé',
     reversal: 'Annulation',

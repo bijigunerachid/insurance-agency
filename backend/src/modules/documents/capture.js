@@ -62,6 +62,7 @@ export function createCaptureService({ prisma, audit, clock }) {
       contract: {
         id: contract.id,
         ref: contract.ref,
+        policyNumber: contract.policyNumber,
         status: contract.status,
         version: contract.version,
         correctable: CORRECTABLE_STATUSES.includes(contract.status),
