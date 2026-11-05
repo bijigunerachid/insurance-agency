@@ -223,6 +223,19 @@ work while the other waits. The lines are a `DataTable` built from the server's 
 as its `footer`; a phone gets one card per line and a totals card. The shape of the lines while
 loading, an `EmptyState` with what to try when the period is empty.
 
+## Administration and audit log (stage 13)
+
+`UsersPage`: `PageHeader` with « Nouvel utilisateur », the search and the state (`SegmentedControl`
+Actifs / Désactivés / Tous) in one card, the accounts as a `DataTable` (name and username, role,
+state, two-step check, last sign-in; cards on a phone). `UserBadges` are `StatusBadge`s (icon and
+text). `UserDetailPage`: `PageHeader` with the way back and the badges, the facts as a
+`DetailList`, « Modifier » and « Actions » as `Card`s; each action shows what it does next to its
+button, before the confirmation window. The temporary password stands out in its window
+(selectable in one click). `AuditPage`: the filters in one card, the events newest first with
+their technical details on a grey band. `SystemStatus` and `AccountPage` (« Mon compte ») use
+cards kept to a readable width; the page not found shows the way home as a button. Loading shapes
+and empty states everywhere.
+
 ## Stages
 
 The redesign goes stage by stage, each on its own branch, merged by the owner before the next
@@ -230,4 +243,5 @@ The redesign goes stage by stage, each on its own branch, merged by the owner be
 cards; 4 home; 5 clients and vehicles; 6 contracts; 7 renewals; 8 payments and receipt; 9 stock;
 10 scanner and documents; 11 remittances; 12 reports; 13 administration and audit log. The tag
 `avant-redesign` marks the application before stage 1. No stage changes the backend, the API or
-a business rule.
+a business rule. The catalogue (`/catalogue`) and the rules (`/regles`) were not among the 13
+stages and still use the colours from before the tokens.

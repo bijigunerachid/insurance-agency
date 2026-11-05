@@ -74,7 +74,7 @@ export function CreateUserDialog({ roles, run, onCreated, onClose }) {
           <Button variant="secondary" onClick={onClose} disabled={submitting}>
             {fr.common.cancel}
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" loading={submitting}>
             {t.create}
           </Button>
         </div>

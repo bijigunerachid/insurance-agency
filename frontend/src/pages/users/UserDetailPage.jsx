@@ -1,12 +1,14 @@
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
+import { Card } from '../../components/Card.jsx';
 import { ConfirmDialog } from '../../components/ConfirmDialog.jsx';
+import { DetailItem, DetailList } from '../../components/DetailList.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { BackLink, PageHeader } from '../../components/PageHeader.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
 import { useAuth } from '../../features/auth/AuthContext.jsx';
 import { CANCELLED, useSensitiveAction } from '../../features/auth/useSensitiveAction.jsx';
@@ -18,6 +20,7 @@ import { apiPost, apiSend } from '../../services/api.js';
 import { formatDateTime } from '../../utils/format.js';
 
 const t = fr.users;
+const BACK = { to: '/utilisateurs', label: t.back };
 
 const ACTIONS = {
   disable: { path: 'disable', tone: 'danger', when: (u) => u.active },
@@ -34,15 +37,17 @@ export function UserDetailPage() {
   const { state, reload } = useApiQuery(`/users/${id}`);
   const roles = useApiQuery('/roles');
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
-      <ErrorState
-        title={errorMessage(state.error)}
-        body={fr.common.genericError}
-        requestId={state.error.requestId}
-        action={<BackLink />}
-      />
+      <div className="space-y-4">
+        <BackLink to={BACK.to}>{BACK.label}</BackLink>
+        <ErrorState
+          title={errorMessage(state.error)}
+          body={fr.common.genericError}
+          requestId={state.error.requestId}
+        />
+      </div>
     );
   }
 
@@ -52,25 +57,24 @@ export function UserDetailPage() {
 
   return (
     <div className="space-y-6">
-      <BackLink />
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold">{user.displayName}</h1>
-        <UserBadges user={user} />
-      </div>
+      <PageHeader back={BACK} title={user.displayName} meta={<UserBadges user={user} />} />
 
-      <section className="rounded-lg border border-slate-200 bg-white">
-        <dl className="grid gap-px bg-slate-200 text-sm sm:grid-cols-2">
-          <Item label={t.username} value={<span className="font-mono">{user.username}</span>} />
-          <Item label={t.role} value={user.role.name} />
-          <Item label={t.twoFactor} value={user.twoFactorEnabled ? fr.common.yes : fr.common.no} />
-          <Item label={t.activeSessions} value={user.activeSessions} />
-          <Item
+      <Card>
+        <DetailList>
+          <DetailItem label={t.username} value={user.username} mono />
+          <DetailItem label={t.role} value={user.role.name} />
+          <DetailItem
+            label={t.twoFactor}
+            value={user.twoFactorEnabled ? fr.common.yes : fr.common.no}
+          />
+          <DetailItem label={t.activeSessions} value={user.activeSessions} />
+          <DetailItem
             label={t.lastLogin}
             value={user.lastLoginAt ? formatDateTime(user.lastLoginAt) : t.never}
           />
-          <Item label={t.createdAt} value={formatDateTime(user.createdAt)} />
-        </dl>
-      </section>
+          <DetailItem label={t.createdAt} value={formatDateTime(user.createdAt)} />
+        </DetailList>
+      </Card>
 
       {canManage && roles.state.status === 'done' && (
         <ManagePanels user={user} isSelf={isSelf} roles={roles.state.data.items} reload={reload} />
@@ -106,19 +110,14 @@ function ManagePanels({ user, isSelf, roles, reload }) {
   }
 
   const dirty = form.displayName !== user.displayName || form.roleCode !== user.role.code;
+  const available = Object.entries(ACTIONS).filter(([, action]) => action.when(user));
 
   return (
     <>
-      {message && <Alert tone="info">{message}</Alert>}
+      {message && <Alert tone="success">{message}</Alert>}
       {error && <Alert>{errorMessage(error)}</Alert>}
 
-      <section
-        aria-labelledby="edit-title"
-        className="rounded-lg border border-slate-200 bg-white p-4"
-      >
-        <h2 id="edit-title" className="mb-4 font-semibold">
-          {t.edit}
-        </h2>
+      <Card title={t.edit}>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -127,7 +126,7 @@ function ManagePanels({ user, isSelf, roles, reload }) {
             if (form.roleCode !== user.role.code) body.roleCode = form.roleCode;
             perform(() => apiSend('PATCH', `/users/${user.id}`, body));
           }}
-          className="grid max-w-xl gap-4 sm:grid-cols-2"
+          className="grid max-w-2xl gap-4 sm:grid-cols-2"
           noValidate
         >
           <TextField
@@ -145,31 +144,35 @@ function ManagePanels({ user, isSelf, roles, reload }) {
             options={roles.map((role) => ({ value: role.code, label: role.name }))}
           />
           <div className="sm:col-span-2">
-            <Button type="submit" disabled={busy || !dirty || !form.displayName.trim()}>
+            <Button
+              type="submit"
+              loading={busy && !confirming}
+              disabled={busy || !dirty || !form.displayName.trim()}
+            >
               {fr.common.save}
             </Button>
           </div>
         </form>
-      </section>
+      </Card>
 
-      {!isSelf && (
-        <section
-          aria-labelledby="actions-title"
-          className="rounded-lg border border-slate-200 bg-white p-4"
-        >
-          <h2 id="actions-title" className="mb-4 font-semibold">
-            {t.actions}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(ACTIONS)
-              .filter(([, action]) => action.when(user))
-              .map(([key]) => (
-                <Button key={key} variant="secondary" onClick={() => setConfirming(key)}>
+      {!isSelf && available.length > 0 && (
+        <Card title={t.actions}>
+          <ul className="divide-y divide-line">
+            {available.map(([key]) => (
+              <li
+                key={key}
+                className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 py-3 first:pt-0 last:pb-0"
+              >
+                <p className="min-w-0 flex-1 basis-64 text-sm text-ink-muted">
+                  {t.actionConfirm[key]}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => setConfirming(key)}>
                   {t.actionLabels[key]}
                 </Button>
-              ))}
-          </div>
-        </section>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       {confirming && (
@@ -205,26 +208,5 @@ function ManagePanels({ user, isSelf, roles, reload }) {
       )}
       {dialog}
     </>
-  );
-}
-
-function Item({ label, value }) {
-  return (
-    <div className="bg-white px-4 py-3">
-      <dt className="text-slate-600">{label}</dt>
-      <dd className="mt-0.5 font-medium">{value}</dd>
-    </div>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link
-      to="/utilisateurs"
-      className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-    >
-      <ArrowLeftIcon aria-hidden="true" className="size-4" />
-      {t.back}
-    </Link>
   );
 }
