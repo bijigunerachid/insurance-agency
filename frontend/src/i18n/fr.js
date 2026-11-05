@@ -1166,6 +1166,9 @@ export const fr = {
     roundings: (n) =>
       n === 1 ? 'Écart d’arrondi · 1 paiement' : `Écarts d’arrondi · ${n} paiements`,
     receipt: 'Reçu',
+    customer: 'Client',
+    when: 'Date',
+    amountShort: 'Montant',
     printReceipt: 'Voir et imprimer le reçu',
     reverse: 'Annuler le paiement',
     reverseIntro:

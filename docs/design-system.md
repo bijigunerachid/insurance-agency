@@ -160,6 +160,19 @@ come first without any sorting of the screen. The follow-up page (`RenewalDetail
 follow-up, the follow-up form, the hand-over form and the history. The page's API does not send
 the client's phone (only the list does), so the number to call stays on the list.
 
+## Payments and receipt (stage 8)
+
+The payments page (`PaymentsPage`): `PageHeader`, the period and the method (a
+`SegmentedControl`) in one card, the total in a highlighted tile then one tile per method (and the
+roundings), the payments as a `DataTable` (receipt, client and contract, date, method, who,
+amount), the shapes of the tiles and rows while loading. On a contract (`ContractPayments`):
+`SectionHeading` with « Encaisser », the amounts in one block, the payments as one list and a
+compact empty line; while loading or on an error the part keeps its heading. The payment window
+(`RecordDialog`) keeps its logic: amount, methods as pills (real radio buttons), the change to give
+back in green, the rarely used fields folded, « Encaisser » showing its work. The receipt
+(`ReceiptPage`) moved to the tokens on screen; its printed layout is unchanged (two copies on one
+A4 sheet, checked by printing it to PDF: one page).
+
 ## Stages
 
 The redesign goes stage by stage, each on its own branch, merged by the owner before the next

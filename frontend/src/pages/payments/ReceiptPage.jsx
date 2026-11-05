@@ -1,10 +1,11 @@
-import { ArrowLeftIcon, PrinterIcon } from '@heroicons/react/20/solid';
+import { PrinterIcon } from '@heroicons/react/20/solid';
 import { Fragment } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { Alert } from '../../components/Alert.jsx';
 import { Button } from '../../components/Button.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { BackLink } from '../../components/PageHeader.jsx';
+import { SkeletonDetail } from '../../components/Skeleton.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { formatDateTime, formatMoney } from '../../utils/format.js';
@@ -19,7 +20,7 @@ export function ReceiptPage() {
   const { id } = useParams();
   const { state } = useApiQuery(`/payments/${id}`);
 
-  if (state.status === 'loading') return <Spinner label={fr.app.loading} />;
+  if (state.status === 'loading') return <SkeletonDetail />;
   if (state.status === 'error') {
     return (
       <ErrorState
@@ -36,15 +37,8 @@ export function ReceiptPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Link
-          to={`/contrats/${receipt.contract.id}`}
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline"
-        >
-          <ArrowLeftIcon aria-hidden="true" className="size-4" />
-          {t.back}
-        </Link>
-        <Button onClick={() => window.print()}>
-          <PrinterIcon aria-hidden="true" className="size-4" />
+        <BackLink to={`/contrats/${receipt.contract.id}`}>{t.back}</BackLink>
+        <Button icon={PrinterIcon} onClick={() => window.print()}>
           {t.print}
         </Button>
       </div>
@@ -66,7 +60,7 @@ export function ReceiptPage() {
         />
         <p
           aria-hidden="true"
-          className="mx-auto max-w-2xl border-t-2 border-dashed border-slate-400 pt-1 text-center text-xs text-slate-500 print:my-[4mm]"
+          className="mx-auto max-w-2xl border-t-2 border-dashed border-line-strong pt-1 text-center text-xs text-ink-muted print:my-[4mm]"
         >
           ✂ {t.cutHere}
         </p>
@@ -82,12 +76,12 @@ function ReceiptCopy({ receipt, agency, reversal, copy, main = false }) {
   return (
     <article
       aria-label={copy}
-      className="mx-auto max-w-2xl break-inside-avoid rounded-lg border-2 border-slate-700 bg-white p-6 print:max-w-none print:rounded-none print:p-[3mm] print:text-[11px]"
+      className="mx-auto max-w-2xl break-inside-avoid rounded-card border-2 border-ink-soft bg-white p-6 text-ink print:max-w-none print:rounded-none print:p-[3mm] print:text-[11px]"
     >
-      <p className="mb-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 print:mb-0">
+      <p className="mb-2 text-right text-xs font-semibold uppercase tracking-wide text-ink-muted print:mb-0">
         {copy}
       </p>
-      <header className="flex flex-wrap justify-between gap-4 border-b border-slate-300 pb-4 print:pb-2">
+      <header className="flex flex-wrap justify-between gap-4 border-b border-line-strong/60 pb-4 print:pb-2">
         {/* The agency's logo (its own mark, never an insurer's: rules L2, L3), or its name. */}
         <div className="min-w-0 flex-1 text-sm">
           {agency.logo ? (
@@ -99,7 +93,7 @@ function ReceiptCopy({ receipt, agency, reversal, copy, main = false }) {
           ) : (
             agency.name && <p className="text-base font-semibold">{agency.name}</p>
           )}
-          {agency.tagline && <p className="text-slate-600">{agency.tagline}</p>}
+          {agency.tagline && <p className="text-ink-muted">{agency.tagline}</p>}
         </div>
         <div className="text-right">
           <Title className="text-xl font-semibold">{reversal ? t.reversalTitle : t.title}</Title>
@@ -136,10 +130,10 @@ function ReceiptCopy({ receipt, agency, reversal, copy, main = false }) {
       {/* As on the agency's former receipt (owner, 30/10/2026): the cash handed over and the
           change given back, when the employee typed it, on the amount's line so both signed
           copies still fit on one A4 sheet. */}
-      <p className="mt-6 flex flex-wrap items-baseline gap-x-4 border-t border-slate-300 pt-4 print:mt-2 print:pt-2">
+      <p className="mt-6 flex flex-wrap items-baseline gap-x-4 border-t border-line-strong/60 pt-4 print:mt-2 print:pt-2">
         <span className="text-sm font-medium">{t.amount}</span>
         {receipt.cashTendered && (
-          <span className="text-sm tabular-nums text-slate-700">
+          <span className="text-sm tabular-nums text-ink-soft">
             <span className="whitespace-nowrap">
               {t.cashTendered} : {formatMoney(receipt.cashTendered)}
             </span>{' '}
@@ -158,10 +152,10 @@ function ReceiptCopy({ receipt, agency, reversal, copy, main = false }) {
         <Signature label={t.signClient} />
         <Signature label={t.signAgency} />
       </div>
-      <p className="mt-4 text-xs text-slate-600 print:mt-2">{t.notQuittance}</p>
+      <p className="mt-4 text-xs text-ink-muted print:mt-2">{t.notQuittance}</p>
       {/* The agency's legal line, as on its letterhead: two short lines, so both signed
           copies still fit on one A4 sheet. */}
-      <footer className="mt-3 border-t border-slate-300 pt-2 text-center text-[11px] leading-snug text-slate-700 print:mt-1 print:pt-1 print:text-[8.5px]">
+      <footer className="mt-3 border-t border-line-strong/60 pt-2 text-center text-[11px] leading-snug text-ink-soft print:mt-1 print:pt-1 print:text-[8.5px]">
         <JoinedLine
           parts={[
             agency.address,
@@ -209,8 +203,8 @@ function JoinedLine({ parts }) {
 
 function Signature({ label }) {
   return (
-    <div className="flex h-24 flex-col rounded border border-slate-400 p-2 print:h-[14mm]">
-      <span className="text-xs font-medium text-slate-700">{label}</span>
+    <div className="flex h-24 flex-col rounded-control border border-line-strong p-2 print:h-[14mm]">
+      <span className="text-xs font-medium text-ink-soft">{label}</span>
     </div>
   );
 }
@@ -218,7 +212,7 @@ function Signature({ label }) {
 function Line({ label, value }) {
   return (
     <div>
-      <dt className="text-slate-600">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className="font-medium">{value || fr.vehicles.notSpecified}</dd>
     </div>
   );

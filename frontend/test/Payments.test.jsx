@@ -361,3 +361,76 @@ describe('receipt', () => {
     expect(logos[0]).toHaveAttribute('src', '/api/agency/logo');
   });
 });
+
+describe('the payments of the day on the new design', () => {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Casablanca' }).format(
+    new Date(),
+  );
+  const list = (items, byMethod) => [
+    200,
+    {
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: 25,
+      pageCount: 1,
+      totals: {
+        amount: items.reduce((sum, i) => sum + Number(i.amount), 0).toFixed(2),
+        byMethod,
+        roundings: 0,
+        roundingGap: '0.00',
+      },
+    },
+  ];
+  const row = {
+    ...payment,
+    contract: { id: CONTRACT_ID, ref: 'CTR-2026-00001', customer: 'Sara Test', insurer: 'RMA' },
+  };
+
+  it('shows the total, one tile per method, and the payments as a table', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/payments?page=1&from=${today}&to=${today}`]: () => first,
+      [`GET /api/payments?page=1&from=${today}&to=${today}&method=CHEQUE`]: () => list([], []),
+    });
+    renderApp('/paiements');
+    const user = userEvent.setup();
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+
+    answer(list([row], [{ method: 'CASH', amount: '1000.00' }]));
+    const table = await screen.findByRole('table', { name: 'Paiements' });
+    const cells = within(table).getAllByRole('row')[1];
+    expect(within(cells).getByRole('link', { name: 'REC-2026-00001' })).toHaveAttribute(
+      'href',
+      `/recus/${PAYMENT_ID}`,
+    );
+    expect(cells).toHaveTextContent('Sara Test');
+    expect(cells).toHaveTextContent('Karim Test');
+    expect(screen.getByText('Total · 1 paiement').nextElementSibling).toHaveTextContent(
+      '1 000,00 MAD',
+    );
+    expect(screen.getByText('Espèces', { selector: 'dt' })).toBeInTheDocument();
+
+    // The method is one click among the choices side by side.
+    await user.click(screen.getByRole('radio', { name: 'Chèque' }));
+    expect(await screen.findByText('Aucun paiement.')).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+      `/api/payments?page=1&from=${today}&to=${today}&method=CHEQUE`,
+    );
+  });
+
+  it('keeps the « Paiements » heading of a contract while its payments load or fail', async () => {
+    mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/contracts/${CONTRACT_ID}`]: () => [200, contract],
+      [`GET /api/contracts/${CONTRACT_ID}/payments`]: () => [500, { error: { code: 'INTERNAL' } }],
+    });
+    renderApp(`/contrats/${CONTRACT_ID}`);
+    const part = await screen.findByRole('region', { name: 'Paiements' });
+    expect(await within(part).findByRole('alert')).toBeInTheDocument();
+  });
+});

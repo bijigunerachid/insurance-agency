@@ -66,7 +66,11 @@ test('an agent finds a client and a contract in the lists, takes a payment from 
 
   // 3. Today's payments: the total first, each line with its amount at the right.
   await page.goto('/paiements');
-  const line = page.getByRole('listitem').filter({ hasText: contract.ref });
+  // A table row on a computer, a card on a phone.
+  const line =
+    testInfo.project.name === 'phone-390'
+      ? page.getByRole('listitem').filter({ hasText: contract.ref })
+      : page.getByRole('row').filter({ hasText: contract.ref });
   await expect(line).toContainText(`Sara ${lastName}`);
   await expect(line).toContainText('300,00 MAD');
   await expectNoHorizontalScroll(page, expect);
