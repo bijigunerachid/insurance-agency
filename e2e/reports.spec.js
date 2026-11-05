@@ -47,9 +47,18 @@ test('a manager reads the payments of the day and exports them to Excel after co
     'aria-pressed',
     'true',
   );
-  const table = page.getByRole('table');
-  await expect(table.getByRole('columnheader', { name: 'Espèces' })).toBeVisible();
-  await expect(table.getByRole('row').last()).toContainText('Total');
+  const phone = testInfo.project.name === 'phone-390';
+  // A table on a computer, its totals as the last row; a card per day on a phone, the totals in
+  // their own card under them.
+  if (phone) {
+    const days = page.getByRole('list', { name: 'Paiements par jour' });
+    await expect(days.getByRole('listitem').last()).toContainText('Espèces');
+    await expect(page.getByRole('region', { name: 'Total' })).toContainText('Total (MAD)');
+  } else {
+    const table = page.getByRole('table', { name: 'Paiements par jour' });
+    await expect(table.getByRole('columnheader', { name: 'Espèces' })).toBeVisible();
+    await expect(table.getByRole('row').last()).toContainText('Total');
+  }
   await expectNoHorizontalScroll(page, expect);
   await shot('reports');
 
@@ -75,10 +84,18 @@ test('a manager reads the payments of the day and exports them to Excel after co
   await page
     .getByLabel('Rapport', { exact: true })
     .selectOption({ label: 'Soldes clients à recouvrer' });
-  const owed = page.getByRole('row', { name: new RegExp(`Sara ${lastName}B`) });
+  const line = (name) =>
+    phone
+      ? page
+          .getByRole('list', { name: 'Soldes clients à recouvrer' })
+          .getByRole('listitem')
+          .filter({ hasText: name })
+      : page.getByRole('row', { name });
+  const owed = line(new RegExp(`Sara ${lastName}B`));
   await expect(owed).toContainText('2,64');
   await expect(owed).toContainText('Plus de 15 jours');
-  await expect(page.getByRole('row', { name: new RegExp(`Sara ${lastName} `) })).toHaveCount(0);
+  // The customer who paid everything is not listed.
+  await expect(line(new RegExp(`Sara ${lastName}(?!B)`))).toHaveCount(0);
   await expectNoHorizontalScroll(page, expect);
   await shot('report-balances');
 

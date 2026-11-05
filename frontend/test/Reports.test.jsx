@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { me, mockApi } from './mockApi.js';
+import { phoneScreen } from './phoneScreen.js';
 import { renderApp } from './renderApp.jsx';
 
 const as = (role, permissions) => () => [200, me({ role, permissions })];
@@ -94,7 +95,7 @@ describe('reports', () => {
     const footer = within(table).getAllByRole('row').at(-1);
     expect(within(footer).getByText('Total')).toBeInTheDocument();
     expect(within(footer).getByText('1 234,50 MAD')).toBeInTheDocument();
-    expect(screen.getByText('· 2 lignes')).toBeInTheDocument();
+    expect(screen.getByText('2 lignes · du 01/10/2026 au 31/10/2026')).toBeInTheDocument();
   });
 
   it('changes the period in one tap: last month, this year', async () => {
@@ -148,6 +149,8 @@ describe('reports', () => {
     expect(
       screen.getByText(/ce que les clients doivent encore aujourd’hui, les plus anciens d’abord/),
     ).toBeInTheDocument();
+    // Today's situation, not the period's.
+    expect(screen.getByText('1 ligne · situation d’aujourd’hui')).toBeInTheDocument();
   });
 
   it('asks management to confirm their identity before an export, then downloads it', async () => {
@@ -177,5 +180,92 @@ describe('reports', () => {
     expect(await screen.findByText('Fichier téléchargé : export')).toBeInTheDocument();
     const exports = fetchMock.mock.calls.filter(([url]) => url.includes('/export?'));
     expect(exports).toHaveLength(2);
+  });
+});
+
+describe('reports on the new design', () => {
+  let restore;
+  afterEach(() => restore?.());
+
+  it('shows the shape of the lines while a report loads, then keeps the first column in view', async () => {
+    let answer;
+    const first = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': auditor,
+      'GET /api/reports': () => [200, list],
+      [`GET /api/reports/contrats-echeances?${PERIOD}`]: () => first,
+    });
+    renderApp('/rapports');
+    expect(await screen.findByRole('status')).toHaveTextContent('Chargement…');
+
+    answer([200, expiring]);
+    const table = await screen.findByRole('table', { name: 'Contrats arrivant à échéance' });
+    const [header] = within(table).getAllByRole('columnheader');
+    expect(header).toHaveTextContent('Échéance');
+    expect(header).toHaveClass('sticky');
+    expect(within(table).getByRole('cell', { name: '31/10/2026' })).toHaveClass('sticky');
+    // Only money is added up: no totals line for a list of contracts.
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('shows one card per line on a phone, and the totals in their own card', async () => {
+    restore = phoneScreen();
+    mockApi({
+      'GET /api/auth/me': auditor,
+      'GET /api/reports': () => [200, list],
+      [`GET /api/reports/contrats-echeances?${PERIOD}`]: () => [200, perDay],
+    });
+    renderApp('/rapports');
+    const lines = await screen.findByRole('list', { name: 'Paiements par jour' });
+    expect(screen.queryByRole('table')).toBeNull();
+    const cards = within(lines).getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    expect(cards[0].firstChild).toHaveTextContent('22/10/2026');
+    expect(cards[0]).toHaveTextContent('234,50 MAD');
+    const totals = screen.getByRole('region', { name: 'Total' });
+    expect(within(totals).getByText('Total (MAD)')).toBeInTheDocument();
+    expect(within(totals).getByText('1 234,50 MAD')).toBeInTheDocument();
+  });
+
+  it('says plainly when a period has nothing, and what to try instead', async () => {
+    mockApi({
+      'GET /api/auth/me': auditor,
+      'GET /api/reports': () => [200, list],
+      [`GET /api/reports/contrats-echeances?${PERIOD}`]: () => [200, { ...expiring, rows: [] }],
+    });
+    renderApp('/rapports');
+    expect(await screen.findByText('Aucune donnée sur cette période.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Choisissez une autre période ou un autre rapport.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.getByText('0 ligne · du 01/10/2026 au 31/10/2026')).toBeInTheDocument();
+  });
+
+  it('shows the export at work and keeps the other one waiting', async () => {
+    let answer;
+    const exported = new Promise((resolve) => {
+      answer = resolve;
+    });
+    mockApi({
+      'GET /api/auth/me': manager,
+      'GET /api/reports': () => [200, list],
+      [`GET /api/reports/contrats-echeances?${PERIOD}`]: () => [200, expiring],
+      [`GET /api/reports/contrats-echeances/export?${PERIOD}&format=csv`]: () => exported,
+    });
+    renderApp('/rapports');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(await screen.findByRole('button', { name: 'Exporter en CSV' }));
+    expect(screen.getByRole('button', { name: 'Exporter en CSV' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Exporter en Excel' })).toBeDisabled();
+    answer([200, {}]);
+    expect(await screen.findByText('Fichier téléchargé : export')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exporter en Excel' })).toBeEnabled();
   });
 });
