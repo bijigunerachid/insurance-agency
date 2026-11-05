@@ -44,8 +44,8 @@ export const assignRenewalBody = z.strictObject({ assignedUserId: z.uuid(), vers
 /** Defaults: the same product, and the same length of cover starting the day after. */
 export const renewBody = z.strictObject({
   productId: z.preprocess(blankToNull, z.uuid().nullable().optional()),
-  /** Another number than last year's, when the platform gave one; else last year's is kept. */
-  policyNumber: z.preprocess(blankToNull, policyNumber.nullable().optional()),
+  /** The new year's number: the platform gives a new one at every renewal (owner, 05/11/2026). */
+  policyNumber,
   startDate: z.preprocess(blankToNull, z.iso.date().nullable().optional()),
   endDate: z.preprocess(blankToNull, z.iso.date().nullable().optional()),
   version,

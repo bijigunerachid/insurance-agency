@@ -138,8 +138,8 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
 
   /**
    * The next year of a contract, as the platform prints it ("RENOUVELLEMENT"): a draft linked
-   * to the contract it renews (same customer and vehicles, the scanned period), which may keep
-   * its policy number. An open renewal of the old contract is closed as renewed.
+   * to the contract it renews (same customer and vehicles, the scanned period), under the new
+   * policy number the sheet prints. An open renewal of the old contract is closed as renewed.
    */
   async function renewFromScan(auth, request, renew, customerId, vehicleId, policyNumber) {
     return prisma.$transaction(async (tx) => {
@@ -163,8 +163,8 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
       }
       const draft = createContractBody.parse({
         customerId,
-        // The sheet's policy number: the same as last year's, or the new one of a replacement.
-        policyNumber: policyNumber ?? old.policyNumber,
+        // The sheet's policy number: a renewal always has a new one (owner, 05/11/2026).
+        policyNumber,
         productId: renew.productId ?? old.productId,
         startDate: renew.startDate,
         endDate: renew.endDate,
@@ -447,7 +447,6 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
           SELECT "id" FROM "contract"
           WHERE "insurerId" = ${series.insurerId}::uuid
             AND upper(regexp_replace("policyNumber", '[^[:alnum:]]', '', 'g')) = ${compact(number)}
-          -- The latest year of the renewal chain, when the policy number is kept.
           ORDER BY "startDate" DESC
           LIMIT 1`;
         return row ?? null;
@@ -459,6 +458,23 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
       if (!found && replacesPolicy && series) {
         found = await byPolicy(replacesPolicy);
         replaced = Boolean(found);
+      }
+      // A renewal sheet prints the new year's number, which no contract has yet (owner,
+      // 05/11/2026): the vehicle's latest contract at the insurer not renewed yet, offered as the
+      // one it renews when the sheet's period follows it (the review compares the dates).
+      let byVehicle = false;
+      if (!found && result.vehicle && series) {
+        found = await prisma.contract.findFirst({
+          where: {
+            insurerId: series.insurerId,
+            status: { not: 'CANCELLED' },
+            nextContract: { is: null },
+            vehicles: { some: { vehicleId: result.vehicle.id, removedAt: null } },
+          },
+          orderBy: { endDate: 'desc' },
+          select: { id: true },
+        });
+        byVehicle = Boolean(found);
       }
       if (found) {
         const contract = await prisma.contract.findUnique({
@@ -485,6 +501,8 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
           // The vehicles an avenant may replace or renumber.
           vehicles: contract.vehicles.map((v) => v.vehicle),
           replacedPolicy: replaced,
+          // Found by the vehicle, not by the sheet's number: only its next year, never itself.
+          byVehicle,
         };
       }
       if (series && number) {

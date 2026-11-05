@@ -44,14 +44,26 @@ test('an agent sees a renewal on the home page, follows it and prepares the new 
   await shot('renewal');
 
   // 3. The new contract is prepared as a draft, linked to the old one.
+  // The platform gives a new policy number at every renewal: last year's is refused.
   await page.getByRole('button', { name: 'Préparer le nouveau contrat' }).click();
-  await page
-    .getByRole('dialog', { name: 'Préparer le nouveau contrat' })
-    .getByRole('button', { name: 'Préparer le nouveau contrat' })
-    .click();
+  const dialog = page.getByRole('dialog', { name: 'Préparer le nouveau contrat' });
+  const policy = dialog.getByLabel('N° de police');
+  await expect(policy).toHaveValue('');
+  await policy.fill(contract.policyNumber);
+  await dialog.getByRole('button', { name: 'Préparer le nouveau contrat' }).click();
+  await expect(
+    dialog.getByText('un renouvellement a toujours un nouveau n° de police'),
+  ).toBeVisible();
+  await expectNoHorizontalScroll(page, expect);
+  await shot('renew-same-number');
+  const newNumber = `${contract.policyNumber}-27`;
+  await policy.fill(newNumber);
+  await dialog.getByRole('button', { name: 'Préparer le nouveau contrat' }).click();
   const header = page.getByRole('heading', { level: 1 }).locator('..');
   await expect(header.getByText('En préparation', { exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: contract.policyNumber })).toBeVisible();
+  await expect(header).toContainText(newNumber);
+  // Last year's contract stays reachable under its own number.
+  await expect(page.getByRole('link', { name: contract.policyNumber, exact: true })).toBeVisible();
 
   expect(external).toEqual([]);
   expect(consoleMessages).toEqual([]);

@@ -253,9 +253,9 @@ function detailView(row, today) {
 }
 
 /**
- * Is the policy number used by another contract of the insurer, outside the renewal chain of
- * `contractId` (or of `previousContractId` for a contract not saved yet)? A renewal may keep its
- * number (owner, 24/10/2026). The database function is the one its trigger uses.
+ * Is the policy number used by another contract of the insurer? A contract cancelled before its
+ * issue does not hold its number; a renewal never keeps last year's (owner, 05/11/2026). The
+ * database function is the one its trigger uses.
  */
 export async function policyTaken(client, insurerId, policyNumber, contractId, previousContractId) {
   const [row] = await client.$queryRaw`
@@ -337,6 +337,21 @@ export function createContractsService({ prisma, audit, clock, config }) {
   const duplicateAmendment = () =>
     new HttpError(409, 'DUPLICATE_AMENDMENT', 'Cet avenant est déjà enregistré.');
 
+  /**
+   * A renewal always has a new policy number (owner, 05/11/2026): last year's is refused with
+   * its own message, before the general uniqueness check.
+   */
+  async function assertNewPolicy(tx, previousContractId, policy) {
+    if (!previousContractId || !policy) return;
+    const previous = await tx.contract.findUnique({
+      where: { id: previousContractId },
+      select: { policyNumber: true },
+    });
+    if (previous?.policyNumber === policy) {
+      throw invalid('policyNumber', 'SAME_POLICY_AS_PREVIOUS');
+    }
+  }
+
   /** A unique index refused the row: a concurrent request did the same thing first. */
   const mapUnique = (err, error) => (err?.code === 'P2002' ? error() : err);
 
@@ -359,8 +374,9 @@ export function createContractsService({ prisma, audit, clock, config }) {
     assertBorderTerms(product, body);
     await assertVehiclesOf(tx, vehicleIds, customer.id);
     // The insurer's policy number is the contract's number (owner, 05/11/2026): known from the
-    // platform before the contract is recorded, unique per insurer outside a renewal chain.
+    // platform before the contract is recorded, unique per insurer, new at every renewal.
     if (!body.policyNumber) throw invalid('policyNumber', 'REQUIRED');
+    await assertNewPolicy(tx, body.previousContractId, body.policyNumber);
     if (
       await policyTaken(tx, product.insurerId, body.policyNumber, null, body.previousContractId)
     ) {
@@ -630,6 +646,7 @@ export function createContractsService({ prisma, audit, clock, config }) {
           data.policyNumber = changes.policyNumber;
           changed.push('policyNumber');
         }
+        if (data.policyNumber) await assertNewPolicy(tx, current.previousContractId, policy);
         if (
           policy &&
           (data.policyNumber || data.insurerId) &&
@@ -736,8 +753,9 @@ export function createContractsService({ prisma, audit, clock, config }) {
             // contract recorded before 05/11/2026 may have none: it is asked for here).
             const policy = body.policyNumber ?? current.policyNumber;
             if (!policy) throw invalid('policyNumber', 'REQUIRED');
-            // Unique per insurer, except along this contract's renewal chain (same rule as the
-            // database trigger, which also holds against two issues at the same moment).
+            // New at a renewal, and unique per insurer (same rule as the database trigger, which
+            // also holds against two issues at the same moment).
+            await assertNewPolicy(tx, current.previousContractId, policy);
             if (await policyTaken(tx, current.insurerId, policy, id, current.previousContractId)) {
               throw duplicatePolicy();
             }

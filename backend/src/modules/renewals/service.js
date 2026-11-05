@@ -324,8 +324,8 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
         const newId = await contracts.insertDraft(tx, auth, request, {
           customerId: old.customerId,
           productId: productId ?? old.productId,
-          // The renewal keeps its policy number, unless the platform gave another one.
-          policyNumber: policyNumber ?? old.policyNumber,
+          // The platform gives a new policy number at every renewal (owner, 05/11/2026).
+          policyNumber,
           startDate: start,
           endDate: end,
           tacitRenewal: old.tacitRenewal,
