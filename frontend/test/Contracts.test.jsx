@@ -635,4 +635,46 @@ describe('the contract page on the new design', () => {
       screen.getByText('Essayez une autre recherche ou retirez des filtres.'),
     ).toBeInTheDocument();
   });
+
+  it('filters the list by what the customer paid: nothing, part of it, all of it', async () => {
+    const page = (items) => [
+      200,
+      { items, total: items.length, page: 1, pageSize: 25, pageCount: 1 },
+    ];
+    const fetchMock = mockApi({
+      'GET /api/auth/me': () => [200, agentMe()],
+      'GET /api/contracts?page=1': () => page([]),
+      'GET /api/contracts?page=1&payment=PARTIAL': () => page([]),
+      'GET /api/contracts?page=1&status=ISSUED&payment=NONE': () => page([]),
+    });
+    renderApp('/contrats');
+    const user = userEvent.setup();
+    const payment = await screen.findByRole('group', { name: 'Paiement' });
+    expect(
+      within(payment)
+        .getAllByRole('radio')
+        .map((radio) => radio.labels[0].textContent),
+    ).toEqual(['Tous', 'Rien payé', 'Payé en partie', 'Payé']);
+    expect(within(payment).getByRole('radio', { name: 'Tous' })).toBeChecked();
+
+    await user.click(within(payment).getByRole('radio', { name: 'Payé en partie' }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+        '/api/contracts?page=1&payment=PARTIAL',
+      ),
+    );
+    // A filtered list that is empty says so.
+    expect(
+      await screen.findByText('Essayez une autre recherche ou retirez des filtres.'),
+    ).toBeInTheDocument();
+
+    // With the status filter too.
+    await user.selectOptions(screen.getByLabelText('Statut'), 'ISSUED');
+    await user.click(within(payment).getByRole('radio', { name: 'Rien payé' }));
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+        '/api/contracts?page=1&status=ISSUED&payment=NONE',
+      ),
+    );
+  });
 });

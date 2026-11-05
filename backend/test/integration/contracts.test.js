@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { addOneMonth } from '../../src/modules/contracts/service.js';
@@ -459,6 +460,71 @@ describe('attestations', () => {
       version: 2,
     });
     expect(again.body.error.code).toBe('ALREADY_CANCELLED');
+  });
+});
+
+describe('the payment filter of the contracts list', () => {
+  it('lists the contracts paid in nothing, in part or in full, the amount due known', async () => {
+    const manager = await signIn('manager.a', 'MANAGER');
+    const products = await prepareCatalogue(manager);
+    const agent = await signIn('agent.a', 'AGENT');
+    const { customer, car } = await customerWithVehicles(agent);
+    const draft = async (overrides) =>
+      (
+        await agent.post(
+          '/api/contracts',
+          contractBody(customer, products.RMA, [car.id], overrides),
+        )
+      ).body;
+    // Issued under its own number (the default one is POL-0001 for every contract).
+    const issued = async (overrides) => {
+      const contract = await draft(overrides);
+      return issue(agent, contract, contract.policyNumber);
+    };
+    const pay = (contract, amount) =>
+      agent.post(`/api/contracts/${contract.id}/payments`, {
+        method: 'CASH',
+        amount,
+        idempotencyKey: randomUUID(),
+      });
+    // The premium of every contract is 1 234,50.
+    const nothing = await issued();
+    const part = await issued();
+    expect((await pay(part, '500')).status).toBe(201);
+    const all = await issued();
+    expect((await pay(all, '1234.50')).status).toBe(201);
+    // Sent to the insurer and paid at the counter: paid, before the issue too.
+    const sent = await draft();
+    await agent.post(`/api/contracts/${sent.id}/transition`, {
+      to: 'AWAITING_INSURER',
+      version: sent.version,
+    });
+    expect((await pay(sent, '1234.50')).status).toBe(201);
+    // Left out: a draft, a cancelled contract, and one whose premium is not known yet.
+    const stillDraft = await draft();
+    const cancelled = await draft();
+    await agent.post(`/api/contracts/${cancelled.id}/transition`, {
+      to: 'CANCELLED',
+      reason: 'Client parti',
+      version: cancelled.version,
+    });
+    const noPremium = await issued({ premiumTotal: null });
+
+    const ids = async (query) =>
+      (await agent.get(`/api/contracts?${query}`)).body.items.map((c) => c.id).sort();
+    expect(await ids('payment=NONE')).toEqual([nothing.id]);
+    expect(await ids('payment=PARTIAL')).toEqual([part.id]);
+    expect(await ids('payment=PAID')).toEqual([all.id, sent.id].sort());
+    // With the other filters, and with the home page's « unpaid » list.
+    expect(await ids('payment=PAID&status=ISSUED')).toEqual([all.id]);
+    expect(await ids('payment=PARTIAL&unpaid=1')).toEqual([part.id]);
+    expect(await ids('payment=PAID&unpaid=1')).toEqual([]);
+    expect(await ids(`payment=PAID&q=${encodeURIComponent(sent.policyNumber)}`)).toEqual([sent.id]);
+    const everything = await ids('');
+    for (const contract of [stillDraft, cancelled, noPremium]) {
+      expect(everything).toContain(contract.id);
+    }
+    expect((await agent.get('/api/contracts?payment=SOME')).status).toBe(400);
   });
 });
 

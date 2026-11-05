@@ -8,6 +8,7 @@ import { ErrorState } from '../../components/ErrorState.jsx';
 import { MoreFilters } from '../../components/MoreFilters.jsx';
 import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
+import { SegmentedControl } from '../../components/SegmentedControl.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
 import { SkeletonList } from '../../components/Skeleton.jsx';
 import { TextField } from '../../components/TextField.jsx';
@@ -32,10 +33,12 @@ export function ContractsPage() {
   // The contract being paid, with the id that makes a repeated click record one payment.
   const [paying, setPaying] = useState(null);
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState({ q: '', status: '', page: 1 });
+  const [filters, setFilters] = useState({ q: '', status: '', payment: '', page: 1 });
   const params = new URLSearchParams({ page: String(filters.page) });
   if (filters.q) params.set('q', filters.q);
   if (filters.status) params.set('status', filters.status);
+  // What the customer paid (owner, 05/11/2026): nothing, part of it, all of it.
+  if (filters.payment) params.set('payment', filters.payment);
   if (unpaid) params.set('unpaid', '1');
   useInsurerFilter().apply(params);
   const { state } = useApiQuery(`/contracts?${params}`);
@@ -75,7 +78,11 @@ export function ContractsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <Button type="submit" variant="secondary" className="md:order-last md:justify-self-start">
+          <Button
+            type="submit"
+            variant="secondary"
+            className="md:order-last md:self-end md:justify-self-start"
+          >
             {fr.common.search}
           </Button>
         </div>
@@ -90,6 +97,18 @@ export function ContractsPage() {
             ]}
           />
         </MoreFilters>
+        <SegmentedControl
+          // After the search button on a computer, where the search row ends with it.
+          className="md:order-last md:col-span-2 lg:col-span-3"
+          gridOnPhone
+          label={t.paymentLabel}
+          value={filters.payment}
+          onChange={(payment) => setFilters({ ...filters, payment, page: 1 })}
+          options={[
+            { value: '', label: t.paymentAll },
+            ...Object.entries(t.paymentStates).map(([value, label]) => ({ value, label })),
+          ]}
+        />
       </form>
 
       {state.status === 'loading' && <SkeletonList />}
@@ -104,7 +123,11 @@ export function ContractsPage() {
         <EmptyState
           icon={DocumentTextIcon}
           title={fr.common.empty}
-          description={filters.q || filters.status || unpaid ? fr.common.emptyFiltered : undefined}
+          description={
+            filters.q || filters.status || filters.payment || unpaid
+              ? fr.common.emptyFiltered
+              : undefined
+          }
         />
       )}
       {state.status === 'done' && state.data.items.length > 0 && (
