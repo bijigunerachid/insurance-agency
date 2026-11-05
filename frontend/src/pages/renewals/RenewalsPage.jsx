@@ -1,8 +1,11 @@
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
+import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
+import { PageHeader } from '../../components/PageHeader.jsx';
 import { Pagination } from '../../components/Pagination.jsx';
-import { SelectField } from '../../components/SelectField.jsx';
-import { Spinner } from '../../components/Spinner.jsx';
+import { SegmentedControl } from '../../components/SegmentedControl.jsx';
+import { SkeletonList } from '../../components/Skeleton.jsx';
 import { RenewalList } from '../../features/renewals/RenewalList.jsx';
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
@@ -21,32 +24,27 @@ export function RenewalsPage() {
   const { state } = useApiQuery(`/renewals?${params}`);
 
   return (
-    <section aria-labelledby="renewals-title" className="space-y-4">
-      <div>
-        <h1 id="renewals-title" className="text-2xl font-semibold">
-          {t.title}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">{t.intro(WINDOW_DAYS)}</p>
-      </div>
+    <section aria-labelledby="renewals-title" className="space-y-5">
+      <PageHeader title={t.title} titleId="renewals-title" description={t.intro(WINDOW_DAYS)} />
       <WorkspaceNotice />
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-4">
-        <SelectField
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 rounded-card border border-line bg-surface p-3 shadow-hairline sm:p-4">
+        <SegmentedControl
           label={t.statusLabel}
           value={filters.status}
-          onChange={(e) => setFilters({ ...filters, status: e.target.value, page: 1 })}
+          onChange={(status) => setFilters({ ...filters, status, page: 1 })}
           options={Object.entries(t.filters).map(([value, label]) => ({ value, label }))}
         />
-        <label className="flex items-center gap-2 pb-2 text-sm font-medium">
+        <label className="flex cursor-pointer items-center gap-2.5 pb-2 text-sm font-medium text-ink">
           <input
             type="checkbox"
             checked={filters.mine}
             onChange={(e) => setFilters({ ...filters, mine: e.target.checked, page: 1 })}
-            className="size-4 rounded border-slate-300"
+            className="size-4 rounded accent-primary"
           />
           {t.mineLabel}
         </label>
       </div>
-      {state.status === 'loading' && <Spinner label={fr.app.loading} />}
+      {state.status === 'loading' && <SkeletonList />}
       {state.status === 'error' && (
         <ErrorState
           title={errorMessage(state.error)}
@@ -55,9 +53,11 @@ export function RenewalsPage() {
         />
       )}
       {state.status === 'done' && state.data.items.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-          {t.none}
-        </p>
+        <EmptyState
+          icon={ArrowPathIcon}
+          title={t.none}
+          description={filters.status === 'open' && !filters.mine ? t.noneOpen : undefined}
+        />
       )}
       {state.status === 'done' && state.data.items.length > 0 && (
         <>

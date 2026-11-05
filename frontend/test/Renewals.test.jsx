@@ -189,3 +189,73 @@ describe('renewal follow-up', () => {
     expect(JSON.parse(call[1].body)).toEqual({ version: 1 });
   });
 });
+
+describe('the renewals list on the new design', () => {
+  const page = (items) => [
+    200,
+    { items, total: items.length, page: 1, pageSize: 25, pageCount: 1 },
+  ];
+
+  it('chooses the status from the choices side by side, and says why nothing is open', async () => {
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/renewals?status=open&page=1': () => page([]),
+      'GET /api/renewals?status=RENEWED&page=1': () =>
+        page([renewal({ status: 'RENEWED', open: false })]),
+    });
+    renderApp('/renouvellements');
+    const user = userEvent.setup();
+
+    const choices = await screen.findByRole('group', { name: 'Statut' });
+    expect(within(choices).getByRole('radio', { name: 'À suivre' })).toBeChecked();
+    expect(await screen.findByText('Aucun renouvellement.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Aucun contrat émis ne se termine dans les 30 prochains jours.'),
+    ).toBeInTheDocument();
+
+    await user.click(within(choices).getByRole('radio', { name: 'Renouvelés' }));
+    expect(within(choices).getByRole('radio', { name: 'Renouvelés' })).toBeChecked();
+    expect(await screen.findByRole('link', { name: 'Sara Test' })).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([url]) => url)).toContain(
+      '/api/renewals?status=RENEWED&page=1',
+    );
+  });
+});
+
+describe('the steps of a renewal', () => {
+  it('shows the steps done, the one in progress and those to come', async () => {
+    mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/renewals/${RENEWAL_ID}`]: () => [200, renewal({ status: 'CUSTOMER_CONTACTED' })],
+    });
+    renderApp(`/renouvellements/${RENEWAL_ID}`);
+    const steps = await screen.findByRole('list', { name: 'Étapes du renouvellement' });
+    const items = within(steps).getAllByRole('listitem');
+    expect(items).toHaveLength(4);
+    [
+      'À préparer (faite)',
+      'Client contacté (en cours)',
+      'Dossier complet (à venir)',
+      'Renouvelé (à venir)',
+    ].forEach((text, index) => expect(items[index]).toHaveTextContent(text));
+    expect(items[1]).toHaveAttribute('aria-current', 'step');
+  });
+
+  it('ends on « Non renouvelé » when the client does not renew', async () => {
+    mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/renewals/${RENEWAL_ID}`]: () => [
+        200,
+        renewal({ status: 'NOT_RENEWED', open: false, outcomeReason: 'Vend la voiture' }),
+      ],
+    });
+    renderApp(`/renouvellements/${RENEWAL_ID}`);
+    const steps = await screen.findByRole('list', { name: 'Étapes du renouvellement' });
+    const items = within(steps).getAllByRole('listitem');
+    expect(items[3]).toHaveTextContent('Non renouvelé (le client ne renouvelle pas)');
+    expect(items[3]).toHaveAttribute('aria-current', 'step');
+    expect(items[2]).toHaveTextContent('Dossier complet (faite)');
+    // A closed follow-up: no form to change it.
+    expect(screen.queryByLabelText('Nouvelle étape')).toBeNull();
+  });
+});
