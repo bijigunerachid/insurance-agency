@@ -188,6 +188,50 @@ describe('scanned attestations', () => {
     expect(other.proposed.numberCandidates).toContain('888000777');
   });
 
+  it('proposes the provisional series when a scanned pink form has its code misread', async () => {
+    const { manager, agent } = await setup();
+    const holder = await ctx.prisma.user.findUniqueOrThrow({ where: { username: 'manager.a' } });
+    await manager.post('/api/attestation-batches', {
+      seriesId: (await series('RMA', '14 P')).id,
+      firstNumber: '999000120',
+      lastNumber: '999000122',
+      receivedOn: '2026-10-20',
+      location: 'Armoire fermée',
+      holderId: holder.id,
+    });
+    // A blank provisional form, scanned: « 14 P » read « 44 P », one digit too many, no insurer.
+    const form = (code, digits, insurer = '') => `ATTESTATION D'ASSURANCE OBLIGATOIRE
+ATTESTATION PROVISOIRE
+NUMERO D'ORDRE | ${code} ${digits}
+${insurer}`;
+    const misread = (await upload(agent, form('44 P', '9990001211'), 'provisoire.pdf')).body;
+    expect(misread.proposed).toMatchObject({
+      usage: 'Provisoire',
+      seriesCode: '14 P',
+      seriesReadAs: '44 P',
+      seriesId: (await series('RMA', '14 P')).id,
+      insurerCode: 'RMA',
+      // The reading that is a blank form of the stock.
+      number: '999000121',
+      numberFromStock: true,
+    });
+    expect(misread.proposed).not.toHaveProperty('seriesUnknown');
+
+    // The insurer read: its own provisional series, whatever the code looks like.
+    const cat = (await upload(agent, form('81 P', '999000333', 'Entreprise CAT'), 'cat.pdf')).body;
+    expect(cat.proposed).toMatchObject({ seriesCode: '91 P', seriesReadAs: '81 P' });
+
+    // As close to both, no insurer: nothing is guessed, the employee chooses.
+    const doubt = (await upload(agent, form('55 P', '999000444'), 'doute.pdf')).body;
+    expect(doubt.proposed).toMatchObject({ seriesCode: '55 P', seriesUnknown: true });
+    expect(doubt.proposed).not.toHaveProperty('seriesId');
+
+    // A definitive form misread stays unknown: only « ATTESTATION PROVISOIRE » is corrected.
+    const definitive = READ_14A.replace('14 À 21 8362562', '44 A 218362562');
+    const other = (await upload(agent, definitive, 'definitive.pdf')).body;
+    expect(other.proposed).toMatchObject({ seriesCode: '44 A', seriesUnknown: true });
+  });
+
   it('reads the PDF of the platform exactly and issues the contract with its premium and quittance', async () => {
     const data = await setup();
     const { agent } = data;

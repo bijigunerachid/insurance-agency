@@ -1339,6 +1339,8 @@ export const fr = {
     chooseSeries: 'Choisir la série',
     seriesUnknown: (code) =>
       `Série lue « ${code} » : elle n’est pas dans le catalogue. Choisissez la bonne.`,
+    seriesCorrected: (read, code) =>
+      `Série lue « ${read} » sur une attestation provisoire : la série ${code} est proposée. Vérifiez-la sur le formulaire rose.`,
     number: 'N° de l’attestation',
     numberToCheck:
       'Numéro mal lu (un chiffre de trop) : vérifiez-le sur le scan. Lectures possibles :',

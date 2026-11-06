@@ -338,6 +338,49 @@ describe('a provisional attestation', () => {
   });
 });
 
+describe('a scanned provisional form with its series misread', () => {
+  it('says which series was read and which is proposed, and opens the full form', async () => {
+    const provisionalSeries = {
+      id: SERIES_ID,
+      code: '14 P',
+      insurer: { id: INSURER_ID, code: 'RMA', name: 'RMA' },
+      model: { code: 'P', label: 'Provisoire', provisional: true },
+      status: 'CONFIRMED',
+      active: true,
+    };
+    mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/scans/${SCAN_ID}`]: () => [
+        200,
+        scan({
+          proposed: {
+            usage: 'Provisoire',
+            seriesCode: '14 P',
+            seriesReadAs: '44 P',
+            seriesId: SERIES_ID,
+            insurerCode: 'RMA',
+            number: '999000121',
+            numberFromStock: true,
+          },
+        }),
+      ],
+      ...catalogue,
+      'GET /api/attestation-series': () => [200, { items: [provisionalSeries] }],
+      [`GET /api/scans/${SCAN_ID}/matches`]: noMatch,
+    });
+    renderApp(`/scans/${SCAN_ID}`);
+    expect(
+      await screen.findByText(
+        'Série lue « 44 P » sur une attestation provisoire : la série 14 P est proposée. Vérifiez-la sur le formulaire rose.',
+      ),
+    ).toBeInTheDocument();
+    // The series is chosen, so saving is not blocked by an empty series.
+    expect(screen.getByLabelText('Série')).toHaveValue(SERIES_ID);
+    expect(screen.getByLabelText('N° de l’attestation')).toHaveValue('999000121');
+    expect(screen.queryByText(/n’est pas dans le catalogue/)).toBeNull();
+  });
+});
+
 describe('a new policy that replaces another', () => {
   it('proposes it as the next contract of the replaced policy, and sends the replaced policy', async () => {
     const urls = [];
