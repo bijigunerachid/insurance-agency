@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { me, mockApi } from './mockApi.js';
 import { renderApp } from './renderApp.jsx';
 
@@ -53,6 +53,9 @@ const renewal = {
   mine: false,
   unread: false,
 };
+
+// What popped up is remembered for the tab: each test starts as a new sign-in.
+beforeEach(() => sessionStorage.clear());
 
 describe('the bell', () => {
   it('counts what is new, lists it in a panel, and marks it seen once shown', async () => {
@@ -110,7 +113,50 @@ describe('the bell', () => {
     expect(screen.getByRole('button', { name: 'Notifications' })).toHaveFocus();
   });
 
-  it('pops up what arrives while working, never what was already there', async () => {
+  it('after sign-in, pops up what is new one after the other, and says how many more wait', async () => {
+    const waiting = { ...renewal, unread: true };
+    mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/notifications/summary': () => [
+        200,
+        { unread: 5, latestId: '5', recent: [paid, created, waiting] },
+      ],
+      'GET /api/today': () => [200, { today: '2026-11-05', items: [] }],
+    });
+    const first = renderApp('/');
+    await screen.findByRole('button', { name: 'Notifications, 5 nouvelles' });
+    // The oldest first, then the next ones, each a moment later.
+    expect(
+      await screen.findByRole('link', { name: /^Renouvellement dans 15 jours : Nadia Test/ }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /a encaissé/ })).toBeNull();
+    expect(
+      await screen.findByRole(
+        'link',
+        { name: /a enregistré le contrat POL-0001/ },
+        { timeout: 3000 },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', { name: /a encaissé 500,00\sMAD/ }, { timeout: 3000 }),
+    ).toBeInTheDocument();
+    const more = await screen.findByRole(
+      'link',
+      { name: 'Et 2 autres : ouvrir les notifications' },
+      { timeout: 3000 },
+    );
+    expect(more).toHaveAttribute('href', '/notifications');
+    first.unmount();
+
+    // The page reloaded in the same tab: what already popped up does not come again.
+    renderApp('/');
+    await screen.findByRole('button', { name: 'Notifications, 5 nouvelles' });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(screen.queryByRole('link', { name: /a encaissé/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: /^Renouvellement dans/ })).toBeNull();
+  });
+
+  it('pops up what arrives while working, only once', async () => {
     let answer = { unread: 1, latestId: '4', recent: [created] };
     mockApi({
       'GET /api/auth/me': agent,
@@ -119,7 +165,10 @@ describe('the bell', () => {
     });
     renderApp('/');
     await screen.findByRole('button', { name: 'Notifications, 1 nouvelle' });
-    expect(screen.queryByText(/a enregistré le contrat/)).toBeNull();
+    // New at sign-in: it pops up.
+    expect(
+      await screen.findByRole('link', { name: /a enregistré le contrat POL-0001/ }),
+    ).toBeInTheDocument();
 
     // The next check (the tab shown again): a payment arrived.
     answer = { unread: 2, latestId: '5', recent: [paid, created] };
@@ -133,8 +182,8 @@ describe('the bell', () => {
     });
     expect(popup).toHaveAttribute('href', '/recus/p1');
     expect(screen.getByRole('button', { name: 'Notifications, 2 nouvelles' })).toBeInTheDocument();
-    // Only the new one pops up.
-    expect(screen.queryByRole('link', { name: /a enregistré le contrat/ })).toBeNull();
+    // The one already shown does not pop up again.
+    expect(screen.getAllByRole('link', { name: /a enregistré le contrat/ })).toHaveLength(1);
     visibility.mockRestore();
   });
 });

@@ -1468,6 +1468,7 @@ export const fr = {
     bell: (n) => (n === 0 ? 'Notifications' : `Notifications, ${n} nouvelle${n > 1 ? 's' : ''}`),
     panel: 'Dernières notifications',
     seeAll: 'Tout voir',
+    more: (n) => `Et ${n} autre${n > 1 ? 's' : ''} : ouvrir les notifications`,
     none: 'Rien de nouveau.',
     noneHint: 'Les actions de l’équipe et les alertes du jour s’afficheront ici.',
     unavailable: 'Notifications indisponibles pour le moment.',
