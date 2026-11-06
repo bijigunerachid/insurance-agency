@@ -103,6 +103,8 @@ The table below was approved by the owner on 22/10/2026.
 | Scan an attestation and file it (creates customer, vehicle, contract) | ✔ | ✔ | ✔ | — |
 | Reports: see on screen | ✔ | ✔ | — | ✔ |
 | Reports: export CSV / Excel (re-authentication, audited) | ✔ | ✔ | — | — |
+| État de production: see and print (`production.read`; everyone's or one employee's: `production.all`) | ✔ | ✔ | ✔ own contracts only (the API sets the employee; another one is refused and audited) | ✔ |
+| État de production: Excel file (`reports.export`, re-authentication, audited) | ✔ | ✔ | — | — |
 | Reports | ✔ | ✔ | own activity and renewals only | ✔ |
 | Exports with personal data | ✔ | ✔ | — | — |
 | Products, insurer rules register | ✔ | edit | read | read |

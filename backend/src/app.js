@@ -17,6 +17,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { paymentsRoutes } from './modules/payments/routes.js';
 import { remittancesRoutes } from './modules/remittances/routes.js';
 import { renewalsRoutes } from './modules/renewals/routes.js';
+import { productionRoutes } from './modules/production/routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
 import { scansRoutes } from './modules/scans/routes.js';
 import { stockRoutes } from './modules/stock/routes.js';
@@ -99,6 +100,7 @@ export function createApp({
   app.use('/api', workspacesRoutes({ prisma, config, guards }));
   app.use('/api', todayRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', reportsRoutes({ prisma, audit, clock, config, guards }));
+  app.use('/api', productionRoutes({ prisma, audit, config, guards }));
   app.use('/api', documentsRoutes({ prisma, audit, clock, guards, store: documentStore }));
 
   app.use(notFound);

@@ -375,6 +375,23 @@ export async function seedContractEndingSoon(
 }
 
 /**
+ * The issue of a contract seeded as issued, in its status history (the état de production lists
+ * the contracts by the date of their issue), recorded now by `username`.
+ */
+export async function seedIssue(username, contract) {
+  const user = await db().user.findUniqueOrThrow({ where: { username } });
+  return db().contractStatusChange.create({
+    data: {
+      contractId: contract.id,
+      fromStatus: 'AWAITING_INSURER',
+      toStatus: 'ISSUED',
+      insurerReference: 'Courriel synthétique',
+      userId: user.id,
+    },
+  });
+}
+
+/**
  * A cash payment on `contract` received `daysAgo` days ago, recorded by `username`. Recording
  * payments through the screens is the payment journey's job; here it is money still to remit.
  * Its receipt number uses the year 2098 so it never meets a number given by the application.

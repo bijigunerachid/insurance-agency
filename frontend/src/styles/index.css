@@ -120,3 +120,12 @@
   size: A4 portrait;
   margin: 10mm;
 }
+
+/* The état de production: a wide sheet, printed A4 landscape (owner, 05/11/2026). */
+@page landscape {
+  size: A4 landscape;
+  margin: 10mm;
+}
+.print-landscape {
+  page: landscape;
+}

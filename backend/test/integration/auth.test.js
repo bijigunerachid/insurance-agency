@@ -45,6 +45,7 @@ describe('login', () => {
       'documents.upload',
       'payments.read',
       'payments.record',
+      'production.read',
       'renewals.read',
       'renewals.write',
       'scans.manage',

@@ -27,6 +27,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage.jsx';
 import { ReceiptPage } from './pages/payments/ReceiptPage.jsx';
 import { RemittanceDetailPage } from './pages/remittances/RemittanceDetailPage.jsx';
 import { RemittancesPage } from './pages/remittances/RemittancesPage.jsx';
+import { ProductionPage } from './pages/production/ProductionPage.jsx';
 import { ReportsPage } from './pages/reports/ReportsPage.jsx';
 import { ScanReviewPage } from './pages/scans/ScanReviewPage.jsx';
 import { ScansPage } from './pages/scans/ScansPage.jsx';
@@ -142,6 +143,7 @@ function AppRoutes() {
         {can('payments.read') && <Route path="recus/:id" element={<ReceiptPage />} />}
         {can('remittances.read') && <Route path="reversements" element={<RemittancesPage />} />}
         {can('reports.read') && <Route path="rapports" element={<ReportsPage />} />}
+        {can('production.read') && <Route path="production" element={<ProductionPage />} />}
         {can('scans.manage') && <Route path="scans" element={<ScansPage />} />}
         {can('scans.manage') && <Route path="scans/:id" element={<ScanReviewPage />} />}
         {can('documents.download') && (
