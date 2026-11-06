@@ -15,6 +15,7 @@ import { Link } from 'react-router';
 import { Alert } from '../components/Alert.jsx';
 import { Card } from '../components/Card.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
+import { SegmentedControl } from '../components/SegmentedControl.jsx';
 import { SkeletonList } from '../components/Skeleton.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { useAuth } from '../features/auth/AuthContext.jsx';
@@ -84,7 +85,7 @@ export function HomePage() {
         {can('renewals.read') && <AlertsSwitch />}
       </div>
 
-      {can('renewals.read') && <NextRenewals query={renewals} />}
+      {can('renewals.read') && <NextRenewals query={renewals} meId={me.user.id} />}
     </div>
   );
 }
@@ -185,9 +186,19 @@ function TodoLine({ item }) {
   );
 }
 
-/** The employee's next renewals (five), with the way to all of them. */
-function NextRenewals({ query }) {
+/**
+ * The agency's next renewals (five), each with who follows it, for everyone (owner, 06/11/2026);
+ * « Les miens » shows the person's own. The way to all of them.
+ */
+function NextRenewals({ query, meId }) {
   const { state } = query;
+  const [whose, setWhose] = useState('all');
+  const list =
+    state.status === 'done'
+      ? whose === 'all'
+        ? state.data.next
+        : (state.data.nextMine ?? [])
+      : [];
   return (
     <Card
       title={t.next}
@@ -208,12 +219,28 @@ function NextRenewals({ query }) {
           <Alert>{errorMessage(state.error)}</Alert>
         </div>
       )}
-      {state.status === 'done' &&
-        (state.data.next.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-ink-muted">{t.none}</p>
-        ) : (
-          <RenewalList renewals={state.data.next.slice(0, 5)} flush />
-        ))}
+      {state.status === 'done' && (
+        <>
+          <div className="border-b border-line px-4 py-3 sm:px-5">
+            <SegmentedControl
+              label={t.whose}
+              value={whose}
+              onChange={setWhose}
+              options={[
+                { value: 'all', label: t.whoseOptions.all },
+                { value: 'mine', label: t.whoseOptions.mine },
+              ]}
+            />
+          </div>
+          {list.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-ink-muted">
+              {whose === 'all' ? t.none : t.noneMine}
+            </p>
+          ) : (
+            <RenewalList renewals={list.slice(0, 5)} flush meId={meId} />
+          )}
+        </>
+      )}
     </Card>
   );
 }

@@ -27,7 +27,11 @@ test('an agent sees a renewal on the home page, follows it and prepares the new 
   // 1. The home page lists the renewal: the contract ends in 10 days.
   await login(page, username);
   await expect(page.getByRole('heading', { level: 1, name: /^Bonjour / })).toBeVisible();
-  const row = page.getByRole('listitem').filter({ hasText: contract.policyNumber });
+  // The card shows the agency's renewals first; the agent's own are under « Les miens » (other
+  // journeys add renewals of their own to the agency's).
+  const next = page.getByRole('region', { name: 'Prochains renouvellements' });
+  await next.getByText('Les miens', { exact: true }).click();
+  const row = next.getByRole('listitem').filter({ hasText: contract.policyNumber });
   await expect(row).toContainText('Dans 10 jours');
   await expectNoHorizontalScroll(page, expect);
   await shot('home');

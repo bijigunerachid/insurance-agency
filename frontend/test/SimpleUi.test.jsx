@@ -477,13 +477,67 @@ describe('the home page says where it stands', () => {
     const todo = await screen.findByRole('region', { name: 'À faire' });
     expect(await within(todo).findByText('Rien en attente. Tout est à jour.')).toBeInTheDocument();
     expect(within(todo).queryByText(/en retard/)).toBeNull();
-    const next = screen.getByRole('region', { name: 'Mes prochains renouvellements' });
+    const next = screen.getByRole('region', { name: 'Prochains renouvellements' });
     expect(
-      await within(next).findByText('Aucun renouvellement à suivre pour vous.'),
+      await within(next).findByText('Aucun renouvellement à suivre dans l’agence.'),
     ).toBeInTheDocument();
     expect(
       within(next).getByRole('link', { name: 'Voir tous les renouvellements' }),
     ).toHaveAttribute('href', '/renouvellements');
+  });
+
+  it('shows the agency’s renewals to everyone with who follows each, and « Les miens » apart', async () => {
+    const renewal = (id, displayName, userId, daysLeft, customer) => ({
+      id,
+      status: 'TO_PREPARE',
+      open: true,
+      dueDate: '2026-10-30',
+      daysLeft,
+      noticeDeadline: null,
+      assignedUser: { id: userId, displayName },
+      contract: {
+        id: `c-${id}`,
+        ref: `CTR-${id}`,
+        policyNumber: `POL-${id}`,
+        customer: { id: `cu-${id}`, displayName: customer },
+        insurer: { id: 'i1', code: 'RMA' },
+        product: { id: 'p1', name: 'Véhicules de tourisme' },
+        vehicles: [],
+      },
+    });
+    const ME = '00000000-0000-4000-8000-000000000001';
+    const colleague = renewal('r1', 'Agent B', 'u2', -2, 'Client A');
+    const own = renewal('r2', 'Karim Test', ME, 6, 'Client C');
+    mockApi({
+      'GET /api/auth/me': agent,
+      'GET /api/today': () => [200, { today: '2026-10-24', items: [] }],
+      'GET /api/renewals/summary': () => [
+        200,
+        {
+          windowDays: 30,
+          mine: 1,
+          mineOverdue: 0,
+          allOpen: 2,
+          allOverdue: 1,
+          allSoon: 1,
+          next: [colleague, own],
+          nextMine: [own],
+        },
+      ],
+    });
+    renderApp('/accueil');
+    const user = userEvent.setup();
+    const next = await screen.findByRole('region', { name: 'Prochains renouvellements' });
+    // Everyone's, the late one first, with who follows each (« vous » for one's own).
+    const links = await within(next).findAllByRole('link', { name: /^Client / });
+    expect(links.map((l) => l.textContent)).toEqual(['Client A', 'Client C']);
+    expect(within(next).getByText(/Suivi par Agent B/)).toBeInTheDocument();
+    expect(within(next).getByText(/Suivi par vous/)).toBeInTheDocument();
+    expect(within(next).getByRole('radio', { name: 'Tous' })).toBeChecked();
+
+    await user.click(within(next).getByRole('radio', { name: 'Les miens' }));
+    expect(within(next).queryByRole('link', { name: 'Client A' })).toBeNull();
+    expect(within(next).getByRole('link', { name: 'Client C' })).toBeInTheDocument();
   });
 
   it('keeps the page usable when the renewals cannot be read', async () => {
@@ -493,7 +547,7 @@ describe('the home page says where it stands', () => {
       'GET /api/renewals/summary': () => [500, { error: { code: 'INTERNAL' } }],
     });
     renderApp('/accueil');
-    const next = await screen.findByRole('region', { name: 'Mes prochains renouvellements' });
+    const next = await screen.findByRole('region', { name: 'Prochains renouvellements' });
     expect(await within(next).findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Rechercher' })).toBeEnabled();
   });
