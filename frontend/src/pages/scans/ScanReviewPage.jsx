@@ -486,6 +486,21 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
 
   async function file(event, confirmNotDuplicate = notDuplicate) {
     event?.preventDefault();
+    // The series and the number, said on their fields rather than by a greyed button (owner,
+    // 06/11/2026: a provisional PDF prints no number, and nothing said what was missing).
+    const attestationMissing = {
+      ...(values.seriesId ? {} : { seriesId: fr.common.required }),
+      ...(String(values.number ?? '').trim()
+        ? {}
+        : { number: provisional ? t.numberFromPinkForm : fr.common.required }),
+    };
+    if (Object.keys(attestationMissing).length) {
+      setFieldErrors(attestationMissing);
+      setError({ code: 'VALIDATION_ERROR' });
+      // The cursor goes to the first one, which may be far above the save button.
+      setTimeout(() => document.querySelector('form [aria-invalid="true"]')?.focus(), 0);
+      return;
+    }
     // A new vehicle needs these (the model is optional: the platform PDF prints the make alone,
     // "TATA -"). Said on the fields themselves: the server would refuse the whole vehicle without
     // naming one.
@@ -1162,11 +1177,7 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
                 <Button
                   type="submit"
                   loading={busy}
-                  disabled={
-                    !values.seriesId ||
-                    !values.number ||
-                    (avenantOn && (!avenant.kind || renumberBlocked))
-                  }
+                  disabled={avenantOn && (!avenant.kind || renumberBlocked)}
                 >
                   {busy ? t.filing : t.save}
                 </Button>

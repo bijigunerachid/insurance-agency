@@ -381,6 +381,60 @@ describe('a scanned provisional form with its series misread', () => {
   });
 });
 
+describe('a provisional PDF, without the pink form’s number', () => {
+  it('keeps the save button active and says on the field what is missing', async () => {
+    const provisionalSeries = {
+      id: SERIES_ID,
+      code: '14 P',
+      insurer: { id: INSURER_ID, code: 'RMA', name: 'RMA' },
+      model: { code: 'P', label: 'Provisoire', provisional: true },
+      status: 'CONFIRMED',
+      active: true,
+    };
+    const fetchMock = mockApi({
+      'GET /api/auth/me': agent,
+      [`GET /api/scans/${SCAN_ID}`]: () => [
+        200,
+        scan({
+          confidence: 100,
+          proposed: {
+            ...scan().proposed,
+            source: 'PLATFORM_PDF',
+            provisional: true,
+            seriesCode: '14 P',
+            number: undefined,
+            numberCandidates: undefined,
+            numberToCheck: false,
+          },
+        }),
+      ],
+      ...catalogue,
+      'GET /api/attestation-series': () => [200, { items: [provisionalSeries] }],
+    });
+    const real = fetchMock.getMockImplementation();
+    fetchMock.mockImplementation((url, init) =>
+      url.includes('/matches?')
+        ? Promise.resolve(new Response(JSON.stringify(noMatch()[1])))
+        : real(url, init),
+    );
+    renderApp(`/scans/${SCAN_ID}`);
+    const user = userEvent.setup();
+    const save = await screen.findByRole('button', { name: 'Enregistrer et suivre' });
+    expect(save).toBeEnabled();
+    await user.click(save);
+    const number = screen.getByLabelText('N° de l’attestation');
+    expect(number).toHaveAccessibleDescription(
+      /Saisissez le numéro imprimé en rouge sur le formulaire rose\./,
+    );
+    await waitFor(() => expect(number).toHaveFocus());
+    // Nothing was sent.
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/file'))).toBe(false);
+    // Typed: the message goes away.
+    await user.type(number, '999000777');
+    expect(number).not.toHaveAccessibleDescription(/formulaire rose/);
+  });
+});
+
 describe('a new policy that replaces another', () => {
   it('proposes it as the next contract of the replaced policy, and sends the replaced policy', async () => {
     const urls = [];
