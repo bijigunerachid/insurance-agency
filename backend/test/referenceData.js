@@ -26,6 +26,8 @@ export function referenceData() {
 
 /** Every table a test reset empties, children first. */
 export const RESET_TABLES = [
+  'notification_seen',
+  'notification',
   'payment',
   'renewal_event',
   'renewal',

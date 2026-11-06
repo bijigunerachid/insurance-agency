@@ -2,6 +2,7 @@ import {
   ArchiveBoxIcon,
   ArrowPathIcon,
   BanknotesIcon,
+  BellIcon,
   BuildingLibraryIcon,
   ChartBarIcon,
   ArrowRightStartOnRectangleIcon,
@@ -26,6 +27,8 @@ import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { Menu } from '../components/Menu.jsx';
+import { NotificationBell } from '../features/notifications/NotificationBell.jsx';
+import { NotificationsProvider } from '../features/notifications/Notifications.jsx';
 import { AgencyMark, useAgencyBrand } from '../features/agency/AgencyBrand.jsx';
 import { PageTitleProvider, useCurrentPageTitle } from '../features/layout/PageTitle.jsx';
 import { QuickSearch } from '../features/search/QuickSearch.jsx';
@@ -158,6 +161,13 @@ export const NAV_ITEMS = [
     group: 'account',
     label: fr.nav.account,
     Icon: UserCircleIcon,
+    permission: null,
+  },
+  {
+    to: '/notifications',
+    group: 'account',
+    label: fr.nav.notifications,
+    Icon: BellIcon,
     permission: null,
   },
 ];
@@ -531,160 +541,164 @@ export function AppLayout() {
   );
 
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      <a
-        href="#contenu"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:shadow-raised"
-      >
-        Aller au contenu
-      </a>
-      {/* The workspace's colour along the top of every page. */}
-      {insurer?.colour && (
-        <div
-          aria-hidden="true"
-          style={{ backgroundColor: insurer.colour }}
-          className="fixed inset-x-0 top-0 z-50 h-1 print:hidden"
-        />
-      )}
-
-      {wide && (
-        <aside
-          className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-line bg-surface print:hidden ${
-            collapsed ? 'w-16 items-center' : 'w-64'
-          }`}
+    <NotificationsProvider>
+      <div className="min-h-screen bg-canvas text-ink">
+        <a
+          href="#contenu"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2 focus:shadow-raised"
         >
-          {/* The same height and line as the header: one bar across the top. */}
+          Aller au contenu
+        </a>
+        {/* The workspace's colour along the top of every page. */}
+        {insurer?.colour && (
           <div
-            className={`flex h-14 shrink-0 items-center border-b border-line ${collapsed ? 'justify-center' : 'gap-3 px-5'}`}
+            aria-hidden="true"
+            style={{ backgroundColor: insurer.colour }}
+            className="fixed inset-x-0 top-0 z-50 h-1 print:hidden"
+          />
+        )}
+
+        {wide && (
+          <aside
+            className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-line bg-surface print:hidden ${
+              collapsed ? 'w-16 items-center' : 'w-64'
+            }`}
           >
-            <SidebarBrand collapsed={collapsed} />
+            {/* The same height and line as the header: one bar across the top. */}
+            <div
+              className={`flex h-14 shrink-0 items-center border-b border-line ${collapsed ? 'justify-center' : 'gap-3 px-5'}`}
+            >
+              <SidebarBrand collapsed={collapsed} />
+            </div>
+            <nav aria-label={fr.nav.mainLabel} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+              <ul className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5'}>
+                {daily.map((item) => (
+                  <SideLink key={item.to} {...item} collapsed={collapsed} />
+                ))}
+                {more.length > 0 && <li className="pt-3">{moreButton}</li>}
+              </ul>
+              {more.length > 0 && moreShown && (
+                <ul
+                  id="nav-more"
+                  aria-label={fr.nav.moreLabel}
+                  className={`mt-1 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 pl-0'}`}
+                >
+                  <MoreGroups items={more} collapsed={collapsed} />
+                </ul>
+              )}
+            </nav>
+            <div
+              className={`shrink-0 border-t border-line py-3 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 px-3'}`}
+            >
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-pressed={collapsed}
+                title={collapsed ? fr.nav.expand : fr.nav.collapse}
+                className={`focus-ring inline-flex items-center gap-2 rounded-control text-sm text-ink-muted hover:bg-sunken hover:text-ink ${
+                  collapsed ? 'size-10 justify-center' : 'w-full px-3 py-2'
+                }`}
+              >
+                {collapsed ? (
+                  <ChevronDoubleRightIcon aria-hidden="true" className="size-4" />
+                ) : (
+                  <ChevronDoubleLeftIcon aria-hidden="true" className="size-4" />
+                )}
+                <span className={collapsed ? 'sr-only' : ''}>{fr.nav.collapse}</span>
+              </button>
+            </div>
+          </aside>
+        )}
+
+        <PageTitleProvider>
+          <div className={wide ? (collapsed ? 'pl-16 print:pl-0' : 'pl-64 print:pl-0') : ''}>
+            <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur print:hidden">
+              <div className="flex h-14 items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
+                {wide ? (
+                  <>
+                    <Breadcrumb items={items} />
+                    <div className="flex shrink-0 justify-center xl:w-full xl:max-w-md xl:shrink">
+                      <QuickSearch />
+                    </div>
+                    <div className="flex shrink-0 items-center justify-end gap-2 xl:flex-1">
+                      <WorkspaceMenu />
+                      <NotificationBell />
+                      <UserMenu />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex min-w-8 flex-1 items-center gap-3 overflow-hidden">
+                      <AgencyMark fallbackIcon={ShieldCheckIcon} size="sm" />
+                    </div>
+                    <QuickSearch compact />
+                    <WorkspaceMenu compact />
+                    <NotificationBell />
+                    <UserMenu />
+                  </>
+                )}
+              </div>
+            </header>
+
+            <main
+              id="contenu"
+              className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 print:max-w-none print:p-0"
+            >
+              <Outlet />
+            </main>
           </div>
-          <nav aria-label={fr.nav.mainLabel} className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-            <ul className={collapsed ? 'flex flex-col items-center gap-1' : 'space-y-0.5'}>
+        </PageTitleProvider>
+
+        {!wide && (
+          <nav aria-label={fr.nav.mainLabel} className="print:hidden">
+            {/* The panel of "Plus" over the page, with a shade that closes it. */}
+            {moreShown && (
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-hidden="true"
+                onClick={() => setOpenMore(false)}
+                className="fixed inset-0 z-30 bg-ink/30"
+              />
+            )}
+            <ul className="fixed inset-x-0 bottom-0 z-40 flex items-stretch gap-0.5 border-t border-line bg-surface px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-2px_8px_rgba(15,23,42,0.06)]">
               {daily.map((item) => (
-                <SideLink key={item.to} {...item} collapsed={collapsed} />
+                <BarLink key={item.to} {...item} />
               ))}
-              {more.length > 0 && <li className="pt-3">{moreButton}</li>}
+              {more.length > 0 && (
+                <li className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    aria-expanded={moreShown}
+                    aria-controls="nav-more"
+                    onClick={() => setOpenMore(!moreShown)}
+                    className={`focus-ring flex w-full flex-col items-center gap-0.5 rounded-control py-1.5 text-[11px] font-medium tracking-tight ${
+                      inMore || moreShown ? 'text-primary' : 'text-ink-muted'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`rounded-full px-3 py-0.5 ${inMore ? 'bg-primary-soft' : ''}`}
+                    >
+                      <Squares2X2Icon className="size-6" />
+                    </span>
+                    {fr.nav.more}
+                  </button>
+                </li>
+              )}
             </ul>
             {more.length > 0 && moreShown && (
               <ul
                 id="nav-more"
                 aria-label={fr.nav.moreLabel}
-                className={`mt-1 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 pl-0'}`}
+                className="fixed inset-x-0 bottom-[4.25rem] z-40 max-h-[70vh] space-y-1 overflow-y-auto rounded-t-[14px] border-t border-line bg-surface p-3 shadow-raised"
               >
-                <MoreGroups items={more} collapsed={collapsed} />
+                <MoreGroups items={more} onPick={() => setOpenMore(false)} />
               </ul>
             )}
           </nav>
-          <div
-            className={`shrink-0 border-t border-line py-3 ${collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1 px-3'}`}
-          >
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              aria-pressed={collapsed}
-              title={collapsed ? fr.nav.expand : fr.nav.collapse}
-              className={`focus-ring inline-flex items-center gap-2 rounded-control text-sm text-ink-muted hover:bg-sunken hover:text-ink ${
-                collapsed ? 'size-10 justify-center' : 'w-full px-3 py-2'
-              }`}
-            >
-              {collapsed ? (
-                <ChevronDoubleRightIcon aria-hidden="true" className="size-4" />
-              ) : (
-                <ChevronDoubleLeftIcon aria-hidden="true" className="size-4" />
-              )}
-              <span className={collapsed ? 'sr-only' : ''}>{fr.nav.collapse}</span>
-            </button>
-          </div>
-        </aside>
-      )}
-
-      <PageTitleProvider>
-        <div className={wide ? (collapsed ? 'pl-16 print:pl-0' : 'pl-64 print:pl-0') : ''}>
-          <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur print:hidden">
-            <div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
-              {wide ? (
-                <>
-                  <Breadcrumb items={items} />
-                  <div className="flex shrink-0 justify-center xl:w-full xl:max-w-md xl:shrink">
-                    <QuickSearch />
-                  </div>
-                  <div className="flex shrink-0 items-center justify-end gap-2 xl:flex-1">
-                    <WorkspaceMenu />
-                    <UserMenu />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-                    <AgencyMark fallbackIcon={ShieldCheckIcon} size="sm" />
-                  </div>
-                  <QuickSearch compact />
-                  <WorkspaceMenu compact />
-                  <UserMenu />
-                </>
-              )}
-            </div>
-          </header>
-
-          <main
-            id="contenu"
-            className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 lg:px-8 print:max-w-none print:p-0"
-          >
-            <Outlet />
-          </main>
-        </div>
-      </PageTitleProvider>
-
-      {!wide && (
-        <nav aria-label={fr.nav.mainLabel} className="print:hidden">
-          {/* The panel of "Plus" over the page, with a shade that closes it. */}
-          {moreShown && (
-            <button
-              type="button"
-              tabIndex={-1}
-              aria-hidden="true"
-              onClick={() => setOpenMore(false)}
-              className="fixed inset-0 z-30 bg-ink/30"
-            />
-          )}
-          <ul className="fixed inset-x-0 bottom-0 z-40 flex items-stretch gap-0.5 border-t border-line bg-surface px-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-2px_8px_rgba(15,23,42,0.06)]">
-            {daily.map((item) => (
-              <BarLink key={item.to} {...item} />
-            ))}
-            {more.length > 0 && (
-              <li className="min-w-0 flex-1">
-                <button
-                  type="button"
-                  aria-expanded={moreShown}
-                  aria-controls="nav-more"
-                  onClick={() => setOpenMore(!moreShown)}
-                  className={`focus-ring flex w-full flex-col items-center gap-0.5 rounded-control py-1.5 text-[11px] font-medium tracking-tight ${
-                    inMore || moreShown ? 'text-primary' : 'text-ink-muted'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`rounded-full px-3 py-0.5 ${inMore ? 'bg-primary-soft' : ''}`}
-                  >
-                    <Squares2X2Icon className="size-6" />
-                  </span>
-                  {fr.nav.more}
-                </button>
-              </li>
-            )}
-          </ul>
-          {more.length > 0 && moreShown && (
-            <ul
-              id="nav-more"
-              aria-label={fr.nav.moreLabel}
-              className="fixed inset-x-0 bottom-[4.25rem] z-40 max-h-[70vh] space-y-1 overflow-y-auto rounded-t-[14px] border-t border-line bg-surface p-3 shadow-raised"
-            >
-              <MoreGroups items={more} onPick={() => setOpenMore(false)} />
-            </ul>
-          )}
-        </nav>
-      )}
-    </div>
+        )}
+      </div>
+    </NotificationsProvider>
   );
 }

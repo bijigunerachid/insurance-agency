@@ -162,6 +162,9 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
   }
 
   return {
+    /** For the alerts of the day: the renewals due are opened first. */
+    openDue,
+
     async list(auth, { status, mine, insurerId, page, pageSize }) {
       await openDue();
       const where = {

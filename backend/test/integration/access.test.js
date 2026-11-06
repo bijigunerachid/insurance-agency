@@ -88,8 +88,10 @@ describe('access to every route', () => {
     const auditor = await signIn('auditor.a', 'AUDITOR');
     const allowed = [];
     for (const route of allRoutes(ctx.app)) {
-      // Their own session: sign out, change their password, confirm their identity…
+      // Their own session: sign out, change their password, confirm their identity… and their
+      // own alerts marked seen.
       if (route.key.startsWith('POST /api/auth/') || PUBLIC.has(route.key)) continue;
+      if (route.key === 'POST /api/notifications/seen') continue;
       if (route.method === 'GET') continue;
       const res = await call(auditor, route);
       if (res.status !== 403 || res.body.error.code !== 'FORBIDDEN') {
@@ -107,6 +109,7 @@ describe('access to every route', () => {
       '/api/customers/assignees',
       '/api/renewals/assignees',
       '/api/reports/contrats-echeances/export?from=2026-10-01&to=2026-10-31&format=csv',
+      '/api/production/export?from=2026-10-01&to=2026-10-31',
       `/api/documents/${id}/file`,
       `/api/documents/${id}/capture`,
       `/api/scans/${id}/file`,

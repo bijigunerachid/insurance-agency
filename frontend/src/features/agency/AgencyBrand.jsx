@@ -46,7 +46,11 @@ export function AgencyMark({ fallbackIcon: Icon, size = 'md' }) {
   // A narrow phone header: the agency's square icon when there is one, rather than a cut logo.
   if (size === 'sm' && brand.icon) {
     return (
-      <img src="/api/agency/icon" alt={brand.name ?? fr.app.name} className="size-8 rounded" />
+      <img
+        src="/api/agency/icon"
+        alt={brand.name ?? fr.app.name}
+        className="size-8 shrink-0 rounded"
+      />
     );
   }
   return (

@@ -17,6 +17,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { paymentsRoutes } from './modules/payments/routes.js';
 import { remittancesRoutes } from './modules/remittances/routes.js';
 import { renewalsRoutes } from './modules/renewals/routes.js';
+import { notificationsRoutes } from './modules/notifications/routes.js';
 import { productionRoutes } from './modules/production/routes.js';
 import { reportsRoutes } from './modules/reports/routes.js';
 import { scansRoutes } from './modules/scans/routes.js';
@@ -26,6 +27,7 @@ import { usersRoutes } from './modules/users/routes.js';
 import { vehiclesRoutes } from './modules/vehicles/routes.js';
 import { workspacesRoutes } from './modules/workspaces/routes.js';
 import { createAuditService } from './services/audit.js';
+import { activityNotifier } from './modules/notifications/activity.js';
 import { createDocumentStore } from './services/documentStore.js';
 import { createOcr } from './services/ocr.js';
 import { systemClock } from './services/clock.js';
@@ -46,7 +48,7 @@ export function createApp({
   documentStore = createDocumentStore(config.DOCUMENTS_DIR),
   ocr = createOcr({ logger }),
 }) {
-  const audit = createAuditService(prisma);
+  const audit = createAuditService(prisma, { onRecord: activityNotifier(clock) });
   const secretBox = createSecretBox(config.TOTP_ENCRYPTION_KEY);
   const authService = createAuthService({ prisma, audit, clock, secretBox, config });
   const guards = createGuards({ audit, clock });
@@ -101,6 +103,7 @@ export function createApp({
   app.use('/api', todayRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', reportsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', productionRoutes({ prisma, audit, config, guards }));
+  app.use('/api', notificationsRoutes({ prisma, audit, clock, config, guards }));
   app.use('/api', documentsRoutes({ prisma, audit, clock, guards, store: documentStore }));
 
   app.use(notFound);
