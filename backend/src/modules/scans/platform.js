@@ -131,6 +131,15 @@ function realSpaces(rightText, left) {
 }
 
 const joined = (row) => row.text;
+/**
+ * A body type printed with no other half to compare (the provisional sheet): the narrow capital I
+ * leaves a gap before the rest of its word (« CONDUI TE INTERI EURE »). A word of the body type
+ * never ends with I, so such a gap is joined; one-letter codes (« C. I ») are left as they are.
+ */
+const bodyTypeOf = (text) =>
+  String(text ?? '')
+    .replace(/(?<=\p{Lu}{2}I) (?=\p{Lu}{2})/gu, '')
+    .replace(/\s*\.\s*/g, '.');
 const PAYMENT_METHODS = [
   [/esp/i, 'CASH'],
   [/ch.?q/i, 'CHEQUE'],
@@ -443,8 +452,12 @@ export function parsePlatformSheet({ left, right }) {
       );
     }
     // A short code such as "2.R" (two-wheeler) or "C. I" is printed letter by letter.
-    set('bodyType', vehicle[next + 1]?.text.replace(/\s*\.\s*/g, '.'));
+    if (vehicle[next + 1]) set('bodyType', bodyTypeOf(vehicle[next + 1].text));
     set('trailer', vehicle[next + 2]?.text);
+    // Only the provisional sheet prints the seats on this half, on the pink form's « Nombre de
+    // places » row under the trailer (the full sheet prints them with the vehicle, on the left).
+    const seats = vehicle[next + 3]?.compact;
+    if (/^\d{1,3}$/.test(seats ?? '') && Number(seats) > 0) set('seats', Number(seats));
   }
   const period = rows.map((r) => wordDate(r.text)).filter(Boolean);
   set('validFrom', period[0] ?? fields.effectDate);

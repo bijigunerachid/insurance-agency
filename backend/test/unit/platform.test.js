@@ -100,8 +100,11 @@ describe('a provisional attestation printed by the platform', () => {
       intermediary: 'AGENCE ESSAI A9999',
       registration: '77777 -B- 06',
       makeAndType: 'PEUGEOT',
+      // Printed « CONDUI TE INTERI EURE » (the narrow I's gaps), read as one word each.
       bodyType: 'CONDUITE INTERIEURE',
       trailer: 'ZERO',
+      // The pink form's « Nombre de places », under the trailer.
+      seats: 7,
       // The month is printed letter by letter: « Ju i l l e t », « Ao u t ».
       validFrom: '2025-07-15',
       validTo: '2025-08-15',
