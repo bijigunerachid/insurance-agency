@@ -6,7 +6,7 @@ employees use it from a browser. Daily work does not need the Internet.
 
 **Status:** Phase 9 started — a simpler app for daily work (owner, 24/10/2026: "easy to read and work, not like old
 Excel"): the "Aujourd'hui" home page (scan button, one search box for name, CIN, plate, policy or attestation number,
-and a to-do list), a short menu (5 daily pages, the rest under "Plus"), contract pages that open on a summary
+a to-do list, and the agency's next renewals for everyone with who follows each, « Les miens » one click away), a short menu (5 daily pages, the rest under "Plus"), contract pages that open on a summary
 (who, until when, what is left to pay) with details and history folded, plain words; avenants on a running contract
 (vehicle change, registration change), typed on the contract page or read from the RMA platform's "AVENANT DE
 CHANGEMENT DE VEHICULE" PDF: the new attestation replaces the old one (its paper followed until it is back at the

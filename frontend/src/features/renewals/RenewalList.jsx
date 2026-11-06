@@ -22,9 +22,9 @@ export function DueBadge({ renewal }) {
 
 /**
  * Renewal rows; each opens its follow-up page, and the client's phone calls them. `flush`:
- * inside a card, without its own border.
+ * inside a card, without its own border. `meId`: the person's own renewals say « vous ».
  */
-export function RenewalList({ renewals, flush = false }) {
+export function RenewalList({ renewals, flush = false, meId = null }) {
   return (
     <ul
       className={`divide-y divide-line bg-surface ${flush ? '' : 'overflow-hidden rounded-card border border-line shadow-hairline'}`}
@@ -57,7 +57,8 @@ export function RenewalList({ renewals, flush = false }) {
             </p>
             <p className="text-xs text-ink-muted">
               {t.dueDate} {formatDate(renewal.dueDate)} · {t.statuses[renewal.status]} ·{' '}
-              {t.assignedUser} {renewal.assignedUser.displayName}
+              {t.assignedUser}{' '}
+              {meId && renewal.assignedUser.id === meId ? t.you : renewal.assignedUser.displayName}
               {renewal.noticeDeadline &&
                 ` · ${t.noticeDeadline} ${formatDate(renewal.noticeDeadline)}`}
             </p>

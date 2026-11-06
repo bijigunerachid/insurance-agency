@@ -258,6 +258,53 @@ describe('renewals', () => {
     expect(await eventsOffClock()).toBe(0);
   });
 
+  it('shows the agency’s renewals to everyone, each with who follows it, and theirs apart', async () => {
+    const { agent } = await setup();
+    // agent.a recorded the contract and follows its renewal.
+    const follows = {
+      assignedUser: expect.objectContaining({ displayName: 'Utilisateur agent.a' }),
+    };
+    for (const [username, role] of [
+      ['agent.b', 'AGENT'],
+      ['admin.a', 'ADMIN'],
+      ['manager.b', 'MANAGER'],
+    ]) {
+      const other = await signIn(username, role);
+      const summary = (await other.get('/api/renewals/summary')).body;
+      expect(summary).toMatchObject({ mine: 0, allOpen: 1, allOverdue: 0, allSoon: 0 });
+      expect(summary.next).toEqual([expect.objectContaining(follows)]);
+      expect(summary.nextMine).toEqual([]);
+      // The to-do line counts the agency's renewals, not only the person's own.
+      const today = (await other.get('/api/today')).body;
+      expect(today.items).toContainEqual({
+        kind: 'RENEWALS',
+        count: 1,
+        soon: 0,
+        to: '/renouvellements',
+      });
+    }
+    const own = (await agent.get('/api/renewals/summary')).body;
+    expect(own).toMatchObject({ mine: 1, allOpen: 1 });
+    expect(own.nextMine).toEqual([expect.objectContaining(follows)]);
+
+    // A week before the date it is « this week »; after the date, late for everyone.
+    ctx.clock.advance(20 * 24 * 3600 * 1000); // 11/11/2026, due 15/11
+    const week = await signIn('agent.e', 'AGENT');
+    expect((await week.get('/api/renewals/summary')).body).toMatchObject({ allSoon: 1 });
+    expect((await week.get('/api/today')).body.items).toContainEqual(
+      expect.objectContaining({ kind: 'RENEWALS', count: 1, soon: 1 }),
+    );
+    ctx.clock.advance(10 * 24 * 3600 * 1000); // 21/11/2026
+    const late = await signIn('agent.f', 'AGENT');
+    expect((await late.get('/api/renewals/summary')).body).toMatchObject({
+      allOverdue: 1,
+      allSoon: 0,
+    });
+    const items = (await late.get('/api/today')).body.items;
+    expect(items).toContainEqual({ kind: 'RENEWALS_LATE', count: 1, to: '/renouvellements' });
+    expect(items.some((i) => i.kind === 'RENEWALS')).toBe(false);
+  });
+
   it('counts overdue renewals once their date has passed', async () => {
     await setup();
     ctx.clock.advance(30 * 24 * 3600 * 1000);

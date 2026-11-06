@@ -142,14 +142,19 @@ export function createTodayService({ prisma, audit, clock, config }) {
         if (pending) items.push({ kind: 'SCANS', count: pending, to: '/scans' });
       }
       if (can(PERMISSIONS.RENEWALS_READ)) {
+        // The agency's renewals, whoever follows them (owner, 06/11/2026).
         const summary = await renewals.summary(auth, { insurerId });
-        if (summary.mineOverdue) {
-          items.push({ kind: 'RENEWALS_LATE', count: summary.mineOverdue, to: '/renouvellements' });
+        if (summary.allOverdue) {
+          items.push({ kind: 'RENEWALS_LATE', count: summary.allOverdue, to: '/renouvellements' });
         }
-        const soon = summary.next.filter((r) => r.daysLeft !== undefined && r.daysLeft <= 7).length;
-        const mine = summary.mine - summary.mineOverdue;
-        if (mine > 0) {
-          items.push({ kind: 'RENEWALS', count: mine, soon, to: '/renouvellements' });
+        const coming = summary.allOpen - summary.allOverdue;
+        if (coming > 0) {
+          items.push({
+            kind: 'RENEWALS',
+            count: coming,
+            soon: summary.allSoon,
+            to: '/renouvellements',
+          });
         }
       }
       if (can(PERMISSIONS.PAYMENTS_READ)) {

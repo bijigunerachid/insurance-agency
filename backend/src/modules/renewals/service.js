@@ -200,21 +200,32 @@ export function createRenewalsService({ prisma, audit, clock, config }) {
         ...(insurerId ? { contract: { insurerId } } : {}),
       };
       const mine = { ...open, assignedUserId: auth.user.id };
-      const [mineCount, mineOverdue, allOpen, next] = await prisma.$transaction([
-        prisma.renewal.count({ where: mine }),
-        prisma.renewal.count({ where: { ...mine, dueDate: { lt: day } } }),
-        prisma.renewal.count({ where: open }),
-        prisma.renewal.findMany({ where: mine, include, orderBy: { dueDate: 'asc' }, take: 10 }),
-      ]);
+      const week = toDate(addDays(today(), 7));
+      // Everyone sees the agency's renewals, each with who follows it (owner, 06/11/2026: « in
+      // Aujourd'hui it must show the renewals for everyone, agent or admin »); « Les miens » stays
+      // one click away. The late ones come first: the soonest date first.
+      const soonest = { include, orderBy: [{ dueDate: 'asc' }, { id: 'asc' }], take: 10 };
+      const [mineCount, mineOverdue, allOpen, allOverdue, allSoon, next, nextMine] =
+        await prisma.$transaction([
+          prisma.renewal.count({ where: mine }),
+          prisma.renewal.count({ where: { ...mine, dueDate: { lt: day } } }),
+          prisma.renewal.count({ where: open }),
+          prisma.renewal.count({ where: { ...open, dueDate: { lt: day } } }),
+          prisma.renewal.count({ where: { ...open, dueDate: { gte: day, lte: week } } }),
+          prisma.renewal.findMany({ where: open, ...soonest }),
+          prisma.renewal.findMany({ where: mine, ...soonest }),
+        ]);
       const iso = today();
+      const withPhone = auth.permissions.has(PERMISSIONS.CUSTOMERS_READ);
       return {
         windowDays: RENEWAL_WINDOW_DAYS,
         mine: mineCount,
         mineOverdue,
         allOpen,
-        next: next.map((row) =>
-          view(row, iso, { withPhone: auth.permissions.has(PERMISSIONS.CUSTOMERS_READ) }),
-        ),
+        allOverdue,
+        allSoon,
+        next: next.map((row) => view(row, iso, { withPhone })),
+        nextMine: nextMine.map((row) => view(row, iso, { withPhone })),
       };
     },
 
