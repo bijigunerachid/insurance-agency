@@ -189,7 +189,8 @@ const avenantRight = [
 ];
 
 // A provisional attestation: the usage first, no number (the pink form carries it), the month
-// printed letter by letter like on the platform's sheet.
+// printed letter by letter like on the platform's sheet, the gaps the narrow I leaves in the body
+// type, the seats under the trailer.
 const provisionalLeft = [[[0, '(*) Dont 12.40 Dh representant la taxe parafiscale.']]];
 const provisionalRight = [
   [[0, 'TOURI SME']],
@@ -203,7 +204,7 @@ const provisionalRight = [
   ],
   [[0, '77777 -B- 06']],
   [[0, 'PEUGEOT -']],
-  [[0, 'CONDUITE INTERIEURE']],
+  [[0, 'CONDUI TE INTERI EURE']],
   [[0, 'ZERO']],
   [[0, '7']],
   [[0, 'DUREE FERME']],
