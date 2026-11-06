@@ -313,6 +313,8 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
     matches.state.status === 'done' &&
     Boolean(selectedSeries && values.number && values.validFrom && values.validTo) &&
     !p.numberToCheck &&
+    // A series code misread, the provisional one proposed: checked on the full form.
+    !p.seriesReadAs &&
     !found.attestation &&
     ['existing', 'done'].includes(mode('customer')) &&
     ['existing', 'done'].includes(mode('vehicle')) &&
@@ -702,6 +704,9 @@ function Review({ scan, allSeries, allUsages, insurerUsages, reload }) {
           <form onSubmit={file} className="space-y-6" noValidate>
             <Part title={t.attestation}>
               {p.seriesUnknown && <Alert>{t.seriesUnknown(p.seriesCode)}</Alert>}
+              {p.seriesReadAs && (
+                <Alert tone="warning">{t.seriesCorrected(p.seriesReadAs, p.seriesCode)}</Alert>
+              )}
               {found.attestation && <Alert>{t.alreadyRecorded(found.attestation.ref)}</Alert>}
               <SelectField
                 label={t.series}

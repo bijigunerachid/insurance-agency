@@ -89,18 +89,52 @@ export function createScansService({ prisma, audit, clock, config, store, ocr })
     return row;
   }
 
-  /** The series printed ("14 A") as recorded in the catalogue, which also gives the insurer. */
-  async function withSeries(client, proposed) {
-    if (!proposed.seriesCode) return proposed;
-    const found = await client.attestationSeries.findMany({
-      where: { code: proposed.seriesCode },
+  /**
+   * A scanned provisional form whose series code was misread (owner's scan, 06/11/2026: « 14 P »
+   * read « 44 P », the series then left empty and the filing blocked): « ATTESTATION PROVISOIRE »
+   * is read reliably, so the insurer's provisional series is proposed (RMA 14 P, CAT 91 P). With
+   * the insurer unknown, the provisional series closest to what was read, when only one is.
+   */
+  async function provisionalSeries(client, proposed) {
+    if (proposed.usage !== 'Provisoire') return null;
+    const all = await client.attestationSeries.findMany({
+      where: { active: true, model: { provisional: true } },
       include: { insurer: { select: { code: true } } },
     });
+    const own = proposed.insurerCode
+      ? all.filter((s) => s.insurer.code === proposed.insurerCode)
+      : all;
+    if (own.length === 1) return own[0];
+    // Characters in the same place as the code read: « 44 P » is closer to « 14 P » than « 91 P ».
+    const read = String(proposed.seriesCode ?? '');
+    const score = (code) => [...code].filter((c, i) => read[i] === c).length;
+    const best = Math.max(0, ...own.map((s) => score(s.code)));
+    const closest = own.filter((s) => score(s.code) === best);
+    return best > 0 && closest.length === 1 ? closest[0] : null;
+  }
+
+  /** The series printed ("14 A") as recorded in the catalogue, which also gives the insurer. */
+  async function withSeries(client, proposed) {
+    if (!proposed.seriesCode && proposed.usage !== 'Provisoire') return proposed;
+    const found = proposed.seriesCode
+      ? await client.attestationSeries.findMany({
+          where: { code: proposed.seriesCode },
+          include: { insurer: { select: { code: true } } },
+        })
+      : [];
     const series =
       found.find((s) => s.insurer.code === proposed.insurerCode) ??
-      (found.length === 1 ? found[0] : null);
+      (found.length === 1 ? found[0] : null) ??
+      (await provisionalSeries(client, proposed));
     if (!series) return { ...proposed, seriesUnknown: true };
-    const result = { ...proposed, seriesId: series.id, insurerCode: series.insurer.code };
+    const result = {
+      ...proposed,
+      seriesId: series.id,
+      seriesCode: series.code,
+      insurerCode: series.insurer.code,
+      // The code as read, when it was not a series of the catalogue (« 44 P » for « 14 P »).
+      ...(series.code !== proposed.seriesCode ? { seriesReadAs: proposed.seriesCode } : {}),
+    };
     // The usage chosen on the insurer's platform, as printed: proposed with its legal usage.
     if (proposed.usage) {
       const insurerUsages = await client.insurerUsage.findMany({
