@@ -120,6 +120,10 @@ export async function login(page, username, password = PASSWORD, { workspaces = 
 export async function signOut(page) {
   await page.getByRole('button', { name: /^Menu de / }).click();
   await page.getByRole('menuitem', { name: 'Se déconnecter' }).click();
+  // Signed out once the sign-in form shows: a journey that opens a page sooner can reload it
+  // before the server ends the session, and the app keeps the old one until its next request
+  // answers 401 (seen on the production journey, 06/11/2026).
+  await page.getByLabel('Identifiant').waitFor();
 }
 
 export async function expectNoHorizontalScroll(page, expect) {

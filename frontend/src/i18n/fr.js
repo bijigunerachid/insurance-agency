@@ -1345,6 +1345,7 @@ export const fr = {
     numberToCheck:
       'Numéro mal lu (un chiffre de trop) : vérifiez-le sur le scan. Lectures possibles :',
     numberFromStock: 'Numéro retenu parmi les formulaires du stock de l’agence.',
+    numberFromPinkForm: 'Saisissez le numéro imprimé en rouge sur le formulaire rose.',
     validFrom: 'Valable du',
     validTo: 'Valable au',
     policyNumber: 'N° de police',
