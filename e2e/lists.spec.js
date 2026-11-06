@@ -49,8 +49,14 @@ test('an agent finds a client and a contract in the lists, takes a payment from 
   await page.goto('/contrats');
   await page.getByLabel('Rechercher (n° de police, client)').fill(contract.policyNumber);
   await page.getByRole('button', { name: 'Rechercher' }).click();
+  // The search's answer, not the list before it (other journeys add contracts of 800 MAD too).
+  await expect(page.getByText('1 résultat', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: contract.policyNumber })).toBeVisible();
-  await expect(page.getByText('800,00 MAD')).toBeVisible();
+  const found =
+    testInfo.project.name === 'phone-390'
+      ? page.getByRole('listitem').filter({ hasText: contract.policyNumber })
+      : page.getByRole('row').filter({ hasText: contract.policyNumber });
+  await expect(found).toContainText('800,00 MAD');
   await expectNoHorizontalScroll(page, expect);
   await shot('contracts-list');
   await page
@@ -80,6 +86,8 @@ test('an agent finds a client and a contract in the lists, takes a payment from 
 
   // 4. Renewals: the contract ends in 10 days, its line opens the follow-up.
   await page.goto('/renouvellements');
+  // Their own: other journeys' contracts end on the same day and may fill the first page.
+  await page.getByLabel('Seulement les miens').check();
   await expect(page.getByRole('link', { name: `Sara ${lastName}` })).toBeVisible();
   await expectNoHorizontalScroll(page, expect);
   await shot('renewals-list');

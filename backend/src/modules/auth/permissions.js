@@ -57,6 +57,10 @@ export const PERMISSIONS = Object.freeze({
   REPORTS_READ: 'reports.read',
   /** Export a report as CSV or Excel (management, after a recent re-authentication). */
   REPORTS_EXPORT: 'reports.export',
+  /** See the état de production of the contracts one recorded (owner, 05/11/2026). */
+  PRODUCTION_READ: 'production.read',
+  /** See every employee's production, or one chosen employee's. */
+  PRODUCTION_ALL: 'production.all',
 });
 
 export const ALL_PERMISSIONS = Object.freeze(Object.values(PERMISSIONS));

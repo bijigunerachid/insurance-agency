@@ -7,6 +7,7 @@ import { DataTable } from '../../components/DataTable.jsx';
 import { EmptyState } from '../../components/EmptyState.jsx';
 import { ErrorState } from '../../components/ErrorState.jsx';
 import { PageHeader } from '../../components/PageHeader.jsx';
+import { QuickPeriods } from '../../components/QuickPeriods.jsx';
 import { SectionHeading } from '../../components/SectionHeading.jsx';
 import { SelectField } from '../../components/SelectField.jsx';
 import { SkeletonList } from '../../components/Skeleton.jsx';
@@ -16,7 +17,8 @@ import { CANCELLED, useSensitiveAction } from '../../features/auth/useSensitiveA
 import { useApiQuery } from '../../hooks/useApiQuery.js';
 import { errorMessage, fr } from '../../i18n/fr.js';
 import { apiDownload } from '../../services/api.js';
-import { APP_TIME_ZONE, formatDate, formatMoney } from '../../utils/format.js';
+import { formatDate, formatMoney } from '../../utils/format.js';
+import { monthOf } from '../../utils/periods.js';
 
 const t = fr.reports;
 /** The reports that show today's situation: the period is not used. */
@@ -25,28 +27,7 @@ const NOW = { 'reversements-dus': t.ownedNow, 'soldes-clients': t.owedNow };
 /** A report's lines have no id of their own: their place in the list keys them. */
 const LINE = Symbol('line');
 
-const todayHere = () =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: APP_TIME_ZONE }).format(new Date());
-const iso = (date) => date.toISOString().slice(0, 10);
-
-/** First and last day of a month (0 = this one, -1 = the one before), agency time zone. */
-function monthOf(offset = 0) {
-  const [year, month] = todayHere().split('-').map(Number);
-  return {
-    from: iso(new Date(Date.UTC(year, month - 1 + offset, 1))),
-    to: iso(new Date(Date.UTC(year, month + offset, 0))),
-  };
-}
 const currentMonth = () => monthOf(0);
-/** The periods asked for most, one tap each. */
-const QUICK_PERIODS = {
-  thisMonth: () => monthOf(0),
-  lastMonth: () => monthOf(-1),
-  thisYear: () => {
-    const year = todayHere().slice(0, 4);
-    return { from: `${year}-01-01`, to: `${year}-12-31` };
-  },
-};
 
 function cell(column, value) {
   if (value === null || value === undefined || value === '') return '—';
@@ -161,30 +142,7 @@ export function ReportsPage() {
             error={periodError}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t.quickPeriod}>
-          <span aria-hidden="true" className="mr-1 text-label text-ink-soft">
-            {t.quickPeriod}
-          </span>
-          {Object.entries(QUICK_PERIODS).map(([key, range]) => {
-            const { from, to } = range();
-            const current = choice.from === from && choice.to === to;
-            return (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={current}
-                onClick={() => change({ from, to })}
-                className={`focus-ring rounded-full px-3.5 py-1.5 text-sm font-medium ring-1 ring-inset transition-colors ${
-                  current
-                    ? 'bg-primary text-white ring-primary'
-                    : 'bg-surface text-ink ring-line-strong/60 hover:bg-sunken'
-                }`}
-              >
-                {t.periods[key]}
-              </button>
-            );
-          })}
-        </div>
+        <QuickPeriods from={choice.from} to={choice.to} onChange={change} />
         {now && <Alert tone="info">{now}</Alert>}
       </div>
 

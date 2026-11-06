@@ -54,7 +54,9 @@ for each model (agency rule, 23/10/2026; six of them seen on the blank forms), e
 when the contract is recorded, shown first in every list, page, receipt, bordereau and report, and searched; the app's
 own `CTR-…` reference stays internal (audit log, folded details). The platform gives a new policy number at every
 renewal (owner, 05/11/2026): « Préparer le nouveau contrat » asks for it, and last year's is refused. The contracts
-list filters by what the customer paid: « Rien payé », « Payé en partie » or « Payé ».
+list filters by what the customer paid: « Rien payé », « Payé en partie » or « Payé ». The **état de production** lists
+the contracts issued in a period (by date of issue or of effect, per insurer, employee and payment) with their totals,
+printed A4 landscape or exported to Excel by management; an agent sees only the contracts they recorded.
 
 The application is a helper: the agency works on the RMA and CAT official platforms, and this application keeps the
 agency's own records and follow-up. It does not issue official insurer documents, calculate official

@@ -9,6 +9,7 @@ import {
   CameraIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  ClipboardDocumentCheckIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
   HomeIcon,
@@ -109,6 +110,13 @@ export const NAV_ITEMS = [
     label: fr.nav.reports,
     Icon: ChartBarIcon,
     permission: 'reports.read',
+  },
+  {
+    to: '/production',
+    group: 'follow',
+    label: fr.nav.production,
+    Icon: ClipboardDocumentCheckIcon,
+    permission: 'production.read',
   },
   {
     to: '/catalogue',
