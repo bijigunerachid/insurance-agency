@@ -105,6 +105,8 @@ The table below was approved by the owner on 22/10/2026.
 | Reports: export CSV / Excel (re-authentication, audited) | ✔ | ✔ | — | — |
 | État de production: see and print (`production.read`; everyone's or one employee's: `production.all`) | ✔ | ✔ | ✔ own contracts only (the API sets the employee; another one is refused and audited) | ✔ |
 | État de production: Excel file (`reports.export`, re-authentication, audited) | ✔ | ✔ | — | — |
+| In-app alerts: team activity, renewals, unpaid balances (each alert needs the permission of the record it is about) | ✔ | ✔ | ✔ | ✔ |
+| In-app alerts for management: late remittances (`remittances.manage`), low stock (`stock.manage`) | ✔ | ✔ | — | — |
 | Reports | ✔ | ✔ | own activity and renewals only | ✔ |
 | Exports with personal data | ✔ | ✔ | — | — |
 | Products, insurer rules register | ✔ | edit | read | read |
@@ -142,6 +144,7 @@ access that specific record. IDs from the browser are never trusted on their own
 | T16 | Hardware failure / power cut | UPS, PostgreSQL crash safety, tested restore | Data since the last backup (RPO to agree) |
 | T17 | Destructive admin command (`docker compose down -v`, bad migration) | Named volumes marked external, migrations reviewed and tested on a copy, backup before every update | Human error |
 | T18 | Sensitive data in logs | Redaction list, no request bodies logged, tests that check log output | Low |
+| T18b | An alert shows what a person may not see | Each alert carries the permission of its record and is filtered by the API; its text holds only a policy number, a customer name, an amount and a date, never an identity number or a document; links stay inside the application (CHECK); the history is append-only | A customer name in a pop-up on an open screen, as on the pages themselves |
 | T19 | Vulnerable dependencies or images | Exact pins, `npm audit` and Trivy scans each step, documented update procedure | Zero-day vulnerabilities |
 | T20 | Fake "official" documents produced by the app | No templates imitating insurers; internal PDFs carry a "document interne" footer (rules L2, L3); the receipt carries the agency's own logo and legal line, never an insurer's logo (owner, 30/10/2026) | Low |
 | T21 | A planted file shown as the agency's logo (script in an "image") | Logo and icon read once at startup from paths in the settings, accepted only as PNG or JPEG by their first bytes and up to 1 MB, sent with their real type and `nosniff`; SVG never accepted; the public brand route gives the name and tagline only | Someone able to change the server's settings |

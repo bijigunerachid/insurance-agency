@@ -97,6 +97,8 @@ model User {
   documentCaptures        DocumentCapture[]
   scansUploaded           AttestationScan[]         @relation("ScanUploader")
   scansClosed             AttestationScan[]         @relation("ScanCloser")
+  notificationsActed      Notification[]            @relation("NotificationActor")
+  notificationSeen        NotificationSeen?
 
   @@map("app_user")
 }
@@ -1121,4 +1123,51 @@ model AttestationScan {
 
   @@index([status, uploadedAt])
   @@map("attestation_scan")
+}
+
+enum NotificationKind {
+  /// A colleague recorded a contract, a payment or a renewal step.
+  ACTIVITY
+  /// An open renewal 30, 15 or 7 days before the contract ends.
+  RENEWAL_DUE
+  /// A balance still owed more than 15 days after the contract's start.
+  UNPAID
+  /// Money collected for an insurer and not remitted in time (management).
+  REMITTANCE_LATE
+  /// Few blank attestations left in a series (management).
+  STOCK_LOW
+}
+
+/// In-app alerts (owner, 05/11/2026). Team activity is written with the action; the alerts of
+/// the day once each (`dedupeKey`) when the application checks. Shown to the users who hold
+/// `permission`. Append-only.
+model Notification {
+  id          BigInt           @id @default(autoincrement())
+  kind        NotificationKind
+  /// The audited action, for team activity (`contract.created`, `payment.recorded`…).
+  action      String?          @db.VarChar(64)
+  permission  String           @db.VarChar(64)
+  /// One alert per subject and step: "renewal:<id>:15", "unpaid:<contract id>"…
+  dedupeKey   String?          @unique @db.VarChar(120)
+  actorUserId String?          @db.Uuid
+  actor       User?            @relation("NotificationActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  entityType  String?          @db.VarChar(32)
+  entityId    String?          @db.VarChar(64)
+  /// What the message says (policy number, customer, amount, days…), never a secret.
+  data        Json
+  /// The page it opens.
+  link        String           @db.VarChar(200)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("notification")
+}
+
+/// Up to when a user has seen the alerts: the bell counts the newer ones.
+model NotificationSeen {
+  userId String   @id @db.Uuid
+  user   User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  seenAt DateTime @db.Timestamptz(3)
+
+  @@map("notification_seen")
 }

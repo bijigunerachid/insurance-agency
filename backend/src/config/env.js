@@ -37,6 +37,9 @@ const schema = z.object({
   // Login attempts per client address per 15 minutes. Raised only for automated browser tests,
   // where every sign-in comes from 127.0.0.1.
   LOGIN_MAX_PER_IP: z.coerce.number().int().min(5).max(10_000).default(20),
+  // Blank attestations left in a series under which management is alerted (owner, 05/11/2026:
+  // « stock bas »; the agency had not set a number, 20 proposed). 0 turns the alert off.
+  LOW_STOCK_THRESHOLD: z.coerce.number().int().min(0).max(10_000).default(20),
   // The agency using this installation: shown on the screens and printed on receipts. One
   // installation per agency, so nothing about an agency is in the code. Optional: until they
   // are set, the receipt says so instead of printing anything invented.

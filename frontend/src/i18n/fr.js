@@ -23,6 +23,7 @@ export const fr = {
     remittances: 'Reversements',
     reports: 'Rapports',
     production: 'État de production',
+    notifications: 'Notifications',
     scans: 'Scanner une attestation',
     scansShort: 'Scanner',
     stock: 'Stock d’attestations',
@@ -1459,6 +1460,51 @@ export const fr = {
       END_BEFORE_START: 'La fin de la période est avant son début.',
       PERIOD_TOO_LONG: 'Choisissez une période d’un an au plus.',
     },
+  },
+  notifications: {
+    title: 'Notifications',
+    intro:
+      'Ce que l’équipe a enregistré et les alertes du jour : renouvellements à 30, 15 et 7 jours, impayés, et pour la direction les reversements en retard et le stock bas.',
+    bell: (n) => (n === 0 ? 'Notifications' : `Notifications, ${n} nouvelle${n > 1 ? 's' : ''}`),
+    panel: 'Dernières notifications',
+    seeAll: 'Tout voir',
+    none: 'Rien de nouveau.',
+    noneHint: 'Les actions de l’équipe et les alertes du jour s’afficheront ici.',
+    unavailable: 'Notifications indisponibles pour le moment.',
+    filter: 'Afficher',
+    kinds: {
+      '': 'Tout',
+      ACTIVITY: 'Activité',
+      RENEWAL_DUE: 'Renouvellements',
+      UNPAID: 'Impayés',
+      MANAGEMENT: 'Direction',
+    },
+    newBadge: 'Nouveau',
+    you: 'Vous',
+    lastAction: ({ label, note, by, when }) =>
+      `Dernière action : ${label}${note ? ` « ${note} »` : ''}, ${by ?? 'ouverture automatique'}, ${when}`,
+    activity: {
+      'contract.created': (d) => `a enregistré le contrat ${d.policyNumber} de ${d.customer}`,
+      issued: (d) => `a enregistré l’émission du contrat ${d.policyNumber} de ${d.customer}`,
+      suspended: (d) => `a enregistré la suspension du contrat ${d.policyNumber} de ${d.customer}`,
+      cancelled: (d) => `a enregistré l’annulation du contrat ${d.policyNumber} de ${d.customer}`,
+      'payment.recorded': (d, amount) =>
+        `a encaissé ${amount} pour le contrat ${d.policyNumber} de ${d.customer}`,
+      'payment.reversed': (d, amount) =>
+        `a annulé un paiement de ${amount} du contrat ${d.policyNumber} de ${d.customer}`,
+      'renewal.updated': (d, status) =>
+        `a fait avancer le renouvellement de ${d.customer} (${d.policyNumber}) : ${status}`,
+      'renewal.assigned': (d) =>
+        `a confié le renouvellement de ${d.customer} (${d.policyNumber}) à ${d.assignee}`,
+      'renewal.renewed': (d) => `a préparé le nouveau contrat de ${d.customer} (${d.policyNumber})`,
+    },
+    renewalDue: (d) =>
+      `Renouvellement dans ${d.daysLeft} jour${d.daysLeft > 1 ? 's' : ''} : ${d.customer} (${d.policyNumber}), suivi par ${d.follower}`,
+    unpaid: (d, balance) =>
+      `Impayé depuis ${d.days} jours : ${d.customer} (${d.policyNumber}) doit encore ${balance}`,
+    remittanceLate: (d, amount) => `Reversement en retard : ${amount} à reverser à ${d.insurer}`,
+    stockLow: (d) =>
+      `Stock bas : ${d.available} attestation${d.available > 1 ? 's' : ''} ${d.insurer} ${d.series} disponible${d.available > 1 ? 's' : ''}`,
   },
   production: {
     title: 'État de production',

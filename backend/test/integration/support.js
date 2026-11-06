@@ -80,6 +80,8 @@ export function createTestContext() {
           mustChangePassword,
           totpSecret: totpSecret ? secretBox.encrypt(totpSecret) : null,
           totpEnabledAt: totpSecret ? ctx.clock.now() : null,
+          // On the test clock, like everything the application dates.
+          createdAt: ctx.clock.now(),
         },
       });
     },

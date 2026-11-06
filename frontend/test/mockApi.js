@@ -12,6 +12,8 @@ const DEFAULT_ROUTES = {
   'GET /api/agency/brand': () => [200, { name: null, tagline: null, logo: false, icon: false }],
   // One insurer or none: no workspace cards (the cards have their own tests).
   'GET /api/workspaces': () => [200, { items: [] }],
+  // The bell: nothing new, unless a test says otherwise.
+  'GET /api/notifications/summary': () => [200, { unread: 0, latestId: null, recent: [] }],
 };
 
 /**

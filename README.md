@@ -56,7 +56,10 @@ own `CTR-…` reference stays internal (audit log, folded details). The platform
 renewal (owner, 05/11/2026): « Préparer le nouveau contrat » asks for it, and last year's is refused. The contracts
 list filters by what the customer paid: « Rien payé », « Payé en partie » or « Payé ». The **état de production** lists
 the contracts issued in a period (by date of issue or of effect, per insurer, employee and payment) with their totals,
-printed A4 landscape or exported to Excel by management; an agent sees only the contracts they recorded.
+printed A4 landscape or exported to Excel by management; an agent sees only the contracts they recorded. A **bell**
+at the top of every page counts what is new and pops up what arrives while working: what a colleague recorded
+(contract, payment, renewal step), renewals at 30, 15 and 7 days with who follows them and the last step, balances
+owed more than 15 days, and for management late remittances and low stock; « Notifications » keeps the history.
 
 The application is a helper: the agency works on the RMA and CAT official platforms, and this application keeps the
 agency's own records and follow-up. It does not issue official insurer documents, calculate official

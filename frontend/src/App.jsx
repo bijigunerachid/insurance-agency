@@ -27,6 +27,7 @@ import { PaymentsPage } from './pages/payments/PaymentsPage.jsx';
 import { ReceiptPage } from './pages/payments/ReceiptPage.jsx';
 import { RemittanceDetailPage } from './pages/remittances/RemittanceDetailPage.jsx';
 import { RemittancesPage } from './pages/remittances/RemittancesPage.jsx';
+import { NotificationsPage } from './pages/notifications/NotificationsPage.jsx';
 import { ProductionPage } from './pages/production/ProductionPage.jsx';
 import { ReportsPage } from './pages/reports/ReportsPage.jsx';
 import { ScanReviewPage } from './pages/scans/ScanReviewPage.jsx';
@@ -161,6 +162,7 @@ function AppRoutes() {
         {can('users.read') && <Route path="utilisateurs/:id" element={<UserDetailPage />} />}
         {can('audit.read') && <Route path="journal" element={<AuditPage />} />}
         <Route path="compte" element={<AccountPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
